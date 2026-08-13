@@ -10,7 +10,7 @@ interface AuthState {
 
 interface AuthContextValue {
   auth: AuthState | null;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, remember: boolean) => Promise<void>;
   logout: () => void;
 }
 
@@ -29,8 +29,8 @@ function loadStoredAuth(): AuthState | null {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [auth, setAuth] = useState<AuthState | null>(loadStoredAuth);
 
-  async function login(email: string, password: string) {
-    const { token, user } = await apiLogin(email, password);
+  async function login(email: string, password: string, remember: boolean) {
+    const { token, user } = await apiLogin(email, password, remember);
     const next: AuthState = { token, user };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
     setAuth(next);

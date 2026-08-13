@@ -118,6 +118,22 @@ button:hover {
   background-color: var(--accent-hover);
 }
 
+.login-remember {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  font-size: 0.85em;
+  color: var(--text-muted);
+  cursor: pointer;
+  margin-top: 0.2em;
+}
+
+.login-remember input {
+  padding: 0;
+  width: auto;
+  box-shadow: none;
+}
+
 .login-error {
   color: var(--danger);
   font-size: 0.9em;

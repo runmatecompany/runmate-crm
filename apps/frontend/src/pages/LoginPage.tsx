@@ -4,10 +4,13 @@ import { ApiError } from "../lib/api";
 import { getApiUrl, setApiUrl } from "../lib/serverConfig";
 import logo from "../assets/logo.png";
 
+const REMEMBERED_EMAIL_KEY = "runmate-crm-remembered-email";
+
 export default function LoginPage() {
   const { login } = useAuth();
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(() => localStorage.getItem(REMEMBERED_EMAIL_KEY) ?? "");
   const [password, setPassword] = useState("");
+  const [remember, setRemember] = useState(() => localStorage.getItem(REMEMBERED_EMAIL_KEY) !== null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -19,7 +22,12 @@ export default function LoginPage() {
     setError(null);
     setSubmitting(true);
     try {
-      await login(email, password);
+      await login(email, password, remember);
+      if (remember) {
+        localStorage.setItem(REMEMBERED_EMAIL_KEY, email);
+      } else {
+        localStorage.removeItem(REMEMBERED_EMAIL_KEY);
+      }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Nem sikerült kapcsolódni a szerverhez.");
     } finally {
@@ -59,6 +67,15 @@ export default function LoginPage() {
           autoComplete="current-password"
           required
         />
+
+        <label className="login-remember">
+          <input
+            type="checkbox"
+            checked={remember}
+            onChange={(e) => setRemember(e.currentTarget.checked)}
+          />
+          Emlékezz rám
+        </label>
 
         {error && <p className="login-error">{error}</p>}
 

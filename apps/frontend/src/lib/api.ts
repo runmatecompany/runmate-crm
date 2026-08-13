@@ -25,11 +25,11 @@ async function parseErrorMessage(response: Response): Promise<string> {
   }
 }
 
-export async function login(email: string, password: string): Promise<LoginResponse> {
+export async function login(email: string, password: string, remember: boolean): Promise<LoginResponse> {
   const response = await fetch(`${getApiUrl()}/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ email, password, remember }),
   });
 
   if (!response.ok) {

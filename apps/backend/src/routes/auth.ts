@@ -8,15 +8,20 @@ const loginBodySchema = {
   properties: {
     email: { type: "string", format: "email" },
     password: { type: "string", minLength: 1 },
+    remember: { type: "boolean" },
   },
 } as const;
 
+// "Emlékezz rám" esetén hosszabb ideig marad érvényben a bejelentkezés,
+// hogy ne kelljen gyakran újra megadni az adatokat.
+const REMEMBER_ME_EXPIRES_IN = "30d";
+
 export default async function authRoutes(fastify: FastifyInstance) {
-  fastify.post<{ Body: { email: string; password: string } }>(
+  fastify.post<{ Body: { email: string; password: string; remember?: boolean } }>(
     "/auth/login",
     { schema: { body: loginBodySchema } },
     async (request, reply) => {
-      const { email, password } = request.body;
+      const { email, password, remember } = request.body;
 
       const user = await findUserByEmail(email);
       if (!user) {
@@ -28,11 +33,14 @@ export default async function authRoutes(fastify: FastifyInstance) {
         return reply.code(401).send({ error: "Invalid email or password" });
       }
 
-      const token = fastify.jwt.sign({
-        sub: user.id,
-        email: user.email,
-        role: user.role,
-      });
+      const token = fastify.jwt.sign(
+        {
+          sub: user.id,
+          email: user.email,
+          role: user.role,
+        },
+        remember ? { expiresIn: REMEMBER_ME_EXPIRES_IN } : undefined
+      );
 
       return {
         token,
