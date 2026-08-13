@@ -1,0 +1,45 @@
+name: Build desktop app (Windows + macOS)
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-latest
+          - platform: macos-latest
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install dependencies
+        run: npm install
+
+      # A háttér (backend + PostgreSQL) egy közös, központi gépen/szerveren fut,
+      # nem ebbe a csomagba kerül — csak a Tauri asztali kliens épül itt.
+      - name: Build Tauri app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: apps/frontend
+          tagName: ${{ github.ref_name != 'main' && github.ref_name || format('dev-{0}', github.run_number) }}
+          releaseName: "RunMate CRM ${{ github.ref_name }}"
+          releaseDraft: true
+          prerelease: false

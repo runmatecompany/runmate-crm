@@ -1,0 +1,15 @@
+node_modules/
+dist/
+build/
+.env
+*.log
+
+# Rust / Tauri build artifacts
+apps/frontend/src-tauri/target/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude Code local session state
+.claude/

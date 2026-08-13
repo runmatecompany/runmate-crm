@@ -1,0 +1,249 @@
+:root {
+  --bg: #14171e;
+  --surface: #1c212c;
+  --surface-alt: #232936;
+  --border: #2b3140;
+  --text: #e8eaf0;
+  --text-muted: #9aa1b2;
+  --accent: #2f7fe0;
+  --accent-hover: #4a91e6;
+  --danger: #ff6b6b;
+
+  font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 400;
+  color-scheme: dark;
+
+  color: var(--text);
+  background-color: var(--bg);
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background-color: var(--bg);
+}
+
+input,
+button {
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  padding: 0.6em 1.2em;
+  font-size: 1em;
+  font-weight: 500;
+  font-family: inherit;
+  color: var(--text);
+  background-color: var(--surface-alt);
+  outline: none;
+}
+
+input::placeholder {
+  color: var(--text-muted);
+}
+
+button {
+  cursor: pointer;
+  box-shadow: 0 2px 2px rgba(0, 0, 0, 0.25);
+}
+
+button:hover {
+  border-color: var(--accent);
+}
+
+/* --- Login screen --- */
+
+.login-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--bg);
+}
+
+.login-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+  width: 320px;
+  padding: 2em;
+  border-radius: 12px;
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.login-logo {
+  width: 56px;
+  height: 56px;
+  align-self: center;
+  margin-bottom: 0.5em;
+}
+
+.login-card h1 {
+  margin: 0;
+  font-size: 1.4em;
+  text-align: center;
+}
+
+.login-subtitle {
+  margin: 0 0 1em;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.login-card label {
+  font-size: 0.85em;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.login-card button {
+  margin-top: 1em;
+  background-color: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
+}
+
+.login-card button:hover {
+  background-color: var(--accent-hover);
+}
+
+.login-error {
+  color: var(--danger);
+  font-size: 0.9em;
+  margin: 0.2em 0 0;
+}
+
+.login-server-toggle {
+  margin-top: 1.2em;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  color: var(--text-muted);
+  font-size: 0.78em;
+  padding: 0.2em;
+  text-align: center;
+}
+
+.login-server-toggle:hover {
+  color: var(--text);
+  border-color: transparent;
+}
+
+.login-server-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4em;
+  margin-top: 0.4em;
+  padding-top: 0.8em;
+  border-top: 1px solid var(--border);
+}
+
+.login-server-panel label {
+  font-size: 0.8em;
+  color: var(--text-muted);
+}
+
+/* --- App shell (sidebar + content) --- */
+
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+.sidebar {
+  width: 220px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--surface);
+  border-right: 1px solid var(--border);
+  color: var(--text);
+  padding: 1.2em 0.8em;
+}
+
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  font-weight: 700;
+  font-size: 1.05em;
+  padding: 0.5em 0.6em 1.2em;
+}
+
+.sidebar-brand-logo {
+  width: 28px;
+  height: 28px;
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2em;
+  flex: 1;
+}
+
+.sidebar-link {
+  text-align: left;
+  background: transparent;
+  color: var(--text-muted);
+  border: none;
+  box-shadow: none;
+  padding: 0.6em 0.6em;
+  border-radius: 6px;
+}
+
+.sidebar-link:hover {
+  background-color: var(--surface-alt);
+  border-color: transparent;
+  color: var(--text);
+}
+
+.sidebar-link.active {
+  background-color: var(--accent);
+  color: #ffffff;
+}
+
+.sidebar-footer {
+  border-top: 1px solid var(--border);
+  padding-top: 0.8em;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+}
+
+.sidebar-user {
+  padding: 0 0.6em;
+  font-size: 0.9em;
+  color: var(--text-muted);
+}
+
+.sidebar-logout {
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+
+.sidebar-logout:hover {
+  color: var(--text);
+}
+
+.content {
+  flex: 1;
+  padding: 2.5em;
+  background-color: var(--bg);
+}
+
+.content-placeholder {
+  color: var(--text-muted);
+}

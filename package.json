@@ -1,0 +1,14 @@
+{
+  "name": "runmate-crm",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:backend": "npm run dev --workspace=apps/backend",
+    "build:backend": "npm run build --workspace=apps/backend",
+    "migrate": "npm run migrate --workspace=apps/backend",
+    "create-admin": "npm run create-admin --workspace=apps/backend",
+    "dev:frontend": "npm run tauri dev --workspace=apps/frontend"
+  }
+}
