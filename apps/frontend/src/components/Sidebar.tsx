@@ -7,11 +7,8 @@ export interface MenuItem {
 }
 
 export const MENU_ITEMS: MenuItem[] = [
-  { id: "dashboard", label: "Vezérlőpult" },
-  { id: "clients", label: "Ügyfelek" },
-  { id: "campaigns", label: "Kampányok" },
-  { id: "tasks", label: "Feladatok" },
-  { id: "reports", label: "Riportok" },
+  { id: "messages", label: "Üzenetek" },
+  { id: "chat", label: "Chat" },
   { id: "settings", label: "Beállítások" },
 ];
 
