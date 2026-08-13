@@ -70,6 +70,6 @@ jobs:
             ---
 
             A **"Source code (zip)"** és **"Source code (tar.gz)"** linkeket hagyd figyelmen kívül — azok csak a nyers programkód, nem a telepíthető alkalmazás.
-          releaseDraft: true
+          releaseDraft: false
           prerelease: false
           includeUpdaterJson: true
