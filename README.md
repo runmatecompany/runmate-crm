@@ -109,5 +109,21 @@ Az eredmény: `apps/frontend/src-tauri/target/release/bundle/nsis/RunMate CRM_x.
 ### 3. Amit a kollégának tennie kell
 
 1. Lefuttatja a kapott `...setup.exe` (Windows) vagy `.dmg` (macOS) telepítőt.
-2. Első indításkor a bejelentkező képernyőn a "Szerver: ..." gombra kattintva beállítja a központi szerver címét, pl. `http://192.168.1.50:3001`.
+2. Első indításkor a bejelentkező képernyőn a "Szerver: ..." gombra kattintva beállítja a központi szerver címét (lásd lent, LAN vagy Tailscale cím).
 3. Ezután a tőled kapott email/jelszó párral bejelentkezik. (Új felhasználót az admin `/admin/users` végponton, vagy a `create-admin` scripttel a szervergépen tudsz létrehozni.)
+
+### 4. Távoli elérés (nem ugyanazon a Wi-Fi/hálózaton) — Tailscale
+
+A `192.168.x.x` jellegű LAN-cím csak akkor működik, ha a kolléga gépe **fizikailag ugyanazon a helyi hálózaton** van, mint a szervergép. Ha távolról (más hálózatról, mobilnetről) is el kell érni, [Tailscale](https://tailscale.com)-t használunk: egy ingyenes, titkosított privát hálózatot, ami router-beállítás nélkül összeköti a gépeket bárhonnan.
+
+**Egyszeri beállítás a szervergépen** (már megtörtént ezen a gépen):
+1. Tailscale telepítése + bejelentkezés (`tailscale up`).
+2. A gép Tailscale-címe lekérdezhető: `tailscale ip -4` (jelenleg: `100.110.136.77`).
+
+**Minden új kolléga meghívása** (a géped tulajdonosaként, https://login.tailscale.com/admin/machines oldalon):
+1. Keresd meg a szervergépet a listában → `...` menü → **"Share"**.
+2. Küldd el neki a generált linket.
+3. Ő telepíti a Tailscale appot ([tailscale.com/download](https://tailscale.com/download)), elfogadja a megosztást saját (ingyenes) fiókjával.
+4. Ezután a CRM appban a szerver címe: `http://100.110.136.77:3001` (a Tailscale IP-vel, nem a LAN IP-vel) — ez bárhonnan működik, nem csak azonos Wi-Fi-n.
+
+A tűzfalszabály (3. pont, "Központi szerver beüzemelése") a Tailscale-en érkező forgalmat is engedi, mert portalapú, nem hálózat-specifikus.
