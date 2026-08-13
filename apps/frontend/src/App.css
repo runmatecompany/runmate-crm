@@ -228,6 +228,37 @@ button:hover {
   color: var(--text-muted);
 }
 
+.sidebar-update-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15em;
+  width: 100%;
+  background-color: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
+  padding: 0.5em 0.7em;
+}
+
+.sidebar-update-btn:hover:not(:disabled) {
+  background-color: var(--accent-hover);
+}
+
+.sidebar-update-btn:disabled {
+  opacity: 0.75;
+  cursor: default;
+}
+
+.sidebar-update-title {
+  font-weight: 600;
+  font-size: 0.9em;
+}
+
+.sidebar-update-sub {
+  font-size: 0.72em;
+  color: rgba(255, 255, 255, 0.85);
+}
+
 .sidebar-logout {
   background: transparent;
   color: var(--text-muted);
