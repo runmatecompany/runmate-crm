@@ -52,6 +52,24 @@ jobs:
           args: ${{ matrix.args }}
           tagName: ${{ github.ref_name != 'main' && github.ref_name || format('dev-{0}', github.run_number) }}
           releaseName: "RunMate CRM ${{ github.ref_name }}"
+          releaseBody: |
+            ## 📥 Melyik fájlt töltsd le?
+
+            Csak egyet kell letöltened, attól függően, milyen géped van.
+
+            ### 🪟 Ha Windows-t használsz
+            Töltsd le azt a fájlt, aminek a neve **`-setup.exe`**-re végződik.
+            Utána: dupla kattintás rá → Tovább → Tovább → Telepítés. Kész.
+
+            ### 🍎 Ha Mac-et (Apple/macOS) használsz
+            Töltsd le azt a fájlt, aminek a neve **`.dmg`**-re végződik.
+            Utána: dupla kattintás rá → húzd az ikont az "Applications" mappába. Kész.
+
+            *(Nem biztos benne, melyik géped van? Ha bal alul van egy Start gomb, Windows. Ha bal felül van egy Apple 🍎 logó, Mac.)*
+
+            ---
+
+            A **"Source code (zip)"** és **"Source code (tar.gz)"** linkeket hagyd figyelmen kívül — azok csak a nyers programkód, nem a telepíthető alkalmazás.
           releaseDraft: true
           prerelease: false
           includeUpdaterJson: true
