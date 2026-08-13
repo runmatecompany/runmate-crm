@@ -30,11 +30,19 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      # Gyorsítótárazza a Rust függőségeket és a fordítási eredményeket build-ek között,
+      # így csak a ténylegesen megváltozott kód fordul újra (percekkel gyorsabb).
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/frontend/src-tauri
 
       - name: Install dependencies
         run: npm install
