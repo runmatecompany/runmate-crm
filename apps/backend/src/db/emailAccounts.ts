@@ -197,6 +197,15 @@ export async function listAccessibleAccountsForUser(userId: number): Promise<Ema
   return rows;
 }
 
+// Adminok minden aktív fiókhoz automatikusan hozzáférnek — a most létrehozottakhoz
+// és a jövőben felvettekhez is, külön hozzáférés-kiosztás nélkül.
+export async function listAllActiveAccounts(): Promise<EmailAccountSummary[]> {
+  const { rows } = await pool.query<EmailAccountSummary>(
+    `SELECT id, display_name, from_name, from_address FROM email_accounts WHERE is_active = true ORDER BY display_name`
+  );
+  return rows;
+}
+
 export async function userHasAccountAccess(accountId: number, userId: number): Promise<boolean> {
   const { rowCount } = await pool.query(
     `SELECT 1 FROM email_account_access WHERE account_id = $1 AND user_id = $2`,

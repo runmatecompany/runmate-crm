@@ -58,7 +58,8 @@ export default function EmailAccountAccessModal({ account, onClose }: EmailAccou
         <h2>Hozzáférés kezelése</h2>
         <p className="chat-modal-hint">
           Akiket kijelölsz, azok automatikusan látni fogják ezt a fiókot ({account.display_name}) az Üzenetek
-          oldalon, bejelentkezés nélkül.
+          oldalon, bejelentkezés nélkül. Az adminisztrátorok minden fiókhoz automatikusan hozzáférnek, rájuk nem
+          vonatkozik ez a lista.
         </p>
         <div className="chat-member-picker">
           {loading && <p className="chat-empty-hint">Betöltés...</p>}

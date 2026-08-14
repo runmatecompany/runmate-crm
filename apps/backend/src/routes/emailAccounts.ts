@@ -1,6 +1,11 @@
 import type { FastifyInstance } from "fastify";
 import { simpleParser } from "mailparser";
-import { getAccountById, listAccessibleAccountsForUser, userHasAccountAccess } from "../db/emailAccounts.js";
+import {
+  getAccountById,
+  listAccessibleAccountsForUser,
+  listAllActiveAccounts,
+  userHasAccountAccess,
+} from "../db/emailAccounts.js";
 import { withImapClient } from "../lib/mail/imapClient.js";
 import { toSmtpOptions } from "../lib/mail/config.js";
 import { mapFullMessage, mapSummary } from "../lib/mail/messageMapper.js";
@@ -39,13 +44,21 @@ interface SendBody {
   inReplyToFolder?: string;
 }
 
-async function requireAccess(accountId: number, userId: number): Promise<boolean> {
+// Adminok minden fiókhoz hozzáférnek — a jövőben létrehozottakhoz is,
+// külön hozzáférés-kiosztás nélkül. Sima felhasználóknál az explicit
+// email_account_access bejegyzés dönt.
+async function requireAccess(accountId: number, userId: number, role: "admin" | "user"): Promise<boolean> {
+  if (role === "admin") return true;
   return userHasAccountAccess(accountId, userId);
 }
 
 export default async function emailAccountsRoutes(fastify: FastifyInstance) {
   fastify.get("/email-accounts", { onRequest: [fastify.authenticate] }, async (request) => {
-    return { accounts: await listAccessibleAccountsForUser(request.user.sub) };
+    const accounts =
+      request.user.role === "admin"
+        ? await listAllActiveAccounts()
+        : await listAccessibleAccountsForUser(request.user.sub);
+    return { accounts };
   });
 
   fastify.get<{ Params: { id: string } }>(
@@ -53,7 +66,7 @@ export default async function emailAccountsRoutes(fastify: FastifyInstance) {
     { onRequest: [fastify.authenticate] },
     async (request, reply) => {
       const accountId = Number(request.params.id);
-      if (!(await requireAccess(accountId, request.user.sub))) {
+      if (!(await requireAccess(accountId, request.user.sub, request.user.role))) {
         return reply.code(403).send({ error: "Nincs hozzáférésed ehhez a fiókhoz" });
       }
       const account = await getAccountById(accountId);
@@ -72,7 +85,7 @@ export default async function emailAccountsRoutes(fastify: FastifyInstance) {
     { onRequest: [fastify.authenticate] },
     async (request, reply) => {
       const accountId = Number(request.params.id);
-      if (!(await requireAccess(accountId, request.user.sub))) {
+      if (!(await requireAccess(accountId, request.user.sub, request.user.role))) {
         return reply.code(403).send({ error: "Nincs hozzáférésed ehhez a fiókhoz" });
       }
       const account = await getAccountById(accountId);
@@ -109,7 +122,7 @@ export default async function emailAccountsRoutes(fastify: FastifyInstance) {
     { onRequest: [fastify.authenticate] },
     async (request, reply) => {
       const accountId = Number(request.params.id);
-      if (!(await requireAccess(accountId, request.user.sub))) {
+      if (!(await requireAccess(accountId, request.user.sub, request.user.role))) {
         return reply.code(403).send({ error: "Nincs hozzáférésed ehhez a fiókhoz" });
       }
       const account = await getAccountById(accountId);
@@ -138,7 +151,7 @@ export default async function emailAccountsRoutes(fastify: FastifyInstance) {
     { onRequest: [fastify.authenticate], schema: { body: flagsBodySchema } },
     async (request, reply) => {
       const accountId = Number(request.params.id);
-      if (!(await requireAccess(accountId, request.user.sub))) {
+      if (!(await requireAccess(accountId, request.user.sub, request.user.role))) {
         return reply.code(403).send({ error: "Nincs hozzáférésed ehhez a fiókhoz" });
       }
       const account = await getAccountById(accountId);
@@ -169,7 +182,7 @@ export default async function emailAccountsRoutes(fastify: FastifyInstance) {
     { onRequest: [fastify.authenticate], schema: { body: sendBodySchema } },
     async (request, reply) => {
       const accountId = Number(request.params.id);
-      if (!(await requireAccess(accountId, request.user.sub))) {
+      if (!(await requireAccess(accountId, request.user.sub, request.user.role))) {
         return reply.code(403).send({ error: "Nincs hozzáférésed ehhez a fiókhoz" });
       }
       const account = await getAccountById(accountId);
