@@ -382,6 +382,12 @@ button:hover {
   font-weight: 500;
 }
 
+.chat-room-item-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+}
+
 .chat-room-preview {
   font-size: 0.78em;
   color: inherit;
@@ -400,6 +406,9 @@ button:hover {
 }
 
 .chat-main-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
   padding: 1em 1.5em;
   border-bottom: 1px solid var(--border);
   font-weight: 600;

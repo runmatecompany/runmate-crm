@@ -1,15 +1,12 @@
 import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { useAuth } from "../../lib/auth";
+import { useRealtime } from "../../lib/realtime";
 import { resizeImageToDataUrl, uploadMyAvatar } from "../../lib/profile";
 import Avatar from "../Avatar";
 
-interface ProfileSettingsProps {
-  avatarVersion: number;
-  onAvatarChange: () => void;
-}
-
-export default function ProfileSettings({ avatarVersion, onAvatarChange }: ProfileSettingsProps) {
+export default function ProfileSettings() {
   const { auth, updateName } = useAuth();
+  const { bumpAvatar } = useRealtime();
   const [name, setName] = useState(auth?.user.name ?? "");
   const [saving, setSaving] = useState(false);
   const [savedHint, setSavedHint] = useState(false);
@@ -45,7 +42,7 @@ export default function ProfileSettings({ avatarVersion, onAvatarChange }: Profi
     try {
       const dataUrl = await resizeImageToDataUrl(file);
       await uploadMyAvatar(auth.token, dataUrl);
-      onAvatarChange();
+      bumpAvatar(auth.user.id);
     } catch {
       setError("Nem sikerült feltölteni a profilképet.");
     } finally {
@@ -58,7 +55,7 @@ export default function ProfileSettings({ avatarVersion, onAvatarChange }: Profi
       <h1>Profilom</h1>
 
       <div className="profile-avatar-row">
-        <Avatar userId={auth.user.id} name={auth.user.name} size={72} version={avatarVersion} />
+        <Avatar userId={auth.user.id} name={auth.user.name} size={72} />
         <div>
           <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
             {uploading ? "Feltöltés..." : "Kép feltöltése"}
@@ -70,7 +67,10 @@ export default function ProfileSettings({ avatarVersion, onAvatarChange }: Profi
             className="profile-file-input"
             onChange={handleFileChange}
           />
-          <p className="profile-avatar-hint">Ajánlott méret: legalább 256×256 px (négyzet alakú kép a legjobb). A nagyobb képeket automatikusan kicsinyítjük.</p>
+          <p className="profile-avatar-hint">
+            Ajánlott méret: legalább 256×256 px (négyzet alakú kép a legjobb). A nagyobb képeket
+            automatikusan kicsinyítjük.
+          </p>
         </div>
       </div>
 

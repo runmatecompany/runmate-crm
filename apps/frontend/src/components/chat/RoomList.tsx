@@ -1,4 +1,6 @@
 import { roomDisplayName, type RoomSummary } from "../../lib/chat";
+import { useRealtime } from "../../lib/realtime";
+import Avatar from "../Avatar";
 
 interface RoomListProps {
   rooms: RoomSummary[];
@@ -10,6 +12,7 @@ interface RoomListProps {
 }
 
 export default function RoomList({ rooms, activeRoomId, onSelect, isAdmin, onCreateRoom, onNewDm }: RoomListProps) {
+  const { names } = useRealtime();
   const groupRooms = rooms.filter((r) => !r.is_dm);
   const dmRooms = rooms.filter((r) => r.is_dm);
 
@@ -31,7 +34,7 @@ export default function RoomList({ rooms, activeRoomId, onSelect, isAdmin, onCre
           className={room.id === activeRoomId ? "chat-room-item active" : "chat-room-item"}
           onClick={() => onSelect(room.id)}
         >
-          <span className="chat-room-name">{roomDisplayName(room)}</span>
+          <span className="chat-room-name">{roomDisplayName(room, names)}</span>
           {room.last_message_body && <span className="chat-room-preview">{room.last_message_body}</span>}
         </button>
       ))}
@@ -50,7 +53,12 @@ export default function RoomList({ rooms, activeRoomId, onSelect, isAdmin, onCre
           className={room.id === activeRoomId ? "chat-room-item active" : "chat-room-item"}
           onClick={() => onSelect(room.id)}
         >
-          <span className="chat-room-name">{roomDisplayName(room)}</span>
+          <span className="chat-room-item-row">
+            {room.other_user_id != null && (
+              <Avatar userId={room.other_user_id} name={room.other_user_name ?? "?"} size={22} />
+            )}
+            <span className="chat-room-name">{roomDisplayName(room, names)}</span>
+          </span>
           {room.last_message_body && <span className="chat-room-preview">{room.last_message_body}</span>}
         </button>
       ))}

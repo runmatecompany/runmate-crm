@@ -8,12 +8,7 @@ interface SettingsSection {
 
 const SECTIONS: SettingsSection[] = [{ id: "profile", label: "Profilom" }];
 
-interface SettingsPageProps {
-  avatarVersion: number;
-  onAvatarChange: () => void;
-}
-
-export default function SettingsPage({ avatarVersion, onAvatarChange }: SettingsPageProps) {
+export default function SettingsPage() {
   const [activeSection, setActiveSection] = useState(SECTIONS[0].id);
 
   return (
@@ -30,11 +25,7 @@ export default function SettingsPage({ avatarVersion, onAvatarChange }: Settings
           </button>
         ))}
       </nav>
-      <div className="settings-content">
-        {activeSection === "profile" && (
-          <ProfileSettings avatarVersion={avatarVersion} onAvatarChange={onAvatarChange} />
-        )}
-      </div>
+      <div className="settings-content">{activeSection === "profile" && <ProfileSettings />}</div>
     </main>
   );
 }

@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { getUserAvatar, getUserById, setUserAvatar, updateUserName } from "../db/users.js";
+import { broadcastToAll } from "../realtime/connections.js";
 
 const updateNameBodySchema = {
   type: "object",
@@ -38,6 +39,7 @@ export default async function meRoutes(fastify: FastifyInstance) {
       if (!user) {
         return reply.code(404).send({ error: "User not found" });
       }
+      broadcastToAll({ type: "profile-updated", userId: user.id, name: user.name });
       return { user };
     }
   );
@@ -53,6 +55,7 @@ export default async function meRoutes(fastify: FastifyInstance) {
       const [, mime, base64] = match;
       const data = Buffer.from(base64, "base64");
       await setUserAvatar(request.user.sub, mime, data);
+      broadcastToAll({ type: "profile-updated", userId: request.user.sub, avatarChanged: true });
       return { ok: true };
     }
   );

@@ -39,3 +39,14 @@ export function broadcastToUsers(userIds: number[], payload: unknown): void {
     sendToUser(userId, payload);
   }
 }
+
+export function broadcastToAll(payload: unknown): void {
+  const data = JSON.stringify(payload);
+  for (const sockets of connections.values()) {
+    for (const socket of sockets) {
+      if (socket.readyState === OPEN) {
+        socket.send(data);
+      }
+    }
+  }
+}

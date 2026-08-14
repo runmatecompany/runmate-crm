@@ -1,6 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
 import { authFetch } from "./api";
-import { getApiUrl } from "./serverConfig";
 
 export interface RoomSummary {
   id: number;
@@ -63,60 +61,13 @@ export async function createRoom(token: string, name: string, memberIds: number[
   return data.room;
 }
 
-export function roomDisplayName(room: RoomSummary): string {
-  if (room.is_dm) return room.other_user_name ?? "Ismeretlen";
+// A `liveNames` az aktuálisan ismert, valós idejű névfrissítéseket tartalmazza
+// (lásd lib/realtime.tsx) — ha van benne friss adat a másik félre, azt
+// részesítjük előnyben a szoba lekérésekor kapott (esetleg elavult) névvel szemben.
+export function roomDisplayName(room: RoomSummary, liveNames?: Record<number, string>): string {
+  if (room.is_dm) {
+    const live = room.other_user_id != null ? liveNames?.[room.other_user_id] : undefined;
+    return live ?? room.other_user_name ?? "Ismeretlen";
+  }
   return room.name ?? "Névtelen szoba";
-}
-
-export function useChatSocket(token: string | null, onMessage: (message: ChatMessage) => void) {
-  const wsRef = useRef<WebSocket | null>(null);
-  const [connected, setConnected] = useState(false);
-  const onMessageRef = useRef(onMessage);
-  onMessageRef.current = onMessage;
-
-  useEffect(() => {
-    if (!token) return;
-
-    let cancelled = false;
-    let reconnectTimer: ReturnType<typeof setTimeout>;
-
-    function connect() {
-      const wsUrl = `${getApiUrl().replace(/^http/, "ws")}/chat/ws?token=${encodeURIComponent(token as string)}`;
-      const ws = new WebSocket(wsUrl);
-      wsRef.current = ws;
-
-      ws.onopen = () => {
-        if (!cancelled) setConnected(true);
-      };
-      ws.onclose = () => {
-        if (cancelled) return;
-        setConnected(false);
-        reconnectTimer = setTimeout(connect, 3000);
-      };
-      ws.onmessage = (event) => {
-        try {
-          const frame = JSON.parse(event.data);
-          if (frame.type === "message") {
-            onMessageRef.current(frame.message);
-          }
-        } catch {
-          // hibás keret, kihagyjuk
-        }
-      };
-    }
-
-    connect();
-
-    return () => {
-      cancelled = true;
-      clearTimeout(reconnectTimer);
-      wsRef.current?.close();
-    };
-  }, [token]);
-
-  const sendMessage = useCallback((roomId: number, body: string) => {
-    wsRef.current?.send(JSON.stringify({ type: "message", roomId, body }));
-  }, []);
-
-  return { connected, sendMessage };
 }

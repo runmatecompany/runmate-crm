@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useAuth } from "../lib/auth";
+import { useRealtime } from "../lib/realtime";
 import {
   createRoom,
   listColleagues,
   listMessages,
   listRooms,
+  roomDisplayName,
   startDm,
-  useChatSocket,
   type ChatMessage,
   type Colleague,
   type RoomSummary,
@@ -15,11 +16,13 @@ import RoomList from "../components/chat/RoomList";
 import MessageThread from "../components/chat/MessageThread";
 import CreateRoomModal from "../components/chat/CreateRoomModal";
 import NewDmPicker from "../components/chat/NewDmPicker";
+import Avatar from "../components/Avatar";
 
 export default function ChatPage() {
   const { auth } = useAuth();
   const token = auth?.token ?? null;
   const isAdmin = auth?.user.role === "admin";
+  const { onChatMessage, sendChatMessage, names } = useRealtime();
 
   const [rooms, setRooms] = useState<RoomSummary[]>([]);
   const [colleagues, setColleagues] = useState<Colleague[]>([]);
@@ -48,8 +51,8 @@ export default function ChatPage() {
     listMessages(token, activeRoomId).then(setMessages);
   }, [token, activeRoomId]);
 
-  const handleIncoming = useCallback(
-    (message: ChatMessage) => {
+  useEffect(() => {
+    return onChatMessage((message: ChatMessage) => {
       setRooms((prev) => {
         const next = prev.map((r) =>
           r.id === message.room_id
@@ -63,16 +66,13 @@ export default function ChatPage() {
         });
       });
       setMessages((prev) => (message.room_id === activeRoomId ? [...prev, message] : prev));
-    },
-    [activeRoomId]
-  );
-
-  const { sendMessage } = useChatSocket(token, handleIncoming);
+    });
+  }, [onChatMessage, activeRoomId]);
 
   function handleSend(e: FormEvent) {
     e.preventDefault();
     if (!draft.trim() || activeRoomId == null) return;
-    sendMessage(activeRoomId, draft.trim());
+    sendChatMessage(activeRoomId, draft.trim());
     setDraft("");
   }
 
@@ -109,7 +109,14 @@ export default function ChatPage() {
         {activeRoom ? (
           <>
             <div className="chat-main-header">
-              {activeRoom.is_dm ? activeRoom.other_user_name : activeRoom.name}
+              {activeRoom.is_dm && activeRoom.other_user_id != null && (
+                <Avatar
+                  userId={activeRoom.other_user_id}
+                  name={activeRoom.other_user_name ?? "?"}
+                  size={30}
+                />
+              )}
+              <span>{roomDisplayName(activeRoom, names)}</span>
             </div>
             <MessageThread messages={messages} currentUserId={auth?.user.id ?? -1} />
             <form className="chat-input-row" onSubmit={handleSend}>

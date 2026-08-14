@@ -18,11 +18,10 @@ interface SidebarProps {
   onSelect: (id: string) => void;
   userId: number;
   userName: string;
-  avatarVersion: number;
   onLogout: () => void;
 }
 
-export default function Sidebar({ activeId, onSelect, userId, userName, avatarVersion, onLogout }: SidebarProps) {
+export default function Sidebar({ activeId, onSelect, userId, userName, onLogout }: SidebarProps) {
   const { status, installAndRestart } = useUpdater();
   const updateAvailable = status === "available" || status === "installing";
 
@@ -59,7 +58,7 @@ export default function Sidebar({ activeId, onSelect, userId, userName, avatarVe
           </button>
         ) : (
           <div className="sidebar-user">
-            <Avatar userId={userId} name={userName} size={26} version={avatarVersion} />
+            <Avatar userId={userId} name={userName} size={26} />
             <span>{userName}</span>
           </div>
         )}
