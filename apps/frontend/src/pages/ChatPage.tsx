@@ -179,7 +179,9 @@ export default function ChatPage() {
   }
 
   const activeRoom = rooms.find((r) => r.id === activeRoomId) ?? null;
-  const typingUserName = typingUserId != null ? (names[typingUserId] ?? "Valaki") : null;
+  const typingColleague = colleagues.find((c) => c.id === typingUserId);
+  const typingUserName =
+    typingUserId != null ? (names[typingUserId] ?? typingColleague?.name ?? "Valaki") : null;
 
   return (
     <div className="chat-page">
