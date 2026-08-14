@@ -7,6 +7,28 @@ interface MessageThreadProps {
   currentUserId: number;
 }
 
+function ReceiptTick({ message }: { message: ChatMessage }) {
+  if (message.read_at) {
+    return (
+      <span className="chat-receipt read" title="Elolvasva">
+        ✓✓
+      </span>
+    );
+  }
+  if (message.delivered_at) {
+    return (
+      <span className="chat-receipt delivered" title="Kézbesítve">
+        ✓✓
+      </span>
+    );
+  }
+  return (
+    <span className="chat-receipt sent" title="Elküldve">
+      ✓
+    </span>
+  );
+}
+
 export default function MessageThread({ messages, currentUserId }: MessageThreadProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const { names } = useRealtime();
@@ -27,6 +49,7 @@ export default function MessageThread({ messages, currentUserId }: MessageThread
               <div className="chat-bubble-body">{msg.body}</div>
               <div className="chat-bubble-time">
                 {new Date(msg.created_at).toLocaleTimeString("hu-HU", { hour: "2-digit", minute: "2-digit" })}
+                {mine && <ReceiptTick message={msg} />}
               </div>
             </div>
           </div>

@@ -487,6 +487,33 @@ button:hover {
   opacity: 0.65;
   margin-top: 0.25em;
   text-align: right;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.3em;
+}
+
+.chat-receipt {
+  font-size: 1em;
+  letter-spacing: -0.15em;
+}
+
+.chat-receipt.sent,
+.chat-receipt.delivered {
+  color: inherit;
+  opacity: 0.85;
+}
+
+.chat-receipt.read {
+  color: #8fd4ff;
+  opacity: 1;
+}
+
+.chat-typing-indicator {
+  padding: 0 1.5em 0.4em;
+  font-size: 0.78em;
+  color: var(--text-muted);
+  font-style: italic;
 }
 
 .chat-input-row {

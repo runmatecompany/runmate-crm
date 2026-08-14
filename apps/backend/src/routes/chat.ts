@@ -1,12 +1,15 @@
 import type { FastifyInstance } from "fastify";
 import {
   canAccessRoom,
+  getMessageSenderId,
   getOrCreateDmRoom,
   getRoomBroadcastUserIds,
   insertMessage,
   listColleagues,
   listMessages,
   listRoomsForUser,
+  markDelivered,
+  markRoomRead,
 } from "../db/chat.js";
 import {
   registerConnection,
@@ -46,6 +49,15 @@ export default async function chatRoutes(fastify: FastifyInstance) {
       const limit = request.query.limit ? Number(request.query.limit) : 50;
       const before = request.query.before ? Number(request.query.before) : undefined;
       const messages = await listMessages(roomId, limit, before);
+
+      // Ha most kérte le először ezeket az üzeneteket, kézbesítettnek
+      // számítanak (akkor is, ha korábban offline volt).
+      for (const msg of messages) {
+        if (msg.sender_id !== request.user.sub && !msg.delivered_at) {
+          await markDelivered(msg.id, request.user.sub);
+        }
+      }
+
       return { messages };
     }
   );
@@ -97,6 +109,40 @@ export default async function chatRoutes(fastify: FastifyInstance) {
         const allowed = await canAccessRoom(frame.roomId, userId);
         if (!allowed) return;
         sendToUser(frame.targetUserId, { ...frame, fromUserId: userId });
+        return;
+      }
+
+      if (frame.type === "typing") {
+        if (!frame.roomId) return;
+        const allowed = await canAccessRoom(frame.roomId, userId);
+        if (!allowed) return;
+        const recipientIds = await getRoomBroadcastUserIds(frame.roomId);
+        broadcastToUsers(
+          recipientIds.filter((id) => id !== userId),
+          { type: "typing", roomId: frame.roomId, fromUserId: userId }
+        );
+        return;
+      }
+
+      if (frame.type === "delivered") {
+        if (!frame.messageId) return;
+        const senderId = await getMessageSenderId(frame.messageId);
+        if (!senderId || senderId === userId) return;
+        await markDelivered(frame.messageId, userId);
+        sendToUser(senderId, { type: "receipt", messageId: frame.messageId, userId, delivered: true, read: false });
+        return;
+      }
+
+      if (frame.type === "read-room") {
+        if (!frame.roomId) return;
+        const allowed = await canAccessRoom(frame.roomId, userId);
+        if (!allowed) return;
+        const results = await markRoomRead(frame.roomId, userId);
+        const senderIds = Array.from(new Set(results.map((r) => r.senderId)));
+        for (const senderId of senderIds) {
+          if (senderId === userId) continue;
+          sendToUser(senderId, { type: "receipts-bulk", roomId: frame.roomId, readerId: userId });
+        }
         return;
       }
 

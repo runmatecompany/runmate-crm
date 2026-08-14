@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { useAuth } from "../lib/auth";
 import { useRealtime } from "../lib/realtime";
 import { useCall } from "../lib/call";
@@ -20,11 +20,14 @@ import CreateRoomModal from "../components/chat/CreateRoomModal";
 import NewDmPicker from "../components/chat/NewDmPicker";
 import Avatar from "../components/Avatar";
 
+const TYPING_THROTTLE_MS = 2000;
+const TYPING_EXPIRE_MS = 3000;
+
 export default function ChatPage() {
   const { auth } = useAuth();
   const token = auth?.token ?? null;
   const isAdmin = auth?.user.role === "admin";
-  const { onChatMessage, sendChatMessage, names } = useRealtime();
+  const { onChatMessage, sendChatMessage, sendFrame, onFrame, names } = useRealtime();
   const { status: callStatus, startCall } = useCall();
   const { requestedRoomId, clearRequestedRoom, setViewingRoomId } = useNavigation();
 
@@ -35,6 +38,10 @@ export default function ChatPage() {
   const [draft, setDraft] = useState("");
   const [showCreateRoom, setShowCreateRoom] = useState(false);
   const [showNewDm, setShowNewDm] = useState(false);
+  const [typingUserId, setTypingUserId] = useState<number | null>(null);
+
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastTypingSentRef = useRef(0);
 
   const refreshRooms = useCallback(async () => {
     if (!token) return;
@@ -48,12 +55,16 @@ export default function ChatPage() {
   }, [token, refreshRooms]);
 
   useEffect(() => {
+    setTypingUserId(null);
     if (!token || activeRoomId == null) {
       setMessages([]);
       return;
     }
-    listMessages(token, activeRoomId).then(setMessages);
-  }, [token, activeRoomId]);
+    listMessages(token, activeRoomId).then((msgs) => {
+      setMessages(msgs);
+      sendFrame({ type: "read-room", roomId: activeRoomId });
+    });
+  }, [token, activeRoomId, sendFrame]);
 
   // Ha egy toast értesítésre kattintva kértek megnyitni egy szobát, azt
   // választjuk aktívvá.
@@ -85,9 +96,64 @@ export default function ChatPage() {
           return new Date(bt).getTime() - new Date(at).getTime();
         });
       });
-      setMessages((prev) => (message.room_id === activeRoomId ? [...prev, message] : prev));
+      if (message.room_id === activeRoomId) {
+        setMessages((prev) => [...prev, message]);
+        if (message.sender_id !== auth?.user.id) {
+          sendFrame({ type: "read-room", roomId: activeRoomId });
+        }
+      }
     });
-  }, [onChatMessage, activeRoomId]);
+  }, [onChatMessage, activeRoomId, auth, sendFrame]);
+
+  useEffect(() => {
+    return onFrame("typing", (frame) => {
+      if (frame.roomId !== activeRoomId || frame.fromUserId === auth?.user.id) return;
+      setTypingUserId(frame.fromUserId);
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = setTimeout(() => setTypingUserId(null), TYPING_EXPIRE_MS);
+    });
+  }, [onFrame, activeRoomId, auth]);
+
+  useEffect(() => {
+    const offReceipt = onFrame("receipt", (frame) => {
+      const now = new Date().toISOString();
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === frame.messageId
+            ? {
+                ...m,
+                delivered_at: frame.delivered ? (m.delivered_at ?? now) : m.delivered_at,
+                read_at: frame.read ? now : m.read_at,
+              }
+            : m
+        )
+      );
+    });
+    const offBulk = onFrame("receipts-bulk", (frame) => {
+      if (frame.roomId !== activeRoomId) return;
+      const now = new Date().toISOString();
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.sender_id === auth?.user.id ? { ...m, delivered_at: m.delivered_at ?? now, read_at: m.read_at ?? now } : m
+        )
+      );
+    });
+    return () => {
+      offReceipt();
+      offBulk();
+    };
+  }, [onFrame, activeRoomId, auth]);
+
+  function handleDraftChange(e: ChangeEvent<HTMLInputElement>) {
+    const value = e.currentTarget.value;
+    setDraft(value);
+    if (activeRoomId == null) return;
+    const now = Date.now();
+    if (now - lastTypingSentRef.current > TYPING_THROTTLE_MS) {
+      sendFrame({ type: "typing", roomId: activeRoomId });
+      lastTypingSentRef.current = now;
+    }
+  }
 
   function handleSend(e: FormEvent) {
     e.preventDefault();
@@ -113,6 +179,7 @@ export default function ChatPage() {
   }
 
   const activeRoom = rooms.find((r) => r.id === activeRoomId) ?? null;
+  const typingUserName = typingUserId != null ? (names[typingUserId] ?? "Valaki") : null;
 
   return (
     <div className="chat-page">
@@ -155,12 +222,9 @@ export default function ChatPage() {
               )}
             </div>
             <MessageThread messages={messages} currentUserId={auth?.user.id ?? -1} />
+            {typingUserName && <div className="chat-typing-indicator">{typingUserName} éppen ír...</div>}
             <form className="chat-input-row" onSubmit={handleSend}>
-              <input
-                value={draft}
-                onChange={(e) => setDraft(e.currentTarget.value)}
-                placeholder="Írj üzenetet..."
-              />
+              <input value={draft} onChange={handleDraftChange} placeholder="Írj üzenetet..." />
               <button type="submit">Küldés</button>
             </form>
           </>

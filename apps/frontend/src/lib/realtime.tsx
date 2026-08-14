@@ -81,6 +81,14 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
           });
         }
 
+        // Bármelyik oldalon vagyunk épp az appban, minden hozzánk beérkező
+        // üzenetet automatikusan kézbesítettnek igazolunk vissza.
+        if (frame.type === "message" && frame.message?.sender_id !== auth?.user.id) {
+          ws.send(
+            JSON.stringify({ type: "delivered", messageId: frame.message.id, roomId: frame.message.room_id })
+          );
+        }
+
         frameListenersRef.current.get(frame.type)?.forEach((cb) => cb(frame));
       };
     }

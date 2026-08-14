@@ -18,6 +18,8 @@ export interface ChatMessage {
   sender_name: string;
   body: string;
   created_at: string;
+  delivered_at: string | null;
+  read_at: string | null;
 }
 
 export interface Colleague {
@@ -132,18 +134,34 @@ export async function getRoomBroadcastUserIds(roomId: number): Promise<number[]>
   return members.map((m) => m.user_id);
 }
 
+// A "receipt" LATERAL join a küldőtől eltérő bármely (DM esetén az egyetlen
+// másik) tag legjobb (leginkább "elolvasva felé haladó") állapotát adja vissza.
+const RECEIPT_JOIN = `
+  LEFT JOIN LATERAL (
+    SELECT delivered_at, read_at
+    FROM chat_message_receipts
+    WHERE message_id = m.id AND user_id != m.sender_id
+    ORDER BY read_at DESC NULLS LAST, delivered_at DESC NULLS LAST
+    LIMIT 1
+  ) receipt ON true
+`;
+
 export async function listMessages(roomId: number, limit = 50, before?: number): Promise<ChatMessage[]> {
   const { rows } = await pool.query<ChatMessage>(
     before
-      ? `SELECT m.id, m.room_id, m.sender_id, u.name AS sender_name, m.body, m.created_at
+      ? `SELECT m.id, m.room_id, m.sender_id, u.name AS sender_name, m.body, m.created_at,
+                receipt.delivered_at, receipt.read_at
          FROM chat_messages m
          JOIN users u ON u.id = m.sender_id
+         ${RECEIPT_JOIN}
          WHERE m.room_id = $1 AND m.id < $3
          ORDER BY m.id DESC
          LIMIT $2`
-      : `SELECT m.id, m.room_id, m.sender_id, u.name AS sender_name, m.body, m.created_at
+      : `SELECT m.id, m.room_id, m.sender_id, u.name AS sender_name, m.body, m.created_at,
+                receipt.delivered_at, receipt.read_at
          FROM chat_messages m
          JOIN users u ON u.id = m.sender_id
+         ${RECEIPT_JOIN}
          WHERE m.room_id = $1
          ORDER BY m.id DESC
          LIMIT $2`,
@@ -159,12 +177,57 @@ export async function insertMessage(roomId: number, senderId: number, body: stri
        VALUES ($1, $2, $3)
        RETURNING id, room_id, sender_id, body, created_at
      )
-     SELECT i.*, u.name AS sender_name
+     SELECT i.*, u.name AS sender_name, NULL::timestamptz AS delivered_at, NULL::timestamptz AS read_at
      FROM inserted i
      JOIN users u ON u.id = i.sender_id`,
     [roomId, senderId, body]
   );
   return rows[0];
+}
+
+export async function markDelivered(messageId: number, userId: number): Promise<void> {
+  await pool.query(
+    `INSERT INTO chat_message_receipts (message_id, user_id, delivered_at)
+     VALUES ($1, $2, now())
+     ON CONFLICT (message_id, user_id) DO UPDATE
+     SET delivered_at = COALESCE(chat_message_receipts.delivered_at, EXCLUDED.delivered_at)`,
+    [messageId, userId]
+  );
+}
+
+export async function getMessageSenderId(messageId: number): Promise<number | undefined> {
+  const { rows } = await pool.query<{ sender_id: number }>("SELECT sender_id FROM chat_messages WHERE id = $1", [
+    messageId,
+  ]);
+  return rows[0]?.sender_id;
+}
+
+export interface RoomReadResult {
+  messageId: number;
+  senderId: number;
+}
+
+// Az adott szoba felhasználó által még nem olvasott (nála küldött) üzeneteit
+// "elolvasva" (és ezzel "kézbesítve") jelöli, és visszaadja, kiknek (mely
+// küldőknek) kell erről szólni.
+export async function markRoomRead(roomId: number, userId: number): Promise<RoomReadResult[]> {
+  const { rows: toMark } = await pool.query<{ id: number; sender_id: number }>(
+    `SELECT id, sender_id FROM chat_messages WHERE room_id = $1 AND sender_id != $2`,
+    [roomId, userId]
+  );
+  if (toMark.length === 0) return [];
+
+  await pool.query(
+    `INSERT INTO chat_message_receipts (message_id, user_id, delivered_at, read_at)
+     SELECT m.id, $2, now(), now()
+     FROM chat_messages m
+     WHERE m.room_id = $1 AND m.sender_id != $2
+     ON CONFLICT (message_id, user_id) DO UPDATE
+     SET read_at = now(), delivered_at = COALESCE(chat_message_receipts.delivered_at, now())`,
+    [roomId, userId]
+  );
+
+  return toMark.map((row) => ({ messageId: row.id, senderId: row.sender_id }));
 }
 
 export async function listColleagues(): Promise<Colleague[]> {
