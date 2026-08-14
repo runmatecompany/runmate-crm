@@ -27,6 +27,9 @@ export interface Colleague {
   role: "admin" | "user";
 }
 
+// Csoportszobát (is_dm = false) mindenki lát, tagsági bejegyzés nélkül is —
+// olyan, mint egy céges csatorna. A privát (DM) szobák továbbra is csak a
+// ténylegesen tag két félnek látszanak.
 export async function listRoomsForUser(userId: number): Promise<RoomSummary[]> {
   const { rows } = await pool.query<RoomSummary>(
     `SELECT
@@ -39,7 +42,7 @@ export async function listRoomsForUser(userId: number): Promise<RoomSummary[]> {
        lm.body AS last_message_body,
        lm.created_at AS last_message_at
      FROM chat_rooms r
-     JOIN chat_room_members rm ON rm.room_id = r.id AND rm.user_id = $1
+     LEFT JOIN chat_room_members rm ON rm.room_id = r.id AND rm.user_id = $1
      LEFT JOIN LATERAL (
        SELECT u.id, u.name
        FROM chat_room_members rm2
@@ -50,37 +53,20 @@ export async function listRoomsForUser(userId: number): Promise<RoomSummary[]> {
      LEFT JOIN LATERAL (
        SELECT body, created_at FROM chat_messages m WHERE m.room_id = r.id ORDER BY m.id DESC LIMIT 1
      ) lm ON true
+     WHERE r.is_dm = false OR rm.user_id IS NOT NULL
      ORDER BY COALESCE(lm.created_at, r.created_at) DESC`,
     [userId]
   );
   return rows;
 }
 
-export async function createRoom(input: {
-  name: string;
-  memberIds: number[];
-  createdBy: number;
-}): Promise<RoomSummary> {
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
-    const { rows } = await client.query<{ id: number; name: string | null; is_dm: boolean; created_at: string }>(
-      `INSERT INTO chat_rooms (name, is_dm, created_by) VALUES ($1, false, $2) RETURNING id, name, is_dm, created_at`,
-      [input.name, input.createdBy]
-    );
-    const room = rows[0];
-    const memberIds = Array.from(new Set([...input.memberIds, input.createdBy]));
-    for (const userId of memberIds) {
-      await client.query(`INSERT INTO chat_room_members (room_id, user_id) VALUES ($1, $2)`, [room.id, userId]);
-    }
-    await client.query("COMMIT");
-    return { ...room, other_user_id: null, other_user_name: null, last_message_body: null, last_message_at: null };
-  } catch (err) {
-    await client.query("ROLLBACK");
-    throw err;
-  } finally {
-    client.release();
-  }
+export async function createRoom(input: { name: string; createdBy: number }): Promise<RoomSummary> {
+  const { rows } = await pool.query<{ id: number; name: string | null; is_dm: boolean; created_at: string }>(
+    `INSERT INTO chat_rooms (name, is_dm, created_by) VALUES ($1, false, $2) RETURNING id, name, is_dm, created_at`,
+    [input.name, input.createdBy]
+  );
+  const room = rows[0];
+  return { ...room, other_user_id: null, other_user_name: null, last_message_body: null, last_message_at: null };
 }
 
 export async function getOrCreateDmRoom(userA: number, userB: number): Promise<number> {
@@ -118,7 +104,11 @@ export async function getOrCreateDmRoom(userA: number, userB: number): Promise<n
   }
 }
 
-export async function isRoomMember(roomId: number, userId: number): Promise<boolean> {
+// Csoportszobához mindenki hozzáférhet, DM-hez csak a két tag.
+export async function canAccessRoom(roomId: number, userId: number): Promise<boolean> {
+  const { rows } = await pool.query<{ is_dm: boolean }>("SELECT is_dm FROM chat_rooms WHERE id = $1", [roomId]);
+  if (!rows[0]) return false;
+  if (!rows[0].is_dm) return true;
   const { rowCount } = await pool.query(`SELECT 1 FROM chat_room_members WHERE room_id = $1 AND user_id = $2`, [
     roomId,
     userId,
@@ -126,12 +116,20 @@ export async function isRoomMember(roomId: number, userId: number): Promise<bool
   return (rowCount ?? 0) > 0;
 }
 
-export async function getRoomMemberIds(roomId: number): Promise<number[]> {
-  const { rows } = await pool.query<{ user_id: number }>(
-    `SELECT user_id FROM chat_room_members WHERE room_id = $1`,
+// Kinek kell elküldeni egy új üzenetet: csoportszobánál mindenkinek, DM-nél
+// csak a két tagnak.
+export async function getRoomBroadcastUserIds(roomId: number): Promise<number[]> {
+  const { rows } = await pool.query<{ is_dm: boolean }>("SELECT is_dm FROM chat_rooms WHERE id = $1", [roomId]);
+  if (!rows[0]) return [];
+  if (!rows[0].is_dm) {
+    const { rows: allUsers } = await pool.query<{ id: number }>("SELECT id FROM users");
+    return allUsers.map((u) => u.id);
+  }
+  const { rows: members } = await pool.query<{ user_id: number }>(
+    "SELECT user_id FROM chat_room_members WHERE room_id = $1",
     [roomId]
   );
-  return rows.map((r) => r.user_id);
+  return members.map((m) => m.user_id);
 }
 
 export async function listMessages(roomId: number, limit = 50, before?: number): Promise<ChatMessage[]> {

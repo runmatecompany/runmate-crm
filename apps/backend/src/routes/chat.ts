@@ -1,9 +1,9 @@
 import type { FastifyInstance } from "fastify";
 import {
+  canAccessRoom,
   getOrCreateDmRoom,
-  getRoomMemberIds,
+  getRoomBroadcastUserIds,
   insertMessage,
-  isRoomMember,
   listColleagues,
   listMessages,
   listRoomsForUser,
@@ -32,9 +32,9 @@ export default async function chatRoutes(fastify: FastifyInstance) {
     { onRequest: [fastify.authenticate] },
     async (request, reply) => {
       const roomId = Number(request.params.id);
-      const member = await isRoomMember(roomId, request.user.sub);
-      if (!member) {
-        return reply.code(403).send({ error: "Nem vagy tagja ennek a szobának" });
+      const allowed = await canAccessRoom(roomId, request.user.sub);
+      if (!allowed) {
+        return reply.code(403).send({ error: "Nincs hozzáférésed ehhez a szobához" });
       }
       const limit = request.query.limit ? Number(request.query.limit) : 50;
       const before = request.query.before ? Number(request.query.before) : undefined;
@@ -83,12 +83,12 @@ export default async function chatRoutes(fastify: FastifyInstance) {
       }
       if (frame.type !== "message" || !frame.roomId || !frame.body?.trim()) return;
 
-      const member = await isRoomMember(frame.roomId, userId);
-      if (!member) return;
+      const allowed = await canAccessRoom(frame.roomId, userId);
+      if (!allowed) return;
 
       const message = await insertMessage(frame.roomId, userId, frame.body.trim());
-      const memberIds = await getRoomMemberIds(frame.roomId);
-      broadcastToUsers(memberIds, { type: "message", message });
+      const recipientIds = await getRoomBroadcastUserIds(frame.roomId);
+      broadcastToUsers(recipientIds, { type: "message", message });
     });
 
     socket.on("close", () => {

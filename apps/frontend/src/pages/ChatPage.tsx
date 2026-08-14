@@ -76,9 +76,9 @@ export default function ChatPage() {
     setDraft("");
   }
 
-  async function handleCreateRoom(name: string, memberIds: number[]) {
+  async function handleCreateRoom(name: string) {
     if (!token) return;
-    const room = await createRoom(token, name, memberIds);
+    const room = await createRoom(token, name);
     setShowCreateRoom(false);
     await refreshRooms();
     setActiveRoomId(room.id);
@@ -134,11 +134,7 @@ export default function ChatPage() {
       </div>
 
       {showCreateRoom && (
-        <CreateRoomModal
-          colleagues={colleagues}
-          onClose={() => setShowCreateRoom(false)}
-          onCreate={handleCreateRoom}
-        />
+        <CreateRoomModal onClose={() => setShowCreateRoom(false)} onCreate={handleCreateRoom} />
       )}
       {showNewDm && (
         <NewDmPicker

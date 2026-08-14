@@ -51,11 +51,11 @@ export async function startDm(token: string, userId: number): Promise<number> {
   return data.roomId;
 }
 
-export async function createRoom(token: string, name: string, memberIds: number[]): Promise<RoomSummary> {
+export async function createRoom(token: string, name: string): Promise<RoomSummary> {
   const res = await authFetch(token, "/admin/chat/rooms", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, memberIds }),
+    body: JSON.stringify({ name }),
   });
   const data = await res.json();
   return data.room;
