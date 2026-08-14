@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RunMate CRM letöltés</title>
+  <style>
+    :root {
+      --bg: #14171e;
+      --surface: #1c212c;
+      --surface-alt: #232936;
+      --border: #2b3140;
+      --text: #e8eaf0;
+      --text-muted: #9aa1b2;
+      --accent: #2f7fe0;
+      --accent-hover: #4a91e6;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
+    }
+    .card {
+      width: 380px;
+      padding: 2.5em 2em;
+      border-radius: 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+      text-align: center;
+    }
+    .logo { width: 72px; height: 72px; margin-bottom: 0.8em; }
+    h1 { margin: 0 0 0.3em; font-size: 1.4em; }
+    p.subtitle { margin: 0 0 1.8em; color: var(--text-muted); font-size: 0.92em; }
+    .btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.6em;
+      width: 100%;
+      padding: 0.9em 1em;
+      margin-bottom: 0.8em;
+      border-radius: 8px;
+      background: var(--accent);
+      color: #fff;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 0.98em;
+      transition: background 0.15s;
+    }
+    .btn:hover { background: var(--accent-hover); }
+    .btn.disabled { opacity: 0.5; pointer-events: none; }
+    .status { color: var(--text-muted); font-size: 0.85em; margin-top: 1em; }
+    .version { color: var(--text-muted); font-size: 0.78em; margin-top: 1.5em; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <img src="logo.png" alt="RunMate CRM" class="logo" />
+    <h1>RunMate CRM</h1>
+    <p class="subtitle">Válaszd ki a géped típusát a letöltéshez</p>
+
+    <a id="win-btn" class="btn disabled" href="#">🪟 Letöltés Windows-ra</a>
+    <a id="mac-btn" class="btn disabled" href="#">🍎 Letöltés Mac-re</a>
+
+    <p class="status" id="status">Letöltési linkek betöltése...</p>
+    <p class="version" id="version"></p>
+  </div>
+
+  <script>
+    const REPO = "runmatecompany/runmate-crm";
+
+    fetch("https://api.github.com/repos/" + REPO + "/releases/latest")
+      .then(function (res) {
+        if (!res.ok) throw new Error("API hiba");
+        return res.json();
+      })
+      .then(function (release) {
+        var winAsset = release.assets.find(function (a) { return a.name.endsWith("-setup.exe"); });
+        var macAsset = release.assets.find(function (a) { return a.name.endsWith(".dmg"); });
+
+        var winBtn = document.getElementById("win-btn");
+        var macBtn = document.getElementById("mac-btn");
+
+        if (winAsset) {
+          winBtn.href = winAsset.browser_download_url;
+          winBtn.classList.remove("disabled");
+        }
+        if (macAsset) {
+          macBtn.href = macAsset.browser_download_url;
+          macBtn.classList.remove("disabled");
+        }
+
+        document.getElementById("status").textContent = (winAsset || macAsset)
+          ? "Kattints a géped típusára."
+          : "Jelenleg nincs elérhető telepítő.";
+        document.getElementById("version").textContent = release.tag_name
+          ? "Legfrissebb verzió: " + release.tag_name
+          : "";
+      })
+      .catch(function () {
+        document.getElementById("status").textContent =
+          "Nem sikerült betölteni a letöltési linkeket. Próbáld frissíteni az oldalt.";
+      });
+  </script>
+</body>
+</html>
