@@ -1,23 +1,19 @@
 import { useState, type FormEvent } from "react";
-import type { Colleague } from "../../lib/chat";
 import type { Lead, LeadFormInput } from "../../lib/leads";
 
 interface LeadFormModalProps {
   lead: Lead | null;
-  colleagues: Colleague[];
-  showAssignPicker: boolean;
   onClose: () => void;
   onSave: (input: LeadFormInput) => Promise<void>;
 }
 
-export default function LeadFormModal({ lead, colleagues, showAssignPicker, onClose, onSave }: LeadFormModalProps) {
+export default function LeadFormModal({ lead, onClose, onSave }: LeadFormModalProps) {
   const [companyName, setCompanyName] = useState(lead?.company_name ?? "");
   const [contactName, setContactName] = useState(lead?.contact_name ?? "");
   const [phone, setPhone] = useState(lead?.phone ?? "");
   const [email, setEmail] = useState(lead?.email ?? "");
   const [address, setAddress] = useState(lead?.address ?? "");
   const [notes, setNotes] = useState(lead?.notes ?? "");
-  const [assignedTo, setAssignedTo] = useState<string>(lead?.assigned_to ? String(lead.assigned_to) : "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -34,7 +30,6 @@ export default function LeadFormModal({ lead, colleagues, showAssignPicker, onCl
         email: email.trim() || undefined,
         address: address.trim() || undefined,
         notes: notes.trim() || undefined,
-        ...(showAssignPicker ? { assignedTo: assignedTo ? Number(assignedTo) : null } : {}),
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Nem sikerült menteni a leadet");
@@ -70,20 +65,6 @@ export default function LeadFormModal({ lead, colleagues, showAssignPicker, onCl
 
         <label htmlFor="lead-notes">Jegyzet</label>
         <textarea id="lead-notes" rows={4} value={notes} onChange={(e) => setNotes(e.currentTarget.value)} />
-
-        {showAssignPicker && (
-          <>
-            <label htmlFor="lead-assign">Hozzárendelve</label>
-            <select id="lead-assign" value={assignedTo} onChange={(e) => setAssignedTo(e.currentTarget.value)}>
-              <option value="">Nincs hozzárendelve</option>
-              {colleagues.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </>
-        )}
 
         {error && <p className="login-error">{error}</p>}
 

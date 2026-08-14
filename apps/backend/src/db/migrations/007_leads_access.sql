@@ -1,0 +1,7 @@
+ALTER TABLE leads DROP COLUMN IF EXISTS assigned_to;
+
+CREATE TABLE IF NOT EXISTS leads_access (
+    user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    granted_by INTEGER REFERENCES users(id),
+    granted_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);

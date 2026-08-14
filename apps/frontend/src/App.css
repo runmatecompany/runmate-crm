@@ -1382,6 +1382,11 @@ button:hover {
   margin: 0;
 }
 
+.leads-header-actions {
+  display: flex;
+  gap: 0.6em;
+}
+
 .leads-status-tabs {
   display: flex;
   align-items: center;

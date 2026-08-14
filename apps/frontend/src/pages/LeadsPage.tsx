@@ -1,12 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "../lib/auth";
-import { listColleagues, type Colleague } from "../lib/chat";
 import {
   LEAD_STATUS_OPTIONS,
   createLead,
   deleteLead,
   listLeads,
-  reassignLead,
   updateLead,
   updateLeadStatus,
   type Lead,
@@ -14,6 +12,7 @@ import {
   type LeadStatus,
 } from "../lib/leads";
 import LeadFormModal from "../components/leads/LeadFormModal";
+import LeadsAccessModal from "../components/leads/LeadsAccessModal";
 
 export default function LeadsPage() {
   const { auth } = useAuth();
@@ -21,17 +20,20 @@ export default function LeadsPage() {
   const isAdmin = auth?.user.role === "admin";
 
   const [leads, setLeads] = useState<Lead[]>([]);
-  const [colleagues, setColleagues] = useState<Colleague[]>([]);
+  const [hasAccess, setHasAccess] = useState(true);
   const [statusFilter, setStatusFilter] = useState<LeadStatus | "all">("all");
-  const [onlyMine, setOnlyMine] = useState(false);
   const [editingLead, setEditingLead] = useState<Lead | "new" | null>(null);
+  const [showAccessModal, setShowAccessModal] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(() => {
     if (!token) return;
     setLoading(true);
     listLeads(token)
-      .then(setLeads)
+      .then((result) => {
+        setLeads(result.leads);
+        setHasAccess(result.hasAccess);
+      })
       .finally(() => setLoading(false));
   }, [token]);
 
@@ -39,20 +41,9 @@ export default function LeadsPage() {
     refresh();
   }, [refresh]);
 
-  useEffect(() => {
-    if (!token || !isAdmin) return;
-    listColleagues(token).then(setColleagues);
-  }, [token, isAdmin]);
-
   async function handleStatusChange(lead: Lead, status: LeadStatus) {
     if (!token) return;
     await updateLeadStatus(token, lead.id, status);
-    refresh();
-  }
-
-  async function handleAssignChange(lead: Lead, assignedTo: number | null) {
-    if (!token) return;
-    await reassignLead(token, lead.id, assignedTo);
     refresh();
   }
 
@@ -74,17 +65,33 @@ export default function LeadsPage() {
     refresh();
   }
 
-  const visible = leads
-    .filter((l) => statusFilter === "all" || l.status === statusFilter)
-    .filter((l) => !isAdmin || !onlyMine || l.assigned_to === auth?.user.id);
+  if (!loading && !hasAccess) {
+    return (
+      <main className="leads-page">
+        <h1>Leadek</h1>
+        <p className="chat-empty-hint">
+          Nincs hozzáférésed a Leadek modulhoz. Kérj hozzáférést egy adminisztrátortól.
+        </p>
+      </main>
+    );
+  }
+
+  const visible = leads.filter((l) => statusFilter === "all" || l.status === statusFilter);
 
   return (
     <main className="leads-page">
       <div className="leads-header">
         <h1>Leadek</h1>
-        <button type="button" onClick={() => setEditingLead("new")}>
-          + Új lead
-        </button>
+        <div className="leads-header-actions">
+          {isAdmin && (
+            <button type="button" onClick={() => setShowAccessModal(true)}>
+              Hozzáférés kezelése
+            </button>
+          )}
+          <button type="button" onClick={() => setEditingLead("new")}>
+            + Új lead
+          </button>
+        </div>
       </div>
 
       <div className="leads-status-tabs">
@@ -105,13 +112,6 @@ export default function LeadsPage() {
             {opt.label} ({leads.filter((l) => l.status === opt.value).length})
           </button>
         ))}
-        <span className="leads-status-tabs-spacer" />
-        {isAdmin && (
-          <label className="leads-only-mine-toggle">
-            <input type="checkbox" checked={onlyMine} onChange={(e) => setOnlyMine(e.currentTarget.checked)} />
-            Csak a sajátjaim
-          </label>
-        )}
       </div>
 
       {loading && <p className="chat-empty-hint">Betöltés...</p>}
@@ -126,7 +126,6 @@ export default function LeadsPage() {
               <th>Telefon</th>
               <th>Email</th>
               <th>Állapot</th>
-              {isAdmin && <th>Hozzárendelve</th>}
               <th></th>
             </tr>
           </thead>
@@ -149,23 +148,6 @@ export default function LeadsPage() {
                     ))}
                   </select>
                 </td>
-                {isAdmin && (
-                  <td>
-                    <select
-                      value={lead.assigned_to ?? ""}
-                      onChange={(e) =>
-                        handleAssignChange(lead, e.currentTarget.value ? Number(e.currentTarget.value) : null)
-                      }
-                    >
-                      <option value="">Nincs hozzárendelve</option>
-                      {colleagues.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                )}
                 <td className="leads-row-actions">
                   <button type="button" onClick={() => setEditingLead(lead)}>
                     Szerkesztés
@@ -185,12 +167,12 @@ export default function LeadsPage() {
       {editingLead && (
         <LeadFormModal
           lead={editingLead === "new" ? null : editingLead}
-          colleagues={colleagues}
-          showAssignPicker={isAdmin && editingLead === "new"}
           onClose={() => setEditingLead(null)}
           onSave={handleSave}
         />
       )}
+
+      {showAccessModal && <LeadsAccessModal onClose={() => setShowAccessModal(false)} />}
     </main>
   );
 }

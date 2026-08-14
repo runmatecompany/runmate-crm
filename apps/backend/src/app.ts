@@ -10,6 +10,7 @@ import meRoutes from "./routes/me.js";
 import emailAccountsRoutes from "./routes/emailAccounts.js";
 import adminEmailAccountsRoutes from "./routes/admin/emailAccounts.js";
 import leadsRoutes from "./routes/leads.js";
+import adminLeadsAccessRoutes from "./routes/admin/leadsAccess.js";
 
 export function buildApp() {
   // Az alapértelmezett 1 MB-os body limit kevés lenne egy base64-kódolt
@@ -30,6 +31,7 @@ export function buildApp() {
   app.register(emailAccountsRoutes);
   app.register(adminEmailAccountsRoutes);
   app.register(leadsRoutes);
+  app.register(adminLeadsAccessRoutes);
 
   app.get("/health", async () => ({ status: "ok" }));
 

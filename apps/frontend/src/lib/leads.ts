@@ -19,8 +19,6 @@ export interface Lead {
   address: string | null;
   notes: string | null;
   status: LeadStatus;
-  assigned_to: number | null;
-  assigned_to_name: string | null;
   created_by: number | null;
   created_by_name: string | null;
   created_at: string;
@@ -34,13 +32,16 @@ export interface LeadFormInput {
   email?: string;
   address?: string;
   notes?: string;
-  assignedTo?: number | null;
 }
 
-export async function listLeads(token: string): Promise<Lead[]> {
+export interface LeadsListResult {
+  leads: Lead[];
+  hasAccess: boolean;
+}
+
+export async function listLeads(token: string): Promise<LeadsListResult> {
   const res = await authFetch(token, "/leads");
-  const data = await res.json();
-  return data.leads;
+  return res.json();
 }
 
 export async function createLead(token: string, input: LeadFormInput): Promise<Lead> {
@@ -53,11 +54,7 @@ export async function createLead(token: string, input: LeadFormInput): Promise<L
   return data.lead;
 }
 
-export async function updateLead(
-  token: string,
-  id: number,
-  input: Omit<LeadFormInput, "assignedTo">
-): Promise<Lead> {
+export async function updateLead(token: string, id: number, input: LeadFormInput): Promise<Lead> {
   const res = await authFetch(token, `/leads/${id}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
@@ -77,16 +74,20 @@ export async function updateLeadStatus(token: string, id: number, status: LeadSt
   return data.lead;
 }
 
-export async function reassignLead(token: string, id: number, assignedTo: number | null): Promise<Lead> {
-  const res = await authFetch(token, `/leads/${id}/assign`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ assignedTo }),
-  });
-  const data = await res.json();
-  return data.lead;
-}
-
 export async function deleteLead(token: string, id: number): Promise<void> {
   await authFetch(token, `/leads/${id}`, { method: "DELETE" });
+}
+
+export async function getLeadsAccess(token: string): Promise<number[]> {
+  const res = await authFetch(token, "/admin/leads-access");
+  const data = await res.json();
+  return data.userIds;
+}
+
+export async function setLeadsAccess(token: string, userIds: number[]): Promise<void> {
+  await authFetch(token, "/admin/leads-access", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userIds }),
+  });
 }
