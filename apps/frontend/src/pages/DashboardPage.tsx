@@ -1,6 +1,7 @@
 import { useState } from "react";
 import Sidebar, { MENU_ITEMS } from "../components/Sidebar";
 import { useAuth } from "../lib/auth";
+import ChatPage from "./ChatPage";
 
 export default function DashboardPage() {
   const { auth, logout } = useAuth();
@@ -16,10 +17,14 @@ export default function DashboardPage() {
         userName={auth?.user.name ?? ""}
         onLogout={logout}
       />
-      <main className="content">
-        <h1>{activeLabel}</h1>
-        <p className="content-placeholder">Ez a szekció még nincs kidolgozva.</p>
-      </main>
+      {activeId === "chat" ? (
+        <ChatPage />
+      ) : (
+        <main className="content">
+          <h1>{activeLabel}</h1>
+          <p className="content-placeholder">Ez a szekció még nincs kidolgozva.</p>
+        </main>
+      )}
     </div>
   );
 }
