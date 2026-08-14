@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useAuth } from "../lib/auth";
 import { useRealtime } from "../lib/realtime";
+import { useCall } from "../lib/call";
 import {
   createRoom,
   listColleagues,
@@ -23,6 +24,7 @@ export default function ChatPage() {
   const token = auth?.token ?? null;
   const isAdmin = auth?.user.role === "admin";
   const { onChatMessage, sendChatMessage, names } = useRealtime();
+  const { status: callStatus, startCall } = useCall();
 
   const [rooms, setRooms] = useState<RoomSummary[]>([]);
   const [colleagues, setColleagues] = useState<Colleague[]>([]);
@@ -117,6 +119,22 @@ export default function ChatPage() {
                 />
               )}
               <span>{roomDisplayName(activeRoom, names)}</span>
+              {activeRoom.is_dm && activeRoom.other_user_id != null && (
+                <button
+                  type="button"
+                  className="chat-call-btn"
+                  disabled={callStatus !== "idle"}
+                  onClick={() =>
+                    startCall(
+                      activeRoom.id,
+                      activeRoom.other_user_id as number,
+                      names[activeRoom.other_user_id as number] ?? activeRoom.other_user_name ?? "?"
+                    )
+                  }
+                >
+                  Hívás indítása
+                </button>
+              )}
             </div>
             <MessageThread messages={messages} currentUserId={auth?.user.id ?? -1} />
             <form className="chat-input-row" onSubmit={handleSend}>

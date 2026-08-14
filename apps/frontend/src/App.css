@@ -414,6 +414,24 @@ button:hover {
   font-weight: 600;
 }
 
+.chat-call-btn {
+  margin-left: auto;
+  background-color: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
+  font-size: 0.85em;
+  padding: 0.5em 1em;
+}
+
+.chat-call-btn:hover:not(:disabled) {
+  background-color: var(--accent-hover);
+}
+
+.chat-call-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 .chat-empty-state {
   flex: 1;
   display: flex;
@@ -763,4 +781,91 @@ button:hover {
 .setup-back {
   background: transparent;
   color: var(--text-muted);
+}
+
+/* --- Call overlay --- */
+
+.call-overlay {
+  position: fixed;
+  top: 1.2em;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+}
+
+.call-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.8em;
+  padding: 1.2em 1.6em;
+  border-radius: 12px;
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.call-peer-name {
+  font-weight: 600;
+}
+
+.call-actions {
+  display: flex;
+  gap: 0.6em;
+}
+
+.call-btn {
+  padding: 0.5em 1.2em;
+  color: #ffffff;
+}
+
+.call-accept {
+  background-color: #3fa66a;
+  border-color: #3fa66a;
+}
+
+.call-accept:hover {
+  background-color: #4bbd7a;
+}
+
+.call-reject {
+  background-color: var(--danger);
+  border-color: var(--danger);
+}
+
+.call-reject:hover {
+  background-color: #ff8484;
+}
+
+.call-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.8em;
+  padding: 0.6em 1.2em;
+  border-radius: 10px;
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  font-size: 0.9em;
+}
+
+.call-bar-info {
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.call-bar-btn {
+  background-color: var(--surface-alt);
+  font-size: 0.85em;
+  padding: 0.4em 0.9em;
+}
+
+.call-bar-end {
+  background-color: var(--danger);
+  border-color: var(--danger);
+  color: #ffffff;
+}
+
+.call-bar-end:hover {
+  background-color: #ff8484;
 }

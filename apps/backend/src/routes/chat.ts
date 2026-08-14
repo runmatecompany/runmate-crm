@@ -8,14 +8,10 @@ import {
   listMessages,
   listRoomsForUser,
 } from "../db/chat.js";
-import { registerConnection, unregisterConnection, broadcastToUsers } from "../realtime/connections.js";
+import { registerConnection, unregisterConnection, broadcastToUsers, sendToUser } from "../realtime/connections.js";
 import type { JwtUserPayload } from "../plugins/jwt.js";
 
-interface IncomingChatFrame {
-  type: "message";
-  roomId: number;
-  body: string;
-}
+const CALL_FRAME_TYPES = new Set(["call-offer", "call-answer", "call-ice-candidate", "call-end", "call-reject"]);
 
 export default async function chatRoutes(fastify: FastifyInstance) {
   fastify.get("/chat/rooms", { onRequest: [fastify.authenticate] }, async (request) => {
@@ -75,12 +71,21 @@ export default async function chatRoutes(fastify: FastifyInstance) {
 
     socket.on("message", async (raw: Buffer) => {
       if (!userId) return;
-      let frame: IncomingChatFrame;
+      let frame: any;
       try {
         frame = JSON.parse(raw.toString());
       } catch {
         return;
       }
+
+      if (CALL_FRAME_TYPES.has(frame.type)) {
+        if (!frame.roomId || !frame.targetUserId) return;
+        const allowed = await canAccessRoom(frame.roomId, userId);
+        if (!allowed) return;
+        sendToUser(frame.targetUserId, { ...frame, fromUserId: userId });
+        return;
+      }
+
       if (frame.type !== "message" || !frame.roomId || !frame.body?.trim()) return;
 
       const allowed = await canAccessRoom(frame.roomId, userId);

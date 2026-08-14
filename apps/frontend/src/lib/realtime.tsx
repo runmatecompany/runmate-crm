@@ -3,22 +3,10 @@ import { useAuth } from "./auth";
 import { getApiUrl } from "./serverConfig";
 import type { ChatMessage } from "./chat";
 
-interface ProfileUpdatedFrame {
-  type: "profile-updated";
-  userId: number;
-  name?: string;
-  avatarChanged?: boolean;
-}
-
-interface MessageFrame {
-  type: "message";
-  message: ChatMessage;
-}
-
-type IncomingFrame = ProfileUpdatedFrame | MessageFrame;
-
 interface RealtimeValue {
   connected: boolean;
+  sendFrame: (frame: Record<string, unknown>) => void;
+  onFrame: (type: string, callback: (frame: any) => void) => () => void;
   sendChatMessage: (roomId: number, body: string) => void;
   onChatMessage: (callback: (message: ChatMessage) => void) => () => void;
   avatarVersions: Record<number, number>;
@@ -33,7 +21,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
   const token = auth?.token ?? null;
 
   const wsRef = useRef<WebSocket | null>(null);
-  const listenersRef = useRef<Set<(message: ChatMessage) => void>>(new Set());
+  const frameListenersRef = useRef<Map<string, Set<(frame: any) => void>>>(new Map());
   const [connected, setConnected] = useState(false);
   const [avatarVersions, setAvatarVersions] = useState<Record<number, number>>({});
   const [names, setNames] = useState<Record<number, string>>({});
@@ -58,16 +46,15 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
         reconnectTimer = setTimeout(connect, 3000);
       };
       ws.onmessage = (event) => {
-        let frame: IncomingFrame;
+        let frame: any;
         try {
           frame = JSON.parse(event.data);
         } catch {
           return;
         }
+        if (!frame?.type) return;
 
-        if (frame.type === "message") {
-          listenersRef.current.forEach((cb) => cb(frame.message));
-        } else if (frame.type === "profile-updated") {
+        if (frame.type === "profile-updated") {
           if (frame.avatarChanged) {
             setAvatarVersions((prev) => ({ ...prev, [frame.userId]: (prev[frame.userId] ?? 0) + 1 }));
           }
@@ -75,6 +62,8 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
             setNames((prev) => ({ ...prev, [frame.userId]: frame.name as string }));
           }
         }
+
+        frameListenersRef.current.get(frame.type)?.forEach((cb) => cb(frame));
       };
     }
 
@@ -87,16 +76,29 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     };
   }, [token]);
 
-  const sendChatMessage = useCallback((roomId: number, body: string) => {
-    wsRef.current?.send(JSON.stringify({ type: "message", roomId, body }));
+  const sendFrame = useCallback((frame: Record<string, unknown>) => {
+    wsRef.current?.send(JSON.stringify(frame));
   }, []);
 
-  const onChatMessage = useCallback((callback: (message: ChatMessage) => void) => {
-    listenersRef.current.add(callback);
+  const onFrame = useCallback((type: string, callback: (frame: any) => void) => {
+    if (!frameListenersRef.current.has(type)) {
+      frameListenersRef.current.set(type, new Set());
+    }
+    frameListenersRef.current.get(type)!.add(callback);
     return () => {
-      listenersRef.current.delete(callback);
+      frameListenersRef.current.get(type)?.delete(callback);
     };
   }, []);
+
+  const sendChatMessage = useCallback(
+    (roomId: number, body: string) => sendFrame({ type: "message", roomId, body }),
+    [sendFrame]
+  );
+
+  const onChatMessage = useCallback(
+    (callback: (message: ChatMessage) => void) => onFrame("message", (frame) => callback(frame.message)),
+    [onFrame]
+  );
 
   const bumpAvatar = useCallback((userId: number) => {
     setAvatarVersions((prev) => ({ ...prev, [userId]: (prev[userId] ?? 0) + 1 }));
@@ -104,7 +106,16 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
 
   return (
     <RealtimeContext.Provider
-      value={{ connected, sendChatMessage, onChatMessage, avatarVersions, names, bumpAvatar }}
+      value={{
+        connected,
+        sendFrame,
+        onFrame,
+        sendChatMessage,
+        onChatMessage,
+        avatarVersions,
+        names,
+        bumpAvatar,
+      }}
     >
       {children}
     </RealtimeContext.Provider>
