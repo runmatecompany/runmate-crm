@@ -7,6 +7,8 @@ import adminUsersRoutes from "./routes/admin/users.js";
 import chatRoutes from "./routes/chat.js";
 import adminChatRoutes from "./routes/admin/chat.js";
 import meRoutes from "./routes/me.js";
+import emailAccountsRoutes from "./routes/emailAccounts.js";
+import adminEmailAccountsRoutes from "./routes/admin/emailAccounts.js";
 
 export function buildApp() {
   // Az alapértelmezett 1 MB-os body limit kevés lenne egy base64-kódolt
@@ -24,6 +26,8 @@ export function buildApp() {
   app.register(chatRoutes);
   app.register(adminChatRoutes);
   app.register(meRoutes);
+  app.register(emailAccountsRoutes);
+  app.register(adminEmailAccountsRoutes);
 
   app.get("/health", async () => ({ status: "ok" }));
 

@@ -3,6 +3,7 @@ import Sidebar, { MENU_ITEMS } from "../components/Sidebar";
 import { useAuth } from "../lib/auth";
 import { useNavigation } from "../lib/navigation";
 import ChatPage from "./ChatPage";
+import MessagesPage from "./MessagesPage";
 import SettingsPage from "./SettingsPage";
 
 export default function DashboardPage() {
@@ -29,6 +30,8 @@ export default function DashboardPage() {
       />
       {activeId === "chat" ? (
         <ChatPage />
+      ) : activeId === "messages" ? (
+        <MessagesPage />
       ) : activeId === "settings" ? (
         <SettingsPage />
       ) : (

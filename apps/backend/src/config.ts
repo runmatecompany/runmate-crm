@@ -15,4 +15,5 @@ export const config = {
   databaseUrl: required("DATABASE_URL"),
   jwtSecret: required("JWT_SECRET"),
   jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? "8h",
+  emailEncryptionKey: required("EMAIL_ENCRYPTION_KEY"),
 };
