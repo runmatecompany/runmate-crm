@@ -13,6 +13,7 @@ export default function UserAccessModal({ user, onClose }: UserAccessModalProps)
   const { auth } = useAuth();
   const [accounts, setAccounts] = useState<EmailAccountAdminView[]>([]);
   const [leadsAccess, setLeadsAccessState] = useState(false);
+  const [emailModuleAccess, setEmailModuleAccessState] = useState(false);
   const [selectedAccountIds, setSelectedAccountIds] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -24,6 +25,7 @@ export default function UserAccessModal({ user, onClose }: UserAccessModalProps)
       ([accountList, access]) => {
         setAccounts(accountList);
         setLeadsAccessState(access.leadsAccess);
+        setEmailModuleAccessState(access.emailModuleAccess);
         setSelectedAccountIds(new Set(access.emailAccountIds));
         setLoading(false);
       }
@@ -49,6 +51,7 @@ export default function UserAccessModal({ user, onClose }: UserAccessModalProps)
     try {
       await setUserAccess(auth.token, user.id, {
         leadsAccess,
+        emailModuleAccess,
         emailAccountIds: Array.from(selectedAccountIds),
       });
       onClose();
@@ -62,13 +65,16 @@ export default function UserAccessModal({ user, onClose }: UserAccessModalProps)
     <div className="chat-modal-backdrop" onClick={onClose}>
       <div className="chat-modal" onClick={(e) => e.stopPropagation()}>
         <h2>{user.name} jogosultságai</h2>
-        <p className="chat-modal-hint">Válaszd ki, mely modulokhoz/fiókokhoz férjen hozzá {user.name}.</p>
+        <p className="chat-modal-hint">
+          Az első pipa dönti el, hogy az adott modul egyáltalán megjelenjen-e {user.name} számára. Ha a modulnak
+          több eleme van, azok almenüpontként, alább választhatók ki.
+        </p>
 
         {loading && <p className="chat-empty-hint">Betöltés...</p>}
 
         {!loading && (
           <div className="chat-member-picker">
-            <label className="chat-colleague-pick email-account-access-option">
+            <label className="chat-colleague-pick email-account-access-option user-access-module">
               <input
                 type="checkbox"
                 checked={leadsAccess}
@@ -76,17 +82,36 @@ export default function UserAccessModal({ user, onClose }: UserAccessModalProps)
               />
               Leadek modul
             </label>
-            {accounts.length === 0 && <p className="chat-empty-hint">Nincs még email fiók felvéve.</p>}
-            {accounts.map((account) => (
-              <label key={account.id} className="chat-colleague-pick email-account-access-option">
-                <input
-                  type="checkbox"
-                  checked={selectedAccountIds.has(account.id)}
-                  onChange={() => toggleAccount(account.id)}
-                />
-                Email fiók: {account.display_name}
-              </label>
-            ))}
+
+            <label className="chat-colleague-pick email-account-access-option user-access-module">
+              <input
+                type="checkbox"
+                checked={emailModuleAccess}
+                onChange={(e) => setEmailModuleAccessState(e.currentTarget.checked)}
+              />
+              Email modul
+            </label>
+            <div className="user-access-submenu">
+              {accounts.length === 0 && <p className="chat-empty-hint">Nincs még email fiók felvéve.</p>}
+              {accounts.map((account) => (
+                <label
+                  key={account.id}
+                  className={
+                    emailModuleAccess
+                      ? "chat-colleague-pick email-account-access-option"
+                      : "chat-colleague-pick email-account-access-option disabled"
+                  }
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedAccountIds.has(account.id)}
+                    onChange={() => toggleAccount(account.id)}
+                    disabled={!emailModuleAccess}
+                  />
+                  {account.display_name}
+                </label>
+              ))}
+            </div>
           </div>
         )}
 

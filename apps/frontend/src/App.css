@@ -1504,3 +1504,22 @@ button:hover {
   font-size: 0.82em;
   color: var(--text-muted);
 }
+
+.user-access-module {
+  font-weight: 600;
+}
+
+.user-access-submenu {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3em;
+  margin: 0 0 0.4em 1.6em;
+  padding-left: 0.6em;
+  border-left: 2px solid var(--border);
+}
+
+.email-account-access-option.disabled {
+  color: var(--text-muted);
+  opacity: 0.6;
+  cursor: default;
+}

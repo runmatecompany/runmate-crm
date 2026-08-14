@@ -206,6 +206,26 @@ export async function listAllActiveAccounts(): Promise<EmailAccountSummary[]> {
   return rows;
 }
 
+// Az "Email modul" (Üzenetek oldal) egészének láthatósága — külön a
+// fiókonkénti hozzáféréstől. Ha ez ki van kapcsolva, a felhasználó
+// semmilyen fiókhoz nem fér hozzá, még ha van is rá email_account_access
+// bejegyzése.
+export async function hasEmailModuleAccess(userId: number): Promise<boolean> {
+  const { rowCount } = await pool.query(`SELECT 1 FROM email_module_access WHERE user_id = $1`, [userId]);
+  return (rowCount ?? 0) > 0;
+}
+
+export async function grantEmailModuleAccess(userId: number, grantedBy: number): Promise<void> {
+  await pool.query(
+    `INSERT INTO email_module_access (user_id, granted_by) VALUES ($1, $2) ON CONFLICT (user_id) DO NOTHING`,
+    [userId, grantedBy]
+  );
+}
+
+export async function revokeEmailModuleAccess(userId: number): Promise<void> {
+  await pool.query(`DELETE FROM email_module_access WHERE user_id = $1`, [userId]);
+}
+
 export async function userHasAccountAccess(accountId: number, userId: number): Promise<boolean> {
   const { rowCount } = await pool.query(
     `SELECT 1 FROM email_account_access WHERE account_id = $1 AND user_id = $2`,

@@ -22,6 +22,7 @@ export default function MessagesPage() {
   const token = auth?.token ?? null;
 
   const [accounts, setAccounts] = useState<EmailAccountSummary[]>([]);
+  const [hasAccess, setHasAccess] = useState(true);
   const [activeAccountId, setActiveAccountId] = useState<number | null>(null);
   const [sentFolderPath, setSentFolderPath] = useState<string | null>(null);
   const [folderTab, setFolderTab] = useState<"inbox" | "sent">("inbox");
@@ -34,9 +35,10 @@ export default function MessagesPage() {
 
   useEffect(() => {
     if (!token) return;
-    listEmailAccounts(token).then((list) => {
-      setAccounts(list);
-      setActiveAccountId((prev) => prev ?? list[0]?.id ?? null);
+    listEmailAccounts(token).then((result) => {
+      setAccounts(result.accounts);
+      setHasAccess(result.hasAccess);
+      setActiveAccountId((prev) => prev ?? result.accounts[0]?.id ?? null);
     });
   }, [token]);
 
@@ -127,7 +129,11 @@ export default function MessagesPage() {
         </>
       ) : (
         <div className="mail-empty-state-page">
-          <p>Nincs elérhető email fiókod. Kérj hozzáférést egy adminisztrátortól.</p>
+          <p>
+            {hasAccess
+              ? "Nincs hozzád rendelve email fiók. Kérj hozzáférést egy adminisztrátortól."
+              : "Nincs hozzáférésed az Üzenetek modulhoz. Kérj hozzáférést egy adminisztrátortól."}
+          </p>
         </div>
       )}
 

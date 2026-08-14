@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { simpleParser } from "mailparser";
 import {
   getAccountById,
+  hasEmailModuleAccess,
   listAccessibleAccountsForUser,
   listAllActiveAccounts,
   userHasAccountAccess,
@@ -45,20 +46,23 @@ interface SendBody {
 }
 
 // Adminok minden fiókhoz hozzáférnek — a jövőben létrehozottakhoz is,
-// külön hozzáférés-kiosztás nélkül. Sima felhasználóknál az explicit
-// email_account_access bejegyzés dönt.
+// külön hozzáférés-kiosztás nélkül. Sima felhasználóknál két feltétel kell
+// egyszerre: legyen bekapcsolva neki az "Email modul" (egyáltalán lássa a
+// szekciót), ÉS legyen explicit hozzáférése az adott fiókhoz.
 async function requireAccess(accountId: number, userId: number, role: "admin" | "user"): Promise<boolean> {
   if (role === "admin") return true;
+  if (!(await hasEmailModuleAccess(userId))) return false;
   return userHasAccountAccess(accountId, userId);
 }
 
 export default async function emailAccountsRoutes(fastify: FastifyInstance) {
   fastify.get("/email-accounts", { onRequest: [fastify.authenticate] }, async (request) => {
-    const accounts =
-      request.user.role === "admin"
-        ? await listAllActiveAccounts()
-        : await listAccessibleAccountsForUser(request.user.sub);
-    return { accounts };
+    if (request.user.role === "admin") {
+      return { accounts: await listAllActiveAccounts(), hasAccess: true };
+    }
+    const hasAccess = await hasEmailModuleAccess(request.user.sub);
+    const accounts = hasAccess ? await listAccessibleAccountsForUser(request.user.sub) : [];
+    return { accounts, hasAccess };
   });
 
   fastify.get<{ Params: { id: string } }>(

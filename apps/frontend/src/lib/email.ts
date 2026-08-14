@@ -83,10 +83,14 @@ export interface ConnectionTestResult {
 
 // --- Felhasználói (mindenkinek elérhető, csak a saját fiókjaihoz) ---
 
-export async function listEmailAccounts(token: string): Promise<EmailAccountSummary[]> {
+export interface EmailAccountsListResult {
+  accounts: EmailAccountSummary[];
+  hasAccess: boolean;
+}
+
+export async function listEmailAccounts(token: string): Promise<EmailAccountsListResult> {
   const res = await authFetch(token, "/email-accounts");
-  const data = await res.json();
-  return data.accounts;
+  return res.json();
 }
 
 export async function listFolders(token: string, accountId: number): Promise<MailFolder[]> {

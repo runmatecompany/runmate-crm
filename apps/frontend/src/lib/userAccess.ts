@@ -2,6 +2,7 @@ import { authFetch } from "./api";
 
 export interface UserAccess {
   leadsAccess: boolean;
+  emailModuleAccess: boolean;
   emailAccountIds: number[];
 }
 
