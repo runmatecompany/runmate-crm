@@ -77,17 +77,3 @@ export async function updateLeadStatus(token: string, id: number, status: LeadSt
 export async function deleteLead(token: string, id: number): Promise<void> {
   await authFetch(token, `/leads/${id}`, { method: "DELETE" });
 }
-
-export async function getLeadsAccess(token: string): Promise<number[]> {
-  const res = await authFetch(token, "/admin/leads-access");
-  const data = await res.json();
-  return data.userIds;
-}
-
-export async function setLeadsAccess(token: string, userIds: number[]): Promise<void> {
-  await authFetch(token, "/admin/leads-access", {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userIds }),
-  });
-}

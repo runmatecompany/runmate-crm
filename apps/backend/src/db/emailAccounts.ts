@@ -214,37 +214,25 @@ export async function userHasAccountAccess(accountId: number, userId: number): P
   return (rowCount ?? 0) > 0;
 }
 
-export async function listAccountAccessUserIds(accountId: number): Promise<number[]> {
-  const { rows } = await pool.query<{ user_id: number }>(
-    `SELECT user_id FROM email_account_access WHERE account_id = $1`,
-    [accountId]
+// Melyik fiókokhoz fér hozzá egy adott felhasználó — a "Profilok" nézet
+// (felhasználó -> modulok/fiókok) ezt használja kiinduló állapotnak.
+export async function listAccessibleAccountIdsForUser(userId: number): Promise<number[]> {
+  const { rows } = await pool.query<{ account_id: number }>(
+    `SELECT account_id FROM email_account_access WHERE user_id = $1`,
+    [userId]
   );
-  return rows.map((r) => r.user_id);
+  return rows.map((r) => r.account_id);
 }
 
-// A teljes hozzáférési listát cseréli le egy adott fióknál: aki nincs benne
-// userIds-ben, elveszíti a hozzáférését, aki új, azt felvesszük.
-export async function setAccountAccess(accountId: number, userIds: number[], grantedBy: number): Promise<void> {
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
-    await client.query(`DELETE FROM email_account_access WHERE account_id = $1 AND user_id != ALL($2::int[])`, [
-      accountId,
-      userIds,
-    ]);
-    for (const userId of userIds) {
-      await client.query(
-        `INSERT INTO email_account_access (account_id, user_id, granted_by)
-         VALUES ($1, $2, $3)
-         ON CONFLICT (account_id, user_id) DO NOTHING`,
-        [accountId, userId, grantedBy]
-      );
-    }
-    await client.query("COMMIT");
-  } catch (err) {
-    await client.query("ROLLBACK");
-    throw err;
-  } finally {
-    client.release();
-  }
+export async function grantAccountAccess(accountId: number, userId: number, grantedBy: number): Promise<void> {
+  await pool.query(
+    `INSERT INTO email_account_access (account_id, user_id, granted_by)
+     VALUES ($1, $2, $3)
+     ON CONFLICT (account_id, user_id) DO NOTHING`,
+    [accountId, userId, grantedBy]
+  );
+}
+
+export async function revokeAccountAccess(accountId: number, userId: number): Promise<void> {
+  await pool.query(`DELETE FROM email_account_access WHERE account_id = $1 AND user_id = $2`, [accountId, userId]);
 }

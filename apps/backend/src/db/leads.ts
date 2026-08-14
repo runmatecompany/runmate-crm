@@ -115,27 +115,13 @@ export async function hasLeadsAccess(userId: number): Promise<boolean> {
   return (rowCount ?? 0) > 0;
 }
 
-export async function listLeadsAccessUserIds(): Promise<number[]> {
-  const { rows } = await pool.query<{ user_id: number }>(`SELECT user_id FROM leads_access`);
-  return rows.map((r) => r.user_id);
+export async function grantLeadsAccess(userId: number, grantedBy: number): Promise<void> {
+  await pool.query(
+    `INSERT INTO leads_access (user_id, granted_by) VALUES ($1, $2) ON CONFLICT (user_id) DO NOTHING`,
+    [userId, grantedBy]
+  );
 }
 
-export async function setLeadsAccess(userIds: number[], grantedBy: number): Promise<void> {
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
-    await client.query(`DELETE FROM leads_access WHERE user_id != ALL($1::int[])`, [userIds]);
-    for (const userId of userIds) {
-      await client.query(
-        `INSERT INTO leads_access (user_id, granted_by) VALUES ($1, $2) ON CONFLICT (user_id) DO NOTHING`,
-        [userId, grantedBy]
-      );
-    }
-    await client.query("COMMIT");
-  } catch (err) {
-    await client.query("ROLLBACK");
-    throw err;
-  } finally {
-    client.release();
-  }
+export async function revokeLeadsAccess(userId: number): Promise<void> {
+  await pool.query(`DELETE FROM leads_access WHERE user_id = $1`, [userId]);
 }

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useAuth } from "../lib/auth";
 import ProfileSettings from "../components/settings/ProfileSettings";
 import EmailAccountsSettings from "../components/settings/EmailAccountsSettings";
+import ProfilesSettings from "../components/settings/ProfilesSettings";
 
 interface SettingsSection {
   id: string;
@@ -15,6 +16,7 @@ export default function SettingsPage() {
   const sections: SettingsSection[] = [
     { id: "profile", label: "Profilom" },
     ...(isAdmin ? [{ id: "email-accounts", label: "Email fiókok" }] : []),
+    ...(isAdmin ? [{ id: "profiles", label: "Profilok" }] : []),
   ];
 
   const [activeSection, setActiveSection] = useState(sections[0].id);
@@ -36,6 +38,7 @@ export default function SettingsPage() {
       <div className="settings-content">
         {activeSection === "profile" && <ProfileSettings />}
         {activeSection === "email-accounts" && isAdmin && <EmailAccountsSettings />}
+        {activeSection === "profiles" && isAdmin && <ProfilesSettings />}
       </div>
     </main>
   );

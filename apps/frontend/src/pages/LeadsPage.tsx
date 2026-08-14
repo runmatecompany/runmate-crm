@@ -12,7 +12,6 @@ import {
   type LeadStatus,
 } from "../lib/leads";
 import LeadFormModal from "../components/leads/LeadFormModal";
-import LeadsAccessModal from "../components/leads/LeadsAccessModal";
 
 export default function LeadsPage() {
   const { auth } = useAuth();
@@ -23,7 +22,6 @@ export default function LeadsPage() {
   const [hasAccess, setHasAccess] = useState(true);
   const [statusFilter, setStatusFilter] = useState<LeadStatus | "all">("all");
   const [editingLead, setEditingLead] = useState<Lead | "new" | null>(null);
-  const [showAccessModal, setShowAccessModal] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(() => {
@@ -82,16 +80,9 @@ export default function LeadsPage() {
     <main className="leads-page">
       <div className="leads-header">
         <h1>Leadek</h1>
-        <div className="leads-header-actions">
-          {isAdmin && (
-            <button type="button" onClick={() => setShowAccessModal(true)}>
-              Hozzáférés kezelése
-            </button>
-          )}
-          <button type="button" onClick={() => setEditingLead("new")}>
-            + Új lead
-          </button>
-        </div>
+        <button type="button" onClick={() => setEditingLead("new")}>
+          + Új lead
+        </button>
       </div>
 
       <div className="leads-status-tabs">
@@ -171,8 +162,6 @@ export default function LeadsPage() {
           onSave={handleSave}
         />
       )}
-
-      {showAccessModal && <LeadsAccessModal onClose={() => setShowAccessModal(false)} />}
     </main>
   );
 }

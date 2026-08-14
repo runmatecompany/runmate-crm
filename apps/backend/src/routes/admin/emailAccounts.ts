@@ -2,11 +2,8 @@ import type { FastifyInstance } from "fastify";
 import {
   createAccount,
   deleteAccount,
-  getAccountAdminById,
   getAccountById,
-  listAccountAccessUserIds,
   listAccountsAdmin,
-  setAccountAccess,
   updateAccount,
   type MailSecurity,
 } from "../../db/emailAccounts.js";
@@ -102,14 +99,6 @@ const testConnectionBodySchema = {
     accountId: { type: "integer" },
     imap: connectionSideSchema,
     smtp: connectionSideSchema,
-  },
-} as const;
-
-const accessBodySchema = {
-  type: "object",
-  required: ["userIds"],
-  properties: {
-    userIds: { type: "array", items: { type: "integer" } },
   },
 } as const;
 
@@ -238,28 +227,6 @@ export default async function adminEmailAccountsRoutes(fastify: FastifyInstance)
         testSmtpConnection({ ...smtp, password: smtpPassword }),
       ]);
       return { imap: imapResult, smtp: smtpResult };
-    }
-  );
-
-  fastify.get<{ Params: { id: string } }>("/admin/email-accounts/:id/access", async (request, reply) => {
-    const account = await getAccountAdminById(Number(request.params.id));
-    if (!account) {
-      return reply.code(404).send({ error: "Account not found" });
-    }
-    return { userIds: await listAccountAccessUserIds(account.id) };
-  });
-
-  fastify.put<{ Params: { id: string }; Body: { userIds: number[] } }>(
-    "/admin/email-accounts/:id/access",
-    { schema: { body: accessBodySchema } },
-    async (request, reply) => {
-      const id = Number(request.params.id);
-      const account = await getAccountAdminById(id);
-      if (!account) {
-        return reply.code(404).send({ error: "Account not found" });
-      }
-      await setAccountAccess(id, request.body.userIds, request.user.sub);
-      return { ok: true };
     }
   );
 }

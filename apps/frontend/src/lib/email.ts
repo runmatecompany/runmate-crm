@@ -211,17 +211,3 @@ export async function testEmailAccountConnection(
   });
   return res.json();
 }
-
-export async function getEmailAccountAccess(token: string, id: number): Promise<number[]> {
-  const res = await authFetch(token, `/admin/email-accounts/${id}/access`);
-  const data = await res.json();
-  return data.userIds;
-}
-
-export async function setEmailAccountAccess(token: string, id: number, userIds: number[]): Promise<void> {
-  await authFetch(token, `/admin/email-accounts/${id}/access`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userIds }),
-  });
-}

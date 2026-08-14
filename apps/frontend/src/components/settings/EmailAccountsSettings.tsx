@@ -9,14 +9,12 @@ import {
   type EmailAccountFormInput,
 } from "../../lib/email";
 import EmailAccountFormModal from "./EmailAccountFormModal";
-import EmailAccountAccessModal from "./EmailAccountAccessModal";
 
 export default function EmailAccountsSettings() {
   const { auth } = useAuth();
   const [accounts, setAccounts] = useState<EmailAccountAdminView[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingAccount, setEditingAccount] = useState<EmailAccountAdminView | null | "new">(null);
-  const [accessAccount, setAccessAccount] = useState<EmailAccountAdminView | null>(null);
 
   const refresh = useCallback(() => {
     if (!auth) return;
@@ -57,8 +55,7 @@ export default function EmailAccountsSettings() {
         </button>
       </div>
       <p className="chat-modal-hint">
-        Az itt felvett fiókokat az adminisztrátor osztja ki felhasználónként — akinek hozzáférést adsz, annak
-        automatikusan megjelenik az Üzenetek oldalon, bejelentkezés nélkül.
+        Az itt felvett fiókokhoz a hozzáférést a Beállítások &gt; Profilok oldalon, felhasználónként kezelheted.
       </p>
 
       {loading && <p className="chat-empty-hint">Betöltés...</p>}
@@ -75,9 +72,6 @@ export default function EmailAccountsSettings() {
               <span className="email-account-row-address">{account.from_address}</span>
             </div>
             <div className="email-account-row-actions">
-              <button type="button" onClick={() => setAccessAccount(account)}>
-                Hozzáférés kezelése
-              </button>
               <button type="button" onClick={() => setEditingAccount(account)}>
                 Szerkesztés
               </button>
@@ -96,8 +90,6 @@ export default function EmailAccountsSettings() {
           onSave={handleSave}
         />
       )}
-
-      {accessAccount && <EmailAccountAccessModal account={accessAccount} onClose={() => setAccessAccount(null)} />}
     </div>
   );
 }
