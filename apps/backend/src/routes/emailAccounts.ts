@@ -200,8 +200,12 @@ export default async function emailAccountsRoutes(fastify: FastifyInstance) {
 
       const raw: Buffer = await new MailComposer(mailOptions).compile().build();
 
+      // A `to`/`cc`/`bcc`-t a `raw` mellett is átadjuk: a nyers MIME-tartalom
+      // csak a levél szövegét adja, a tényleges SMTP "boríték" címzettjeit
+      // (RCPT TO) nodemailer ezekből a mezőkből vezeti le, különben nem tudja,
+      // kinek küldje el ("No recipients defined").
       const transporter = nodemailer.createTransport(toSmtpOptions(account));
-      await transporter.sendMail({ raw });
+      await transporter.sendMail({ raw, to, cc, bcc });
 
       // Best-effort: bekerül-e egy másolat a Sent mappába. Ha ez elhasal
       // (pl. nincs \Sent mappa), az ne buktassa a sikeres küldést.

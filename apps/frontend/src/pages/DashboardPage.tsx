@@ -4,6 +4,7 @@ import { useAuth } from "../lib/auth";
 import { useNavigation } from "../lib/navigation";
 import ChatPage from "./ChatPage";
 import MessagesPage from "./MessagesPage";
+import LeadsPage from "./LeadsPage";
 import SettingsPage from "./SettingsPage";
 
 export default function DashboardPage() {
@@ -32,6 +33,8 @@ export default function DashboardPage() {
         <ChatPage />
       ) : activeId === "messages" ? (
         <MessagesPage />
+      ) : activeId === "leads" ? (
+        <LeadsPage />
       ) : activeId === "settings" ? (
         <SettingsPage />
       ) : (
