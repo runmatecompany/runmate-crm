@@ -13,3 +13,6 @@ Thumbs.db
 
 # Claude Code local session state
 .claude/
+
+# Relocated dev tool caches (cargo/rustup/npm/temp) — not project files
+/0/
