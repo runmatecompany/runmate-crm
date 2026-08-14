@@ -21,9 +21,10 @@ function colorForName(name: string): string {
 
 export default function Avatar({ userId, name, size = 32 }: AvatarProps) {
   const { auth } = useAuth();
-  const { avatarVersions, names } = useRealtime();
+  const { avatarVersions, names, onlineUserIds } = useRealtime();
   const version = avatarVersions[userId] ?? 0;
   const displayName = names[userId] ?? name;
+  const online = onlineUserIds.has(userId);
   const [url, setUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -46,17 +47,26 @@ export default function Avatar({ userId, name, size = 32 }: AvatarProps) {
     };
   }, [auth?.token, userId, version]);
 
-  if (url) {
-    return <img src={url} alt={displayName} className="avatar-img" style={{ width: size, height: size }} />;
-  }
-
   const initial = displayName.trim().charAt(0).toUpperCase() || "?";
+  const dotSize = Math.max(8, Math.round(size * 0.3));
+
   return (
-    <div
-      className="avatar-fallback"
-      style={{ width: size, height: size, fontSize: size * 0.42, backgroundColor: colorForName(displayName) }}
-    >
-      {initial}
-    </div>
+    <span className="avatar-wrap" style={{ width: size, height: size }}>
+      {url ? (
+        <img src={url} alt={displayName} className="avatar-img" style={{ width: size, height: size }} />
+      ) : (
+        <div
+          className="avatar-fallback"
+          style={{ width: size, height: size, fontSize: size * 0.42, backgroundColor: colorForName(displayName) }}
+        >
+          {initial}
+        </div>
+      )}
+      <span
+        className={online ? "avatar-status online" : "avatar-status offline"}
+        style={{ width: dotSize, height: dotSize }}
+        title={online ? "Elérhető" : "Nem elérhető"}
+      />
+    </span>
   );
 }

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useAuth } from "../lib/auth";
 import { useRealtime } from "../lib/realtime";
 import { useCall } from "../lib/call";
+import { useNavigation } from "../lib/navigation";
 import {
   createRoom,
   listColleagues,
@@ -25,6 +26,7 @@ export default function ChatPage() {
   const isAdmin = auth?.user.role === "admin";
   const { onChatMessage, sendChatMessage, names } = useRealtime();
   const { status: callStatus, startCall } = useCall();
+  const { requestedRoomId, clearRequestedRoom, setViewingRoomId } = useNavigation();
 
   const [rooms, setRooms] = useState<RoomSummary[]>([]);
   const [colleagues, setColleagues] = useState<Colleague[]>([]);
@@ -52,6 +54,22 @@ export default function ChatPage() {
     }
     listMessages(token, activeRoomId).then(setMessages);
   }, [token, activeRoomId]);
+
+  // Ha egy toast értesítésre kattintva kértek megnyitni egy szobát, azt
+  // választjuk aktívvá.
+  useEffect(() => {
+    if (requestedRoomId != null) {
+      setActiveRoomId(requestedRoomId);
+      clearRequestedRoom();
+    }
+  }, [requestedRoomId, clearRequestedRoom]);
+
+  // Jelezzük app-szinten, melyik szobát nézzük épp — így ehhez a szobához
+  // nem jelenik meg felesleges toast.
+  useEffect(() => {
+    setViewingRoomId(activeRoomId);
+    return () => setViewingRoomId(null);
+  }, [activeRoomId, setViewingRoomId]);
 
   useEffect(() => {
     return onChatMessage((message: ChatMessage) => {

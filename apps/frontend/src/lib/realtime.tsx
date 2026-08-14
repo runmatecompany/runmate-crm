@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { useAuth } from "./auth";
+import { authFetch } from "./api";
 import { getApiUrl } from "./serverConfig";
 import type { ChatMessage } from "./chat";
 
@@ -12,6 +13,7 @@ interface RealtimeValue {
   avatarVersions: Record<number, number>;
   names: Record<number, string>;
   bumpAvatar: (userId: number) => void;
+  onlineUserIds: Set<number>;
 }
 
 const RealtimeContext = createContext<RealtimeValue | undefined>(undefined);
@@ -25,6 +27,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
   const [connected, setConnected] = useState(false);
   const [avatarVersions, setAvatarVersions] = useState<Record<number, number>>({});
   const [names, setNames] = useState<Record<number, string>>({});
+  const [onlineUserIds, setOnlineUserIds] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     if (!token) return;
@@ -39,6 +42,12 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
 
       ws.onopen = () => {
         if (!cancelled) setConnected(true);
+        authFetch(token as string, "/chat/presence")
+          .then((res) => res.json())
+          .then((data) => {
+            if (!cancelled) setOnlineUserIds(new Set<number>(data.onlineUserIds ?? []));
+          })
+          .catch(() => {});
       };
       ws.onclose = () => {
         if (cancelled) return;
@@ -61,6 +70,15 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
           if (frame.name) {
             setNames((prev) => ({ ...prev, [frame.userId]: frame.name as string }));
           }
+        }
+
+        if (frame.type === "presence-changed") {
+          setOnlineUserIds((prev) => {
+            const next = new Set(prev);
+            if (frame.online) next.add(frame.userId);
+            else next.delete(frame.userId);
+            return next;
+          });
         }
 
         frameListenersRef.current.get(frame.type)?.forEach((cb) => cb(frame));
@@ -115,6 +133,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
         avatarVersions,
         names,
         bumpAvatar,
+        onlineUserIds,
       }}
     >
       {children}

@@ -8,7 +8,14 @@ import {
   listMessages,
   listRoomsForUser,
 } from "../db/chat.js";
-import { registerConnection, unregisterConnection, broadcastToUsers, sendToUser } from "../realtime/connections.js";
+import {
+  registerConnection,
+  unregisterConnection,
+  broadcastToUsers,
+  broadcastToAll,
+  sendToUser,
+  getOnlineUserIds,
+} from "../realtime/connections.js";
 import type { JwtUserPayload } from "../plugins/jwt.js";
 
 const CALL_FRAME_TYPES = new Set(["call-offer", "call-answer", "call-ice-candidate", "call-end", "call-reject"]);
@@ -21,6 +28,10 @@ export default async function chatRoutes(fastify: FastifyInstance) {
 
   fastify.get("/chat/users", { onRequest: [fastify.authenticate] }, async () => {
     return { users: await listColleagues() };
+  });
+
+  fastify.get("/chat/presence", { onRequest: [fastify.authenticate] }, async () => {
+    return { onlineUserIds: getOnlineUserIds() };
   });
 
   fastify.get<{ Params: { id: string }; Querystring: { before?: string; limit?: string } }>(
@@ -63,7 +74,10 @@ export default async function chatRoutes(fastify: FastifyInstance) {
     try {
       const payload = fastify.jwt.verify<JwtUserPayload>(token);
       userId = payload.sub;
-      registerConnection(userId, socket);
+      const wentOnline = registerConnection(userId, socket);
+      if (wentOnline) {
+        broadcastToAll({ type: "presence-changed", userId, online: true });
+      }
     } catch {
       socket.close(4001, "Invalid token");
       return;
@@ -97,7 +111,11 @@ export default async function chatRoutes(fastify: FastifyInstance) {
     });
 
     socket.on("close", () => {
-      if (userId) unregisterConnection(userId, socket);
+      if (!userId) return;
+      const wentOffline = unregisterConnection(userId, socket);
+      if (wentOffline) {
+        broadcastToAll({ type: "presence-changed", userId, online: false });
+      }
     });
   });
 }

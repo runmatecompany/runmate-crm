@@ -602,6 +602,12 @@ button:hover {
 
 /* --- Avatar --- */
 
+.avatar-wrap {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
 .avatar-img {
   border-radius: 50%;
   object-fit: cover;
@@ -616,6 +622,23 @@ button:hover {
   justify-content: center;
   color: #ffffff;
   font-weight: 600;
+}
+
+.avatar-status {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  border-radius: 50%;
+  border: 2px solid var(--surface);
+  box-sizing: content-box;
+}
+
+.avatar-status.online {
+  background-color: #3fa66a;
+}
+
+.avatar-status.offline {
+  background-color: #6b7280;
 }
 
 /* --- Settings / Profile --- */
@@ -868,4 +891,62 @@ button:hover {
 
 .call-bar-end:hover {
   background-color: #ff8484;
+}
+
+/* --- Toast notifications --- */
+
+.toast-stack {
+  position: fixed;
+  bottom: 1.2em;
+  right: 1.2em;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 0.6em;
+  z-index: 30;
+}
+
+.toast-card {
+  display: flex;
+  align-items: center;
+  gap: 0.7em;
+  width: 280px;
+  padding: 0.8em 1em;
+  border-radius: 10px;
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  text-align: left;
+  animation: toast-in 0.18s ease-out;
+}
+
+.toast-card:hover {
+  border-color: var(--accent);
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.toast-text {
+  min-width: 0;
+}
+
+.toast-sender {
+  font-weight: 600;
+  font-size: 0.9em;
+}
+
+.toast-body {
+  font-size: 0.85em;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
