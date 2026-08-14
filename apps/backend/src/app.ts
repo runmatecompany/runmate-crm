@@ -6,9 +6,12 @@ import authRoutes from "./routes/auth.js";
 import adminUsersRoutes from "./routes/admin/users.js";
 import chatRoutes from "./routes/chat.js";
 import adminChatRoutes from "./routes/admin/chat.js";
+import meRoutes from "./routes/me.js";
 
 export function buildApp() {
-  const app = Fastify({ logger: true });
+  // Az alapértelmezett 1 MB-os body limit kevés lenne egy base64-kódolt
+  // profilképhez, ezért ezt kicsit megemeljük.
+  const app = Fastify({ logger: true, bodyLimit: 5 * 1024 * 1024 });
 
   // Dev: engedjük a Tauri webview / Vite dev szerver origin-jét.
   // Élesben érdemes konkrét origin(ek)re szűkíteni.
@@ -20,6 +23,7 @@ export function buildApp() {
   app.register(adminUsersRoutes);
   app.register(chatRoutes);
   app.register(adminChatRoutes);
+  app.register(meRoutes);
 
   app.get("/health", async () => ({ status: "ok" }));
 

@@ -43,3 +43,33 @@ export async function listUsers(): Promise<Omit<User, "password_hash">[]> {
   );
   return rows;
 }
+
+export async function getUserById(id: number): Promise<Omit<User, "password_hash"> | undefined> {
+  const { rows } = await pool.query<Omit<User, "password_hash">>(
+    "SELECT id, name, email, role, created_at FROM users WHERE id = $1",
+    [id]
+  );
+  return rows[0];
+}
+
+export async function updateUserName(id: number, name: string): Promise<Omit<User, "password_hash"> | undefined> {
+  const { rows } = await pool.query<Omit<User, "password_hash">>(
+    "UPDATE users SET name = $1 WHERE id = $2 RETURNING id, name, email, role, created_at",
+    [name, id]
+  );
+  return rows[0];
+}
+
+export async function setUserAvatar(id: number, mime: string, data: Buffer): Promise<void> {
+  await pool.query("UPDATE users SET avatar_mime = $1, avatar_data = $2 WHERE id = $3", [mime, data, id]);
+}
+
+export async function getUserAvatar(id: number): Promise<{ mime: string; data: Buffer } | undefined> {
+  const { rows } = await pool.query<{ avatar_mime: string | null; avatar_data: Buffer | null }>(
+    "SELECT avatar_mime, avatar_data FROM users WHERE id = $1",
+    [id]
+  );
+  const row = rows[0];
+  if (!row?.avatar_mime || !row.avatar_data) return undefined;
+  return { mime: row.avatar_mime, data: row.avatar_data };
+}

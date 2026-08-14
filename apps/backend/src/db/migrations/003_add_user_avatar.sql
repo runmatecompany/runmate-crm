@@ -1,0 +1,3 @@
+ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS avatar_mime TEXT,
+    ADD COLUMN IF NOT EXISTS avatar_data BYTEA;

@@ -1,5 +1,6 @@
 import logo from "../assets/logo.png";
 import { useUpdater } from "../lib/updater";
+import Avatar from "./Avatar";
 
 export interface MenuItem {
   id: string;
@@ -15,11 +16,13 @@ export const MENU_ITEMS: MenuItem[] = [
 interface SidebarProps {
   activeId: string;
   onSelect: (id: string) => void;
+  userId: number;
   userName: string;
+  avatarVersion: number;
   onLogout: () => void;
 }
 
-export default function Sidebar({ activeId, onSelect, userName, onLogout }: SidebarProps) {
+export default function Sidebar({ activeId, onSelect, userId, userName, avatarVersion, onLogout }: SidebarProps) {
   const { status, installAndRestart } = useUpdater();
   const updateAvailable = status === "available" || status === "installing";
 
@@ -55,7 +58,10 @@ export default function Sidebar({ activeId, onSelect, userName, onLogout }: Side
             <span className="sidebar-update-sub">Frissítés és újraindítás</span>
           </button>
         ) : (
-          <div className="sidebar-user">{userName}</div>
+          <div className="sidebar-user">
+            <Avatar userId={userId} name={userName} size={26} version={avatarVersion} />
+            <span>{userName}</span>
+          </div>
         )}
         <button className="sidebar-logout" onClick={onLogout}>
           Kijelentkezés

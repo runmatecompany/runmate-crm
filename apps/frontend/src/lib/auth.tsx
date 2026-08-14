@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
 import { login as apiLogin, type LoginResponse } from "./api";
+import { updateMyName } from "./profile";
 
 const STORAGE_KEY = "runmate-crm-auth";
 
@@ -12,6 +13,7 @@ interface AuthContextValue {
   auth: AuthState | null;
   login: (email: string, password: string, remember: boolean) => Promise<void>;
   logout: () => void;
+  updateName: (name: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -41,7 +43,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuth(null);
   }
 
-  return <AuthContext.Provider value={{ auth, login, logout }}>{children}</AuthContext.Provider>;
+  async function updateName(name: string) {
+    if (!auth) return;
+    const profile = await updateMyName(auth.token, name);
+    const next: AuthState = { token: auth.token, user: { ...auth.user, name: profile.name } };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    setAuth(next);
+  }
+
+  return <AuthContext.Provider value={{ auth, login, logout, updateName }}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth(): AuthContextValue {
