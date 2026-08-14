@@ -109,7 +109,7 @@ Az eredmény: `apps/frontend/src-tauri/target/release/bundle/nsis/RunMate CRM_x.
 ### 3. Amit a kollégának tennie kell
 
 1. Lefuttatja a kapott `...setup.exe` (Windows) vagy `.dmg` (macOS) telepítőt.
-2. Első indításkor a bejelentkező képernyőn a "Szerver: ..." gombra kattintva beállítja a központi szerver címét (lásd lent, LAN vagy Tailscale cím).
+2. Első indításkor, ha az app nem éri el a szervert, automatikusan megjelenik egy **beüzemelő varázsló**, ami végigvezeti a Tailscale telepítésén és a céges hálózathoz csatlakozáson (lásd lent), majd ellenőrzi a kapcsolatot, mielőtt bejelentkezésre engedi. Nincs kézi "Szerver cím" beállítás — csak akkor kell hozzányúlni, ha valaki explicit "Kihagyom" gombbal kilép a varázslóból.
 3. Ezután a tőled kapott email/jelszó párral bejelentkezik. (Új felhasználót az admin `/admin/users` végponton, vagy a `create-admin` scripttel a szervergépen tudsz létrehozni.)
 
 ### 4. Távoli elérés (nem ugyanazon a Wi-Fi/hálózaton) — Tailscale

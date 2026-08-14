@@ -692,3 +692,69 @@ button:hover {
   color: #6fcf87;
   font-size: 0.85em;
 }
+
+/* --- Setup wizard --- */
+
+.setup-card {
+  width: 360px;
+}
+
+.setup-progress {
+  display: flex;
+  justify-content: center;
+  gap: 0.4em;
+  margin: 0.4em 0 0.6em;
+}
+
+.setup-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--border);
+}
+
+.setup-dot.active {
+  background-color: var(--accent);
+}
+
+.setup-step {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6em;
+}
+
+.setup-step h1 {
+  margin: 0;
+  font-size: 1.15em;
+  text-align: center;
+}
+
+.setup-step .login-subtitle {
+  margin: 0;
+}
+
+.setup-step button[type="button"]:not(.setup-back) {
+  background-color: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
+}
+
+.setup-step button[type="button"]:not(.setup-back):hover {
+  background-color: var(--accent-hover);
+}
+
+.setup-nav {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.6em;
+  margin-top: 0.2em;
+}
+
+.setup-nav button {
+  flex: 1;
+}
+
+.setup-back {
+  background: transparent;
+  color: var(--text-muted);
+}
