@@ -129,6 +129,7 @@ export default function LeadsPage() {
                 <td>{lead.email}</td>
                 <td>
                   <select
+                    className={`leads-status-select leads-status-${lead.status}`}
                     value={lead.status}
                     onChange={(e) => handleStatusChange(lead, e.currentTarget.value as LeadStatus)}
                   >
@@ -139,15 +140,17 @@ export default function LeadsPage() {
                     ))}
                   </select>
                 </td>
-                <td className="leads-row-actions">
-                  <button type="button" onClick={() => setEditingLead(lead)}>
-                    Szerkesztés
-                  </button>
-                  {isAdmin && (
-                    <button type="button" onClick={() => handleDelete(lead)}>
-                      Törlés
+                <td>
+                  <div className="leads-row-actions">
+                    <button type="button" onClick={() => setEditingLead(lead)}>
+                      Szerkesztés
                     </button>
-                  )}
+                    {isAdmin && (
+                      <button type="button" onClick={() => handleDelete(lead)}>
+                        Törlés
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}

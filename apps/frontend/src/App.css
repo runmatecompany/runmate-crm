@@ -1454,6 +1454,7 @@ button:hover {
   padding: 0.5em 0.6em;
   border-bottom: 1px solid var(--border);
   font-size: 0.92em;
+  vertical-align: middle;
 }
 
 .leads-row-actions {
@@ -1464,6 +1465,61 @@ button:hover {
 .leads-row-actions button {
   font-size: 0.82em;
   padding: 0.4em 0.8em;
+}
+
+.leads-status-select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding: 0.4em 1.8em 0.4em 0.8em;
+  font-size: 0.82em;
+  font-weight: 600;
+  border-radius: 999px;
+  cursor: pointer;
+  background-color: var(--surface-alt);
+  border: 1px solid var(--border);
+  color: var(--text);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%239aa1b2' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.7em center;
+  background-size: 0.6em;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.leads-status-select:hover {
+  border-color: var(--text-muted);
+}
+
+.leads-status-select:focus {
+  border-color: var(--accent);
+}
+
+.leads-status-select.leads-status-to_call {
+  border-color: var(--border);
+  color: var(--text-muted);
+}
+
+.leads-status-select.leads-status-call_back {
+  border-color: #d9a441;
+  background-color: rgba(217, 164, 65, 0.12);
+  color: #e8bd6b;
+}
+
+.leads-status-select.leads-status-called {
+  border-color: var(--accent);
+  background-color: rgba(47, 127, 224, 0.12);
+  color: #6cabf2;
+}
+
+.leads-status-select.leads-status-became_customer {
+  border-color: #3ecf8e;
+  background-color: rgba(62, 207, 142, 0.12);
+  color: #6fe0ac;
+}
+
+.leads-status-select.leads-status-not_interested {
+  border-color: var(--danger);
+  background-color: rgba(255, 107, 107, 0.1);
+  color: #ff8f8f;
 }
 
 .lead-form {
