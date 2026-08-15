@@ -1,10 +1,44 @@
-import { useEffect, useRef } from "react";
-import type { ChatMessage } from "../../lib/chat";
+import { useEffect, useRef, useState } from "react";
+import { useAuth } from "../../lib/auth";
+import { fetchChatImageBlobUrl, type ChatMessage } from "../../lib/chat";
 import { useRealtime } from "../../lib/realtime";
 
 interface MessageThreadProps {
   messages: ChatMessage[];
   currentUserId: number;
+}
+
+function ChatImage({ messageId, onOpen }: { messageId: number; onOpen: (url: string) => void }) {
+  const { auth } = useAuth();
+  const [url, setUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!auth?.token) return;
+    let cancelled = false;
+    let objectUrl: string | null = null;
+    fetchChatImageBlobUrl(auth.token, messageId).then((blobUrl) => {
+      if (cancelled) {
+        if (blobUrl) URL.revokeObjectURL(blobUrl);
+        return;
+      }
+      objectUrl = blobUrl;
+      setUrl(blobUrl);
+    });
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [auth?.token, messageId]);
+
+  if (!url) return <div className="chat-bubble-image chat-bubble-image-loading" />;
+  return (
+    <img
+      src={url}
+      alt="Elküldött kép"
+      className="chat-bubble-image"
+      onClick={() => onOpen(url)}
+    />
+  );
 }
 
 function ReceiptTick({ message }: { message: ChatMessage }) {
@@ -32,6 +66,7 @@ function ReceiptTick({ message }: { message: ChatMessage }) {
 export default function MessageThread({ messages, currentUserId }: MessageThreadProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const { names } = useRealtime();
+  const [lightbox, setLightbox] = useState<string | null>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ block: "end" });
@@ -46,7 +81,8 @@ export default function MessageThread({ messages, currentUserId }: MessageThread
           <div key={msg.id} className={mine ? "chat-bubble-row mine" : "chat-bubble-row"}>
             <div className="chat-bubble">
               {!mine && <div className="chat-bubble-sender">{senderName}</div>}
-              <div className="chat-bubble-body">{msg.body}</div>
+              {msg.has_image && <ChatImage messageId={msg.id} onOpen={setLightbox} />}
+              {msg.body && <div className="chat-bubble-body">{msg.body}</div>}
               <div className="chat-bubble-time">
                 {new Date(msg.created_at).toLocaleTimeString("hu-HU", { hour: "2-digit", minute: "2-digit" })}
                 {mine && <ReceiptTick message={msg} />}
@@ -56,6 +92,12 @@ export default function MessageThread({ messages, currentUserId }: MessageThread
         );
       })}
       <div ref={bottomRef} />
+
+      {lightbox && (
+        <div className="chat-image-lightbox" onClick={() => setLightbox(null)}>
+          <img src={lightbox} alt="Elküldött kép" />
+        </div>
+      )}
     </div>
   );
 }

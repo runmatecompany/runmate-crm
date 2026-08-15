@@ -2,6 +2,8 @@ import type { FastifyInstance } from "fastify";
 import {
   canAccessRoom,
   clearRoomHistory,
+  getMessageImage,
+  getMessageRoomId,
   getMessageSenderId,
   getOrCreateDmRoom,
   getOtherDmMember,
@@ -53,6 +55,19 @@ async function canClearRoom(roomId: number, userId: number, role: "admin" | "use
   return role === "admin";
 }
 
+const sendImageBodySchema = {
+  type: "object",
+  required: ["dataUrl"],
+  properties: {
+    // A kliens átméretezi feltöltés előtt (max ~1600px, jpeg), ez a keret
+    // bőven elég egy fotónak is, a globális 5 MB-os body limit alatt marad.
+    dataUrl: { type: "string", maxLength: 4_500_000 },
+    body: { type: "string", maxLength: 2000 },
+  },
+} as const;
+
+const IMAGE_DATA_URL_PATTERN = /^data:(image\/(?:png|jpeg|jpg|webp));base64,(.+)$/;
+
 export default async function chatRoutes(fastify: FastifyInstance) {
   fastify.get("/chat/rooms", { onRequest: [fastify.authenticate] }, async (request) => {
     const rooms = await listRoomsForUser(request.user.sub);
@@ -102,6 +117,50 @@ export default async function chatRoutes(fastify: FastifyInstance) {
       }
 
       return { messages };
+    }
+  );
+
+  fastify.post<{ Params: { id: string }; Body: { dataUrl: string; body?: string } }>(
+    "/chat/rooms/:id/image",
+    { onRequest: [fastify.authenticate], schema: { body: sendImageBodySchema } },
+    async (request, reply) => {
+      const roomId = Number(request.params.id);
+      const allowed = await canAccessRoom(roomId, request.user.sub);
+      if (!allowed) {
+        return reply.code(403).send({ error: "Nincs hozzáférésed ehhez a szobához" });
+      }
+      const match = request.body.dataUrl.match(IMAGE_DATA_URL_PATTERN);
+      if (!match) {
+        return reply.code(400).send({ error: "Érvénytelen kép formátum" });
+      }
+      const [, mime, base64] = match;
+      const data = Buffer.from(base64, "base64");
+      const message = await insertMessage(roomId, request.user.sub, request.body.body?.trim() ?? "", {
+        mime,
+        data,
+      });
+      const recipientIds = await getRoomBroadcastUserIds(roomId);
+      broadcastToUsers(recipientIds, { type: "message", message });
+      return { message };
+    }
+  );
+
+  fastify.get<{ Params: { id: string } }>(
+    "/chat/messages/:id/image",
+    { onRequest: [fastify.authenticate] },
+    async (request, reply) => {
+      const messageId = Number(request.params.id);
+      const roomId = await getMessageRoomId(messageId);
+      if (!roomId || !(await canAccessRoom(roomId, request.user.sub))) {
+        return reply.code(403).send({ error: "Nincs hozzáférésed ehhez a képhez" });
+      }
+      const image = await getMessageImage(messageId);
+      if (!image) {
+        return reply.code(404).send();
+      }
+      reply.header("Content-Type", image.mime);
+      reply.header("Cache-Control", "private, max-age=604800, immutable");
+      return reply.send(image.data);
     }
   );
 

@@ -17,6 +17,7 @@ export interface ChatMessage {
   sender_id: number;
   sender_name: string;
   body: string;
+  has_image: boolean;
   created_at: string;
   delivered_at: string | null;
   read_at: string | null;
@@ -198,7 +199,8 @@ export async function listMessages(
   }
 
   const { rows } = await pool.query<ChatMessage>(
-    `SELECT m.id, m.room_id, m.sender_id, u.name AS sender_name, m.body, m.created_at,
+    `SELECT m.id, m.room_id, m.sender_id, u.name AS sender_name, m.body,
+            (m.image_data IS NOT NULL) AS has_image, m.created_at,
             receipt.delivered_at, receipt.read_at
      FROM chat_messages m
      JOIN users u ON u.id = m.sender_id
@@ -211,19 +213,44 @@ export async function listMessages(
   return rows.reverse();
 }
 
-export async function insertMessage(roomId: number, senderId: number, body: string): Promise<ChatMessage> {
+export async function insertMessage(
+  roomId: number,
+  senderId: number,
+  body: string,
+  image?: { mime: string; data: Buffer }
+): Promise<ChatMessage> {
   const { rows } = await pool.query<ChatMessage>(
     `WITH inserted AS (
-       INSERT INTO chat_messages (room_id, sender_id, body)
-       VALUES ($1, $2, $3)
-       RETURNING id, room_id, sender_id, body, created_at
+       INSERT INTO chat_messages (room_id, sender_id, body, image_mime, image_data)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING id, room_id, sender_id, body, (image_data IS NOT NULL) AS has_image, created_at
      )
      SELECT i.*, u.name AS sender_name, NULL::timestamptz AS delivered_at, NULL::timestamptz AS read_at
      FROM inserted i
      JOIN users u ON u.id = i.sender_id`,
-    [roomId, senderId, body]
+    [roomId, senderId, body, image?.mime ?? null, image?.data ?? null]
   );
   return rows[0];
+}
+
+// A kép lekéréséhez (GET /chat/messages/:id/image) tudnunk kell, melyik
+// szobához tartozik az üzenet, hogy a canAccessRoom jogosultság-ellenőrzést
+// el tudjuk végezni, mielőtt kiszolgálnánk a bájtokat.
+export async function getMessageRoomId(messageId: number): Promise<number | undefined> {
+  const { rows } = await pool.query<{ room_id: number }>("SELECT room_id FROM chat_messages WHERE id = $1", [
+    messageId,
+  ]);
+  return rows[0]?.room_id;
+}
+
+export async function getMessageImage(messageId: number): Promise<{ mime: string; data: Buffer } | undefined> {
+  const { rows } = await pool.query<{ image_mime: string | null; image_data: Buffer | null }>(
+    "SELECT image_mime, image_data FROM chat_messages WHERE id = $1",
+    [messageId]
+  );
+  const row = rows[0];
+  if (!row?.image_mime || !row.image_data) return undefined;
+  return { mime: row.image_mime, data: row.image_data };
 }
 
 export async function markDelivered(messageId: number, userId: number): Promise<void> {

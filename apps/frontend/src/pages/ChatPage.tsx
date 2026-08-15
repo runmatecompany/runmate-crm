@@ -11,11 +11,13 @@ import {
   listRooms,
   restoreRoom,
   roomDisplayName,
+  sendChatImage,
   startDm,
   type ChatMessage,
   type Colleague,
   type RoomSummary,
 } from "../lib/chat";
+import { resizeImageToDataUrl } from "../lib/profile";
 import RoomList from "../components/chat/RoomList";
 import MessageThread from "../components/chat/MessageThread";
 import CreateRoomModal from "../components/chat/CreateRoomModal";
@@ -41,9 +43,11 @@ export default function ChatPage() {
   const [showCreateRoom, setShowCreateRoom] = useState(false);
   const [showNewDm, setShowNewDm] = useState(false);
   const [typingUserId, setTypingUserId] = useState<number | null>(null);
+  const [sendingImage, setSendingImage] = useState(false);
 
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTypingSentRef = useRef(0);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   const refreshRooms = useCallback(async () => {
     if (!token) return;
@@ -223,6 +227,23 @@ export default function ChatPage() {
     setDraft("");
   }
 
+  async function handleImageSelected(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.currentTarget.files?.[0];
+    e.currentTarget.value = "";
+    if (!file || !token || activeRoomId == null) return;
+
+    setSendingImage(true);
+    try {
+      const dataUrl = await resizeImageToDataUrl(file, 1600, 0.82);
+      await sendChatImage(token, activeRoomId, dataUrl, draft.trim() || undefined);
+      setDraft("");
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Nem sikerült elküldeni a képet");
+    } finally {
+      setSendingImage(false);
+    }
+  }
+
   async function handleCreateRoom(name: string) {
     if (!token) return;
     const room = await createRoom(token, name);
@@ -298,6 +319,22 @@ export default function ChatPage() {
             <MessageThread messages={messages} currentUserId={auth?.user.id ?? -1} />
             {typingUserName && <div className="chat-typing-indicator">{typingUserName} éppen ír...</div>}
             <form className="chat-input-row" onSubmit={handleSend}>
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                className="chat-image-input"
+                onChange={handleImageSelected}
+              />
+              <button
+                type="button"
+                className="chat-image-btn"
+                title="Kép küldése"
+                disabled={sendingImage}
+                onClick={() => imageInputRef.current?.click()}
+              >
+                {sendingImage ? "..." : "📷"}
+              </button>
               <input value={draft} onChange={handleDraftChange} placeholder="Írj üzenetet..." />
               <button type="submit">Küldés</button>
             </form>

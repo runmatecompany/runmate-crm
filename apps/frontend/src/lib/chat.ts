@@ -17,6 +17,7 @@ export interface ChatMessage {
   sender_id: number;
   sender_name: string;
   body: string;
+  has_image: boolean;
   created_at: string;
   delivered_at: string | null;
   read_at: string | null;
@@ -69,6 +70,24 @@ export async function clearRoom(token: string, roomId: number): Promise<void> {
 
 export async function restoreRoom(token: string, roomId: number): Promise<void> {
   await authFetch(token, `/chat/rooms/${roomId}/restore`, { method: "POST" });
+}
+
+export async function sendChatImage(token: string, roomId: number, dataUrl: string, body?: string): Promise<void> {
+  await authFetch(token, `/chat/rooms/${roomId}/image`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ dataUrl, body }),
+  });
+}
+
+export async function fetchChatImageBlobUrl(token: string, messageId: number): Promise<string | null> {
+  try {
+    const res = await authFetch(token, `/chat/messages/${messageId}/image`);
+    const blob = await res.blob();
+    return URL.createObjectURL(blob);
+  } catch {
+    return null;
+  }
 }
 
 export async function fetchActiveCalls(token: string): Promise<RoomCallState[]> {
