@@ -16,6 +16,8 @@ export default function UserAccessModal({ user, onClose }: UserAccessModalProps)
   const { auth } = useAuth();
   const [accounts, setAccounts] = useState<EmailAccountAdminView[]>([]);
   const [leadsAccess, setLeadsAccessState] = useState(false);
+  const [clientsAccess, setClientsAccessState] = useState(false);
+  const [socialMediaAccess, setSocialMediaAccessState] = useState(false);
   const [emailModuleAccess, setEmailModuleAccessState] = useState(false);
   const [selectedAccountIds, setSelectedAccountIds] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -28,6 +30,8 @@ export default function UserAccessModal({ user, onClose }: UserAccessModalProps)
       ([accountList, access]) => {
         setAccounts(accountList);
         setLeadsAccessState(access.leadsAccess);
+        setClientsAccessState(access.clientsAccess);
+        setSocialMediaAccessState(access.socialMediaAccess);
         setEmailModuleAccessState(access.emailModuleAccess);
         setSelectedAccountIds(new Set(access.emailAccountIds));
         setLoading(false);
@@ -54,6 +58,8 @@ export default function UserAccessModal({ user, onClose }: UserAccessModalProps)
     try {
       await setUserAccess(auth.token, user.id, {
         leadsAccess,
+        clientsAccess,
+        socialMediaAccess,
         emailModuleAccess,
         emailAccountIds: Array.from(selectedAccountIds),
       });
@@ -84,6 +90,24 @@ export default function UserAccessModal({ user, onClose }: UserAccessModalProps)
                 onChange={(e) => setLeadsAccessState(e.currentTarget.checked)}
               />
               {menuItemLabel("leads", "Leadek")} modul
+            </label>
+
+            <label className="chat-colleague-pick email-account-access-option user-access-module">
+              <input
+                type="checkbox"
+                checked={clientsAccess}
+                onChange={(e) => setClientsAccessState(e.currentTarget.checked)}
+              />
+              {menuItemLabel("clients", "Ügyfelek")} modul
+            </label>
+
+            <label className="chat-colleague-pick email-account-access-option user-access-module">
+              <input
+                type="checkbox"
+                checked={socialMediaAccess}
+                onChange={(e) => setSocialMediaAccessState(e.currentTarget.checked)}
+              />
+              {menuItemLabel("social", "Social Media")} modul
             </label>
 
             <label className="chat-colleague-pick email-account-access-option user-access-module">

@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import {
+  convertLeadToClient,
   createLead,
   deleteLead,
   getLeadById,
@@ -10,6 +11,7 @@ import {
   type LeadStatus,
 } from "../db/leads.js";
 import { extractLeadFromImages, isLeadExtractionEnabled, type LeadImageInput } from "../lib/leadExtraction.js";
+import { canAccessClientsModule } from "./clients.js";
 
 const LEAD_STATUS_VALUES = ["to_call", "called", "call_back", "became_customer", "not_interested"] as const;
 
@@ -157,6 +159,25 @@ export default async function leadsRoutes(fastify: FastifyInstance) {
       if (!existing) return reply.code(404).send({ error: "Lead not found" });
       const lead = await updateLeadStatus(existing.id, request.body.status);
       return { lead };
+    }
+  );
+
+  // Egy megszerzett lead ügyféllé alakítása: became_customer-re állítja a
+  // leadet, és létrehozza a kapcsolódó Ügyfelek-sort — mindkét modulhoz kell
+  // hozzáférés, hiszen mindkét modul adatát módosítja.
+  fastify.post<{ Params: { id: string } }>(
+    "/leads/:id/convert-to-client",
+    { onRequest: [fastify.authenticate] },
+    async (request, reply) => {
+      const { sub: userId, role } = request.user;
+      if (!(await canAccessLeadsModule(userId, role)) || !(await canAccessClientsModule(userId, role))) {
+        return reply.code(403).send({ error: "Nincs hozzáférésed a Leadek és az Ügyfelek modulhoz" });
+      }
+      const leadId = Number(request.params.id);
+      const existing = await getLeadById(leadId);
+      if (!existing) return reply.code(404).send({ error: "Lead not found" });
+      const clientId = await convertLeadToClient(leadId, userId);
+      return reply.code(201).send({ clientId });
     }
   );
 

@@ -9,6 +9,8 @@ export interface MenuItem {
 export const MENU_ITEMS: MenuItem[] = [
   { id: "messages", label: "Üzenetek" },
   { id: "leads", label: "Leadek" },
+  { id: "clients", label: "Ügyfelek" },
+  { id: "social", label: "Social Media" },
   { id: "chat", label: "Chat" },
   { id: "settings", label: "Beállítások" },
 ];

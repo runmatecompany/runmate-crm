@@ -108,6 +108,38 @@ export async function deleteLead(id: number): Promise<boolean> {
   return (rowCount ?? 0) > 0;
 }
 
+// Egy lead "ügyféllé alakítása": a lead became_customer-re vált, és
+// egyúttal létrejön a hozzá tartozó Ügyfelek-sor is (a lead adataival
+// előtöltve, lead_id-vel visszakötve) — egyetlen tranzakcióban, hogy a
+// két tábla sose fusson szét egymástól.
+export async function convertLeadToClient(leadId: number, createdBy: number): Promise<number> {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const { rows: updated } = await client.query<{ id: number }>(
+      `UPDATE leads SET status = 'became_customer', updated_at = now() WHERE id = $1 RETURNING id`,
+      [leadId]
+    );
+    if (!updated[0]) {
+      throw new Error("Lead not found");
+    }
+    const { rows: created } = await client.query<{ id: number }>(
+      `INSERT INTO clients (company_name, contact_name, phone, email, address, notes, lead_id, created_by)
+       SELECT company_name, contact_name, phone, email, address, notes, id, $2
+       FROM leads WHERE id = $1
+       RETURNING id`,
+      [leadId, createdBy]
+    );
+    await client.query("COMMIT");
+    return created[0].id;
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
 // A teljes "Leadek" modulhoz való hozzáférés — nem lead-enkénti, hanem
 // modul-szintű: akinek van hozzáférése, az az összes leadet látja.
 export async function hasLeadsAccess(userId: number): Promise<boolean> {

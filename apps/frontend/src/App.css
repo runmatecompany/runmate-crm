@@ -997,6 +997,13 @@ button:hover {
   max-width: 420px;
 }
 
+.social-media-settings {
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+}
+
 .profile-avatar-row {
   display: flex;
   align-items: center;
@@ -1856,4 +1863,335 @@ button:hover {
   color: var(--text-muted);
   opacity: 0.6;
   cursor: default;
+}
+
+/* --- Social Media modul --- */
+
+.sm-page {
+  overflow-x: auto;
+}
+
+.sm-kanban {
+  display: flex;
+  gap: 0.8em;
+  align-items: flex-start;
+  overflow-x: auto;
+  padding-bottom: 1em;
+}
+
+.sm-kanban-col {
+  flex: 0 0 240px;
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 14em);
+}
+
+.sm-kanban-col-header {
+  padding: 0.7em 0.8em;
+  font-size: 0.82em;
+  font-weight: 600;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sm-kanban-col-count {
+  font-size: 0.85em;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.sm-kanban-col-body {
+  padding: 0.6em;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6em;
+  overflow-y: auto;
+}
+
+.sm-kanban-col-empty {
+  color: var(--text-muted);
+  font-size: 0.82em;
+  text-align: center;
+  margin: 0.4em 0;
+}
+
+.sm-kanban-card {
+  background-color: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.sm-kanban-card-main {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0.6em 0.7em;
+  color: var(--text);
+}
+
+.sm-kanban-card-client {
+  font-size: 0.72em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.sm-kanban-card-title {
+  font-size: 0.9em;
+  font-weight: 600;
+  margin: 0.15em 0;
+}
+
+.sm-kanban-card-meta {
+  font-size: 0.76em;
+  color: var(--text-muted);
+}
+
+.sm-kanban-card-action {
+  width: 100%;
+  border-radius: 0;
+  border: none;
+  border-top: 1px solid var(--border);
+  background-color: var(--accent);
+  color: #ffffff;
+  font-size: 0.78em;
+  padding: 0.5em;
+}
+
+.sm-kanban-card-action:hover {
+  background-color: var(--accent-hover);
+}
+
+.sm-kanban-card-review-actions {
+  display: flex;
+  border-top: 1px solid var(--border);
+}
+
+.sm-kanban-card-review-actions button {
+  flex: 1;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  font-size: 0.78em;
+  padding: 0.5em;
+}
+
+.sm-kanban-card-review-actions button:first-child {
+  color: #3ecf8e;
+  border-right: 1px solid var(--border);
+}
+
+.sm-kanban-card-review-actions button:last-child {
+  color: var(--danger);
+}
+
+.sm-detail {
+  max-width: 640px;
+}
+
+.sm-detail-back {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  color: var(--text-muted);
+  padding: 0;
+  margin-bottom: 1em;
+}
+
+.sm-detail-back:hover {
+  color: var(--text);
+}
+
+.sm-detail-sub,
+.sm-detail-status {
+  color: var(--text-muted);
+  font-size: 0.9em;
+  margin: 0.2em 0;
+}
+
+.sm-detail-action {
+  margin: 1.2em 0;
+  padding: 1em;
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.sm-detail-action-form {
+  display: flex;
+  gap: 0.6em;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.sm-detail-action-form input {
+  flex: 1 1 200px;
+}
+
+.sm-detail-field {
+  margin: 1.2em 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4em;
+}
+
+.sm-detail-field textarea {
+  font-family: inherit;
+  resize: vertical;
+}
+
+.sm-detail-field button {
+  align-self: flex-start;
+}
+
+.sm-detail-dates {
+  display: flex;
+  gap: 1.2em;
+  flex-wrap: wrap;
+  font-size: 0.82em;
+  color: var(--text-muted);
+  margin: 1.2em 0;
+}
+
+.sm-approval-history {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6em;
+}
+
+.sm-approval-history-item {
+  padding: 0.7em 0.9em;
+  border-radius: 8px;
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--border);
+  font-size: 0.9em;
+}
+
+.sm-approval-history-item.sm-approval-pending {
+  border-left-color: #d9a441;
+}
+
+.sm-approval-history-item.sm-approval-approved {
+  border-left-color: #3ecf8e;
+}
+
+.sm-approval-history-item.sm-approval-rejected {
+  border-left-color: var(--danger);
+}
+
+.sm-approval-history-meta {
+  font-size: 0.82em;
+  color: var(--text-muted);
+  margin-top: 0.2em;
+}
+
+.sm-approval-feedback {
+  margin-top: 0.4em;
+  font-style: italic;
+  color: var(--text-muted);
+}
+
+.sm-queue-open {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  color: var(--accent);
+  padding: 0;
+  text-align: left;
+  font-size: inherit;
+}
+
+.sm-queue-open:hover {
+  text-decoration: underline;
+}
+
+tr.sm-queue-row-stale td {
+  background-color: rgba(217, 164, 65, 0.08);
+}
+
+.sm-calendar {
+  max-width: 800px;
+}
+
+.sm-calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1em;
+  margin-bottom: 0.8em;
+  font-weight: 600;
+}
+
+.sm-calendar-header button {
+  background: transparent;
+  border: 1px solid var(--border);
+  padding: 0.3em 0.7em;
+}
+
+.sm-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.3em;
+}
+
+.sm-calendar-weekdays {
+  margin-bottom: 0.3em;
+}
+
+.sm-calendar-weekday {
+  text-align: center;
+  font-size: 0.75em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.sm-calendar-cell {
+  min-height: 80px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.3em;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2em;
+}
+
+.sm-calendar-cell-empty {
+  border-color: transparent;
+}
+
+.sm-calendar-cell-today {
+  border-color: var(--accent);
+}
+
+.sm-calendar-day-num {
+  font-size: 0.78em;
+  color: var(--text-muted);
+}
+
+.sm-calendar-event {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background-color: var(--surface-alt);
+  border: none;
+  border-left: 3px solid var(--accent);
+  border-radius: 4px;
+  padding: 0.2em 0.4em;
+  font-size: 0.72em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: none;
 }

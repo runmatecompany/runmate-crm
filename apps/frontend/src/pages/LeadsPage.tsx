@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "../lib/auth";
 import {
   LEAD_STATUS_OPTIONS,
+  convertLeadToClient,
   createLead,
   deleteLead,
   listLeads,
@@ -42,6 +43,15 @@ export default function LeadsPage() {
   async function handleStatusChange(lead: Lead, status: LeadStatus) {
     if (!token) return;
     await updateLeadStatus(token, lead.id, status);
+    refresh();
+  }
+
+  async function handleConvert(lead: Lead) {
+    if (!token) return;
+    if (!confirm(`"${lead.company_name}" átkerül az Ügyfelek közé, és a lead állapota "Ügyfél lett"-re vált. Folytatod?`)) {
+      return;
+    }
+    await convertLeadToClient(token, lead.id);
     refresh();
   }
 
@@ -145,6 +155,11 @@ export default function LeadsPage() {
                     <button type="button" onClick={() => setEditingLead(lead)}>
                       Szerkesztés
                     </button>
+                    {lead.status !== "became_customer" && (
+                      <button type="button" onClick={() => handleConvert(lead)}>
+                        Ügyféllé alakítás
+                      </button>
+                    )}
                     {isAdmin && (
                       <button type="button" onClick={() => handleDelete(lead)}>
                         Törlés

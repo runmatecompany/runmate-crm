@@ -18,4 +18,8 @@ export const config = {
   emailEncryptionKey: required("EMAIL_ENCRYPTION_KEY"),
   // Opcionális: hiányában a lead-fotó AI-kitöltés funkció ki van kapcsolva.
   geminiApiKey: process.env.GEMINI_API_KEY || undefined,
+  // Opcionális: a publikusan (pl. Tailscale Funnel-lel) elérhető cím, amiből
+  // a Social Media jóváhagyó linkek épülnek. Hiányában a jóváhagyás-kérő
+  // emailek küldése hibát ad, de minden más funkció működik.
+  publicUrl: process.env.PUBLIC_URL || undefined,
 };

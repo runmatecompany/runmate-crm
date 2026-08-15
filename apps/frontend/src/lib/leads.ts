@@ -87,6 +87,12 @@ export async function deleteLead(token: string, id: number): Promise<void> {
   await authFetch(token, `/leads/${id}`, { method: "DELETE" });
 }
 
+export async function convertLeadToClient(token: string, id: number): Promise<number> {
+  const res = await authFetch(token, `/leads/${id}/convert-to-client`, { method: "POST" });
+  const data = await res.json();
+  return data.clientId;
+}
+
 export async function extractLeadFromImages(token: string, images: string[]): Promise<ExtractedLeadFields> {
   const res = await authFetch(token, "/leads/extract-from-images", {
     method: "POST",

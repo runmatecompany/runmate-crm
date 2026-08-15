@@ -6,6 +6,8 @@ import { MENU_ITEMS } from "../lib/menuItems";
 import ChatPage from "./ChatPage";
 import MessagesPage from "./MessagesPage";
 import LeadsPage from "./LeadsPage";
+import ClientsPage from "./ClientsPage";
+import SocialMediaPage from "./SocialMediaPage";
 import SettingsPage from "./SettingsPage";
 
 export default function DashboardPage() {
@@ -36,6 +38,10 @@ export default function DashboardPage() {
         <MessagesPage />
       ) : activeId === "leads" ? (
         <LeadsPage />
+      ) : activeId === "clients" ? (
+        <ClientsPage />
+      ) : activeId === "social" ? (
+        <SocialMediaPage />
       ) : activeId === "settings" ? (
         <SettingsPage />
       ) : (

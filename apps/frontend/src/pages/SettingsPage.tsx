@@ -3,6 +3,7 @@ import { useAuth } from "../lib/auth";
 import ProfileSettings from "../components/settings/ProfileSettings";
 import EmailAccountsSettings from "../components/settings/EmailAccountsSettings";
 import ProfilesSettings from "../components/settings/ProfilesSettings";
+import SocialMediaSettings from "../components/settings/SocialMediaSettings";
 
 interface SettingsSection {
   id: string;
@@ -16,6 +17,7 @@ export default function SettingsPage() {
   const sections: SettingsSection[] = [
     { id: "profile", label: "Profilom" },
     ...(isAdmin ? [{ id: "email-accounts", label: "Email fiókok" }] : []),
+    ...(isAdmin ? [{ id: "social-media", label: "Social Media" }] : []),
     ...(isAdmin ? [{ id: "profiles", label: "Fiókok" }] : []),
   ];
 
@@ -38,6 +40,7 @@ export default function SettingsPage() {
       <div className="settings-content">
         {activeSection === "profile" && <ProfileSettings />}
         {activeSection === "email-accounts" && isAdmin && <EmailAccountsSettings />}
+        {activeSection === "social-media" && isAdmin && <SocialMediaSettings />}
         {activeSection === "profiles" && isAdmin && <ProfilesSettings />}
       </div>
     </main>
