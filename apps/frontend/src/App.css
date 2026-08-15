@@ -558,7 +558,7 @@ button:hover {
   display: flex;
   flex-direction: column;
   gap: 0.6em;
-  width: 360px;
+  width: min(360px, calc(100vw - 3em));
   max-height: 80vh;
   background-color: var(--surface);
   border: 1px solid var(--border);
@@ -1284,7 +1284,7 @@ button:hover {
 }
 
 .email-account-form {
-  width: 480px;
+  width: min(480px, calc(100vw - 3em));
   max-height: 85vh;
   overflow-y: auto;
 }
@@ -1298,16 +1298,20 @@ button:hover {
 .email-account-form-row {
   display: flex;
   gap: 0.6em;
+  flex-wrap: wrap;
 }
 
 .email-account-form-row > div {
-  flex: 1;
+  flex: 1 1 140px;
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .email-account-form-port {
+  flex: 0 1 100px;
   max-width: 100px;
+  min-width: 70px;
 }
 
 .email-account-active-toggle {
@@ -1463,7 +1467,7 @@ button:hover {
 }
 
 .lead-form {
-  width: 480px;
+  width: min(480px, calc(100vw - 3em));
   max-height: 85vh;
   overflow-y: auto;
 }
@@ -1471,12 +1475,14 @@ button:hover {
 .lead-form-row {
   display: flex;
   gap: 0.6em;
+  flex-wrap: wrap;
 }
 
 .lead-form-row > div {
-  flex: 1;
+  flex: 1 1 140px;
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .lead-image-upload {
