@@ -37,10 +37,12 @@ export default function LeadFormModal({ lead, token, onClose, onSave }: LeadForm
 
   const [images, setImages] = useState<PendingImage[]>([]);
   const [extracting, setExtracting] = useState(false);
+  const [extractProgress, setExtractProgress] = useState(0);
   const [extractError, setExtractError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imagesRef = useRef<PendingImage[]>([]);
   const autoExtractTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const progressTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     imagesRef.current = images;
@@ -49,9 +51,34 @@ export default function LeadFormModal({ lead, token, onClose, onSave }: LeadForm
   useEffect(
     () => () => {
       if (autoExtractTimer.current) clearTimeout(autoExtractTimer.current);
+      if (progressTimer.current) clearInterval(progressTimer.current);
     },
     []
   );
+
+  // Az AI egyetlen válasszal tér vissza, nincs valódi "hányad kész" állapota —
+  // ez a becsült előrehaladást animálja 90%-ig, a tényleges válasz
+  // megérkezésekor pedig azonnal 100%-ra ugrik. Így legalább látszik, hogy
+  // történik valami, nem csak egy statikus "Feldolgozás..." felirat lóg ott.
+  function startProgressSimulation() {
+    setExtractProgress(0);
+    if (progressTimer.current) clearInterval(progressTimer.current);
+    progressTimer.current = setInterval(() => {
+      setExtractProgress((prev) => {
+        if (prev >= 90) return prev;
+        const step = prev < 50 ? 7 : prev < 75 ? 3 : 1;
+        return Math.min(90, prev + step);
+      });
+    }, 200);
+  }
+
+  function stopProgressSimulation(finalValue: number) {
+    if (progressTimer.current) {
+      clearInterval(progressTimer.current);
+      progressTimer.current = null;
+    }
+    setExtractProgress(finalValue);
+  }
 
   // Csak az üres mezőket tölti ki — amit a felhasználó már beírt, azt nem írja felül.
   function applyExtractedFields(fields: ExtractedLeadFields) {
@@ -67,15 +94,19 @@ export default function LeadFormModal({ lead, token, onClose, onSave }: LeadForm
     if (imgs.length === 0) return;
     setExtracting(true);
     setExtractError(null);
+    startProgressSimulation();
     try {
       const fields = await extractLeadFromImages(
         token,
         imgs.map((img) => img.dataUrl)
       );
       applyExtractedFields(fields);
+      stopProgressSimulation(100);
+      // Rövid ideig még látszik a kész (100%-os) sáv, mielőtt eltűnik.
+      setTimeout(() => setExtracting(false), 350);
     } catch (err) {
+      stopProgressSimulation(0);
       setExtractError(err instanceof Error ? err.message : "Nem sikerült feldolgozni a képeket");
-    } finally {
       setExtracting(false);
     }
   }
@@ -204,14 +235,17 @@ export default function LeadFormModal({ lead, token, onClose, onSave }: LeadForm
               hidden
               onChange={handleFilesSelected}
             />
-            {images.length > 0 && (
-              <button
-                type="button"
-                className="lead-image-extract"
-                onClick={handleManualExtract}
-                disabled={extracting}
-              >
-                {extracting ? "Feldolgozás..." : "AI kitöltés újra a fotókból"}
+            {images.length > 0 && extracting && (
+              <div className="lead-extract-progress">
+                <div className="lead-extract-progress-track">
+                  <div className="lead-extract-progress-fill" style={{ width: `${extractProgress}%` }} />
+                </div>
+                <span className="lead-extract-progress-label">AI olvassa a képet... {extractProgress}%</span>
+              </div>
+            )}
+            {images.length > 0 && !extracting && (
+              <button type="button" className="lead-image-extract" onClick={handleManualExtract}>
+                AI kitöltés újra a fotókból
               </button>
             )}
             {extractError && <p className="login-error">{extractError}</p>}

@@ -1608,6 +1608,33 @@ button:hover {
   font-size: 0.85em;
 }
 
+.lead-extract-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35em;
+}
+
+.lead-extract-progress-track {
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background-color: var(--surface-alt);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.lead-extract-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background-color: var(--accent);
+  transition: width 0.2s ease;
+}
+
+.lead-extract-progress-label {
+  font-size: 0.78em;
+  color: var(--text-muted);
+}
+
 /* --- Profilok (felhasználó-központú jogosultságkezelés) --- */
 
 .profiles-settings {
