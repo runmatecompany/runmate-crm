@@ -4,7 +4,7 @@ import { RealtimeProvider } from "./lib/realtime";
 import { CallProvider } from "./lib/call";
 import { NavigationProvider } from "./lib/navigation";
 import { checkServerReachable } from "./lib/setup";
-import { getApiUrl } from "./lib/serverConfig";
+import { getApiUrl, hasCompletedSetup, markSetupSeen } from "./lib/serverConfig";
 import LoginPage from "./pages/LoginPage";
 import DashboardPage from "./pages/DashboardPage";
 import SetupWizard from "./pages/SetupWizard";
@@ -24,24 +24,36 @@ function SplashScreen() {
 function Screen() {
   const { auth } = useAuth();
   const [checking, setChecking] = useState(true);
-  const [serverReachable, setServerReachable] = useState(false);
-  const [skipWizard, setSkipWizard] = useState(false);
+  const [showWizard, setShowWizard] = useState(false);
 
   useEffect(() => {
     if (auth) {
       setChecking(false);
       return;
     }
+    if (hasCompletedSetup()) {
+      setChecking(false);
+      return;
+    }
     checkServerReachable(getApiUrl()).then((ok) => {
-      setServerReachable(ok);
+      if (ok) {
+        markSetupSeen();
+      } else {
+        setShowWizard(true);
+      }
       setChecking(false);
     });
   }, [auth]);
 
+  function finishWizard() {
+    markSetupSeen();
+    setShowWizard(false);
+  }
+
   if (auth) return <DashboardPage />;
   if (checking) return <SplashScreen />;
-  if (!serverReachable && !skipWizard) {
-    return <SetupWizard onDone={() => setSkipWizard(true)} onSkip={() => setSkipWizard(true)} />;
+  if (showWizard) {
+    return <SetupWizard onDone={finishWizard} onSkip={finishWizard} />;
   }
   return <LoginPage />;
 }
