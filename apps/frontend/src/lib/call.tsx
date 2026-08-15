@@ -171,6 +171,19 @@ export function CallProvider({ children }: { children: ReactNode }) {
     });
   }
 
+  // A helyi track-eket a megfelelő (mikrofon/kamera/képernyő) transceiver
+  // sender-jéhez rendeli, és eltárolja a hármast, hogy az ontrack később
+  // referencia-egyezés alapján tudja azonosítani az érkező track célját.
+  function attachTransceivers(remoteUserId: number, slots: PeerTransceivers) {
+    transceiversRef.current.set(remoteUserId, slots);
+    const micTrack = localMicStreamRef.current?.getAudioTracks()[0];
+    if (micTrack) void slots.mic.sender.replaceTrack(micTrack);
+    const cameraTrack = localCameraStreamRef.current?.getVideoTracks()[0];
+    if (cameraTrack) void slots.camera.sender.replaceTrack(cameraTrack);
+    const screenTrack = localScreenStreamRef.current?.getVideoTracks()[0];
+    if (screenTrack) void slots.screen.sender.replaceTrack(screenTrack);
+  }
+
   // Minden pár-kapcsolathoz külön RTCPeerConnection — a "polite" szerep egyszer
   // dől el (aki csatlakozik, mindig ő ajánl elsőként = impolite), és onnantól
   // ez vezérli, hogyan oldódik fel egy esetleges egyidejű ajánlat-ütközés
@@ -184,27 +197,20 @@ export function CallProvider({ children }: { children: ReactNode }) {
     makingOfferRef.current.set(remoteUserId, false);
     ignoreOfferRef.current.set(remoteUserId, false);
 
-    // Mindhárom médiafajtának (mikrofon, kamera, képernyő) fix sorrendben
-    // mindig létrehozunk egy-egy transceivert, akkor is, ha épp nincs aktív
-    // track hozzá — így a másik fél oldalán is ugyanebben a sorrendben jönnek
-    // létre az m-line-ok, és az ontrack-ben a transceiver-referencia alapján
-    // egyértelműen tudjuk, melyik videótrack kamera és melyik képernyő
-    // (a puszta track.kind ehhez nem lenne elég, mindkettő "video").
-    const micTransceiver = pc.addTransceiver("audio", { direction: "sendrecv" });
-    const cameraTransceiver = pc.addTransceiver("video", { direction: "sendrecv" });
-    const screenTransceiver = pc.addTransceiver("video", { direction: "sendrecv" });
-    transceiversRef.current.set(remoteUserId, {
-      mic: micTransceiver,
-      camera: cameraTransceiver,
-      screen: screenTransceiver,
-    });
-
-    const micTrack = localMicStreamRef.current?.getAudioTracks()[0];
-    if (micTrack) void micTransceiver.sender.replaceTrack(micTrack);
-    const cameraTrack = localCameraStreamRef.current?.getVideoTracks()[0];
-    if (cameraTrack) void cameraTransceiver.sender.replaceTrack(cameraTrack);
-    const screenTrack = localScreenStreamRef.current?.getVideoTracks()[0];
-    if (screenTrack) void screenTransceiver.sender.replaceTrack(screenTrack);
+    if (!polite) {
+      // Mi ajánlunk elsőként (csatlakozó fél) — fix sorrendben (mikrofon,
+      // kamera, képernyő) hozzuk létre a transceivereket, ez határozza meg
+      // az ajánlat m-line sorrendjét is.
+      const mic = pc.addTransceiver("audio", { direction: "sendrecv" });
+      const camera = pc.addTransceiver("video", { direction: "sendrecv" });
+      const screen = pc.addTransceiver("video", { direction: "sendrecv" });
+      attachTransceivers(remoteUserId, { mic, camera, screen });
+    }
+    // "Polite" (már bent lévő) oldalon nem itt, hanem a call-offer kezelőben,
+    // a setRemoteDescription UTÁN rendeljük hozzá a transceivereket — a
+    // pc.getTransceivers() sorrendje ilyenkor megbízhatóan az érkező ajánlat
+    // m-line sorrendjét követi, míg előre létrehozott, még asszociálatlan
+    // transceiverek újrafelhasználására nem lehet biztosan számítani.
 
     pc.onnegotiationneeded = async () => {
       try {
@@ -577,6 +583,12 @@ export function CallProvider({ children }: { children: ReactNode }) {
         if (ignoreOffer) return;
 
         await pc.setRemoteDescription(frame.sdp);
+
+        if (!transceiversRef.current.has(remoteUserId)) {
+          const [mic, camera, screen] = pc.getTransceivers();
+          attachTransceivers(remoteUserId, { mic, camera, screen });
+        }
+
         await flushPendingCandidates(remoteUserId, pc);
         await pc.setLocalDescription();
         sendFrame({
