@@ -35,17 +35,24 @@ interface CallValue {
   sharingScreen: boolean;
   localScreenStream: MediaStream | null;
   roomRosters: Map<number, DisplayParticipant[]>;
+  inputDeviceId: string | null;
+  outputDeviceId: string | null;
   joinCall: (roomId: number, isDm: boolean, otherUserId?: number, otherName?: string) => void;
   leaveCall: () => void;
   acceptCall: () => void;
   rejectCall: () => void;
   toggleMute: () => void;
   toggleScreenShare: () => void;
+  setInputDevice: (deviceId: string | null) => void;
+  setOutputDevice: (deviceId: string | null) => void;
 }
 
 const CallContext = createContext<CallValue | undefined>(undefined);
 
 const ICE_SERVERS = [{ urls: "stun:stun.l.google.com:19302" }];
+
+const INPUT_DEVICE_KEY = "runmate-crm-call-input-device";
+const OUTPUT_DEVICE_KEY = "runmate-crm-call-output-device";
 
 export function CallProvider({ children }: { children: ReactNode }) {
   const { auth } = useAuth();
@@ -61,6 +68,12 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const [localScreenStream, setLocalScreenStream] = useState<MediaStream | null>(null);
   const [roomRosters, setRoomRosters] = useState<Map<number, DisplayParticipant[]>>(new Map());
   const [colleagueNames, setColleagueNames] = useState<Record<number, string>>({});
+  const [inputDeviceId, setInputDeviceIdState] = useState<string | null>(
+    () => localStorage.getItem(INPUT_DEVICE_KEY) || null
+  );
+  const [outputDeviceId, setOutputDeviceIdState] = useState<string | null>(
+    () => localStorage.getItem(OUTPUT_DEVICE_KEY) || null
+  );
 
   const peersRef = useRef<Map<number, RTCPeerConnection>>(new Map());
   const politeRef = useRef<Map<number, boolean>>(new Map());
@@ -72,6 +85,10 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const currentRoomIdRef = useRef<number | null>(null);
   const statusRef = useRef<CallStatus>("idle");
   statusRef.current = status;
+  const mutedRef = useRef(false);
+  mutedRef.current = muted;
+  const inputDeviceIdRef = useRef<string | null>(inputDeviceId);
+  inputDeviceIdRef.current = inputDeviceId;
 
   // Egy résztvevő nevének feloldásához — a Realtime kontextus élő
   // frissítéseit (profile-updated) és a kollégalistát is figyelembe véve,
@@ -241,7 +258,10 @@ export function CallProvider({ children }: { children: ReactNode }) {
       pendingDmInviteRef.current =
         isDm && otherUserId != null ? { otherUserId, otherName: otherName ?? "Valaki" } : null;
       try {
-        const mic = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const deviceId = inputDeviceIdRef.current;
+        const mic = await navigator.mediaDevices.getUserMedia({
+          audio: deviceId ? { deviceId: { exact: deviceId } } : true,
+        });
         localMicStreamRef.current = mic;
         sendFrame({ type: "call-join", roomId: targetRoomId });
         setStatus("connected"); // call-joined majd pontosítja (calling, ha DM és üres)
@@ -274,6 +294,33 @@ export function CallProvider({ children }: { children: ReactNode }) {
     setPeer(null);
     setStatus("idle");
   }, [peer, sendFrame]);
+
+  const setInputDevice = useCallback(async (deviceId: string | null) => {
+    localStorage.setItem(INPUT_DEVICE_KEY, deviceId ?? "");
+    setInputDeviceIdState(deviceId);
+    if (!localMicStreamRef.current) return; // nincs élő hívás, csak a preferencia mentődik
+
+    try {
+      const newStream = await navigator.mediaDevices.getUserMedia({
+        audio: deviceId ? { deviceId: { exact: deviceId } } : true,
+      });
+      const newTrack = newStream.getAudioTracks()[0];
+      newTrack.enabled = !mutedRef.current;
+      for (const pc of peersRef.current.values()) {
+        const sender = pc.getSenders().find((s) => s.track?.kind === "audio");
+        if (sender) void sender.replaceTrack(newTrack);
+      }
+      localMicStreamRef.current.getTracks().forEach((track) => track.stop());
+      localMicStreamRef.current = newStream;
+    } catch {
+      // a kiválasztott eszköz nem elérhető, marad a jelenlegi mikrofon
+    }
+  }, []);
+
+  const setOutputDevice = useCallback((deviceId: string | null) => {
+    localStorage.setItem(OUTPUT_DEVICE_KEY, deviceId ?? "");
+    setOutputDeviceIdState(deviceId);
+  }, []);
 
   const toggleMute = useCallback(() => {
     const stream = localMicStreamRef.current;
@@ -490,12 +537,16 @@ export function CallProvider({ children }: { children: ReactNode }) {
         sharingScreen,
         localScreenStream,
         roomRosters,
+        inputDeviceId,
+        outputDeviceId,
         joinCall,
         leaveCall,
         acceptCall,
         rejectCall,
         toggleMute,
         toggleScreenShare,
+        setInputDevice,
+        setOutputDevice,
       }}
     >
       {children}

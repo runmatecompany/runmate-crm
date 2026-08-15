@@ -12,12 +12,79 @@ function formatDuration(seconds: number): string {
   return `${m}:${s}`;
 }
 
+// A setSinkId (kimeneti eszköz váltása) még nincs benne minden DOM-tipizálásban,
+// pedig a Chromium-alapú motorok (és így a Tauri WebView2 is) már támogatják.
+type SinkCapableAudio = HTMLAudioElement & { setSinkId?: (deviceId: string) => Promise<void> };
+
 function RemoteAudio({ stream }: { stream: MediaStream | null }) {
+  const { outputDeviceId } = useCall();
   const ref = useRef<HTMLAudioElement>(null);
+
   useEffect(() => {
     if (ref.current) ref.current.srcObject = stream;
   }, [stream]);
+
+  useEffect(() => {
+    const el = ref.current as SinkCapableAudio | null;
+    if (el?.setSinkId && outputDeviceId) {
+      el.setSinkId(outputDeviceId).catch(() => {
+        // az eszköz időközben eltűnhetett, marad az alapértelmezett kimenet
+      });
+    }
+  }, [outputDeviceId]);
+
   return <audio ref={ref} autoPlay />;
+}
+
+function CallDeviceSettings() {
+  const { inputDeviceId, outputDeviceId, setInputDevice, setOutputDevice } = useCall();
+  const [inputs, setInputs] = useState<MediaDeviceInfo[]>([]);
+  const [outputs, setOutputs] = useState<MediaDeviceInfo[]>([]);
+
+  useEffect(() => {
+    function refresh() {
+      navigator.mediaDevices.enumerateDevices().then((devices) => {
+        setInputs(devices.filter((d) => d.kind === "audioinput"));
+        setOutputs(devices.filter((d) => d.kind === "audiooutput"));
+      });
+    }
+    refresh();
+    navigator.mediaDevices.addEventListener("devicechange", refresh);
+    return () => navigator.mediaDevices.removeEventListener("devicechange", refresh);
+  }, []);
+
+  return (
+    <div className="call-device-settings">
+      <label className="call-device-row">
+        <span>Mikrofon</span>
+        <select
+          value={inputDeviceId ?? ""}
+          onChange={(e) => setInputDevice(e.currentTarget.value || null)}
+        >
+          <option value="">Alapértelmezett</option>
+          {inputs.map((d) => (
+            <option key={d.deviceId} value={d.deviceId}>
+              {d.label || "Mikrofon"}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="call-device-row">
+        <span>Hangszóró</span>
+        <select
+          value={outputDeviceId ?? ""}
+          onChange={(e) => setOutputDevice(e.currentTarget.value || null)}
+        >
+          <option value="">Alapértelmezett</option>
+          {outputs.map((d) => (
+            <option key={d.deviceId} value={d.deviceId}>
+              {d.label || "Hangszóró"}
+            </option>
+          ))}
+        </select>
+      </label>
+    </div>
+  );
 }
 
 function ScreenVideo({ stream, label }: { stream: MediaStream; label: string }) {
@@ -48,10 +115,12 @@ export default function CallOverlay() {
     toggleScreenShare,
   } = useCall();
   const [elapsed, setElapsed] = useState(0);
+  const [showSettings, setShowSettings] = useState(false);
 
   useEffect(() => {
     if (status !== "connected") {
       setElapsed(0);
+      setShowSettings(false);
       return;
     }
     const interval = setInterval(() => setElapsed((e) => e + 1), 1000);
@@ -108,6 +177,8 @@ export default function CallOverlay() {
             </div>
           )}
 
+          {showSettings && <CallDeviceSettings />}
+
           <div className="call-bar">
             <div className="call-participants">
               {participants.map((p) => (
@@ -127,6 +198,14 @@ export default function CallOverlay() {
               onClick={toggleScreenShare}
             >
               {sharingScreen ? "Megosztás leállítása" : "Képernyőmegosztás"}
+            </button>
+            <button
+              type="button"
+              className={showSettings ? "call-bar-btn call-bar-icon active" : "call-bar-btn call-bar-icon"}
+              title="Hang beállítások"
+              onClick={() => setShowSettings((v) => !v)}
+            >
+              ⚙
             </button>
             <button type="button" className="call-bar-btn call-bar-end" onClick={leaveCall}>
               Kilépés
