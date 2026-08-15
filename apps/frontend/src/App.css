@@ -562,7 +562,7 @@ button:hover {
   max-height: 80vh;
   background-color: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 0;
+  border-radius: 12px;
   padding: 1.5em;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
 }
@@ -1077,7 +1077,7 @@ button:hover {
   align-items: center;
   gap: 0.8em;
   padding: 1.2em 1.6em;
-  border-radius: 0;
+  border-radius: 12px;
   background-color: var(--surface);
   border: 1px solid var(--border);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
@@ -1120,7 +1120,7 @@ button:hover {
   align-items: center;
   gap: 0.8em;
   padding: 0.6em 1.2em;
-  border-radius: 0;
+  border-radius: 10px;
   background-color: var(--surface);
   border: 1px solid var(--border);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
@@ -1166,7 +1166,7 @@ button:hover {
   gap: 0.7em;
   width: 280px;
   padding: 0.8em 1em;
-  border-radius: 0;
+  border-radius: 10px;
   background-color: var(--surface);
   border: 1px solid var(--border);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
