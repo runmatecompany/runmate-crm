@@ -1980,6 +1980,31 @@ button:hover {
   color: var(--text-muted);
 }
 
+.sm-kanban-card-badge {
+  display: inline-block;
+  margin-top: 0.4em;
+  padding: 0.15em 0.5em;
+  border-radius: 999px;
+  font-size: 0.68em;
+  font-weight: 600;
+}
+
+.sm-kanban-card-badge-not_started {
+  background-color: var(--surface);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+
+.sm-kanban-card-badge-in_progress {
+  background-color: rgba(245, 166, 35, 0.15);
+  color: #f5a623;
+}
+
+.sm-kanban-card-badge-sent {
+  background-color: rgba(62, 207, 142, 0.15);
+  color: #3ecf8e;
+}
+
 .sm-kanban-card-action {
   width: 100%;
   border-radius: 0;

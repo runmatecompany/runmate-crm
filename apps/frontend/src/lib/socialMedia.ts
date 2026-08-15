@@ -22,15 +22,43 @@ export const CONTENT_STATUS_LABELS: Record<ContentStatus, string> = {
   published: "Közzétéve",
 };
 
-export const CONTENT_STATUS_ORDER: ContentStatus[] = [
-  "script_writing",
-  "script_review",
-  "shoot_done",
-  "editing",
-  "edit_review",
-  "scheduling",
-  "published",
+// A kanban nem minden státuszt jelenít meg külön oszlopként: a
+// "jóváhagyásra vár" állapotok a megfelelő munka-oszlopon belül, egy
+// jelvénnyel jelennek meg (lásd getStageBadge), nem önálló oszlopként — így
+// jóváhagyás után egyből a következő munka-oszlopba kerül a kártya.
+export interface KanbanColumn {
+  key: string;
+  label: string;
+  statuses: ContentStatus[];
+}
+
+export const KANBAN_COLUMNS: KanbanColumn[] = [
+  { key: "script", label: "Scriptre vár", statuses: ["script_writing", "script_review"] },
+  { key: "shoot", label: "Forgatásra vár", statuses: ["shoot_done"] },
+  { key: "editing", label: "Vágásra vár", statuses: ["editing", "edit_review"] },
+  { key: "scheduling", label: "Időzítésre vár", statuses: ["scheduling"] },
+  { key: "published", label: "Közzétéve", statuses: ["published"] },
 ];
+
+export type StageBadge = "not_started" | "in_progress" | "sent";
+
+export const STAGE_BADGE_LABELS: Record<StageBadge, string> = {
+  not_started: "Nincs elkezdve",
+  in_progress: "Folyamatban",
+  sent: "Kiküldve",
+};
+
+// A "Scriptre vár"/"Vágásra vár" összevont oszlopokon belüli jelvény: az adott
+// munka még el sem lett kezdve, folyamatban van, vagy már ki lett küldve
+// jóváhagyásra (ez utóbbi esetben a kártyán a Jóváhagyva/Módosítás kell
+// gombok is megjelennek).
+export function getStageBadge(item: ContentItem): StageBadge | null {
+  if (item.status === "script_writing") return item.script_content?.trim() ? "in_progress" : "not_started";
+  if (item.status === "script_review") return "sent";
+  if (item.status === "editing") return item.edited_media_url?.trim() ? "in_progress" : "not_started";
+  if (item.status === "edit_review") return "sent";
+  return null;
+}
 
 export const PLATFORM_LABELS: Record<Platform, string> = {
   instagram: "Instagram",

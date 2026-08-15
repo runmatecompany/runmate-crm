@@ -1,10 +1,11 @@
 import { useRef, useState, type ChangeEvent } from "react";
 import { useAuth } from "../../lib/auth";
 import {
-  CONTENT_STATUS_LABELS,
-  CONTENT_STATUS_ORDER,
+  KANBAN_COLUMNS,
   PLATFORM_LABELS,
+  STAGE_BADGE_LABELS,
   getCardAction,
+  getStageBadge,
   transitionContentItem,
   uploadRawFiles,
   type ContentItem,
@@ -84,11 +85,11 @@ export default function KanbanBoard({ items, onOpen, onChanged }: KanbanBoardPro
   return (
     <div className="sm-kanban">
       <input ref={fileInputRef} type="file" multiple hidden onChange={handleFilesSelected} />
-      {CONTENT_STATUS_ORDER.map((status) => {
-        const columnItems = items.filter((i) => i.status === status);
+      {KANBAN_COLUMNS.map((column) => {
+        const columnItems = items.filter((i) => column.statuses.includes(i.status));
         // A "Forgatásra vár" oszlopban időrendben (a legközelebbi forgatás
         // elöl) érdemes látni, hogy melyik a legsürgősebb.
-        if (status === "shoot_done") {
+        if (column.key === "shoot") {
           columnItems.sort((a, b) => {
             if (!a.shoot_date) return 1;
             if (!b.shoot_date) return -1;
@@ -96,14 +97,15 @@ export default function KanbanBoard({ items, onOpen, onChanged }: KanbanBoardPro
           });
         }
         return (
-          <div key={status} className="sm-kanban-col">
+          <div key={column.key} className="sm-kanban-col">
             <div className="sm-kanban-col-header">
-              {CONTENT_STATUS_LABELS[status]} <span className="sm-kanban-col-count">{columnItems.length}</span>
+              {column.label} <span className="sm-kanban-col-count">{columnItems.length}</span>
             </div>
             <div className="sm-kanban-col-body">
               {columnItems.map((item) => {
                 const cardAction = getCardAction(item.status);
                 const isUploading = uploadingItemId === item.id;
+                const stageBadge = getStageBadge(item);
                 return (
                   <div key={item.id} className="sm-kanban-card">
                     <button type="button" className="sm-kanban-card-main" onClick={() => onOpen(item.id)}>
@@ -113,6 +115,11 @@ export default function KanbanBoard({ items, onOpen, onChanged }: KanbanBoardPro
                         {PLATFORM_LABELS[item.platform]}
                         {item.assigned_to_name ? ` · ${item.assigned_to_name}` : ""}
                       </div>
+                      {stageBadge && (
+                        <span className={`sm-kanban-card-badge sm-kanban-card-badge-${stageBadge}`}>
+                          {STAGE_BADGE_LABELS[stageBadge]}
+                        </span>
+                      )}
                     </button>
                     {cardAction.kind === "forward" && (
                       <button
