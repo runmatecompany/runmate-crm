@@ -7,8 +7,15 @@ import ChatPage from "./ChatPage";
 import MessagesPage from "./MessagesPage";
 import LeadsPage from "./LeadsPage";
 import ClientsPage from "./ClientsPage";
-import SocialMediaPage from "./SocialMediaPage";
+import SocialMediaPage, { type SocialMediaTab } from "./SocialMediaPage";
 import SettingsPage from "./SettingsPage";
+
+const SOCIAL_MEDIA_TABS: Record<string, SocialMediaTab> = {
+  "social-kanban": "kanban",
+  "social-queue": "queue",
+  "social-shoot-calendar": "shoot-calendar",
+  "social-content-calendar": "content-calendar",
+};
 
 export default function DashboardPage() {
   const { auth, logout } = useAuth();
@@ -40,8 +47,8 @@ export default function DashboardPage() {
         <LeadsPage />
       ) : activeId === "clients" ? (
         <ClientsPage />
-      ) : activeId === "social" ? (
-        <SocialMediaPage />
+      ) : activeId in SOCIAL_MEDIA_TABS ? (
+        <SocialMediaPage tab={SOCIAL_MEDIA_TABS[activeId]} />
       ) : activeId === "settings" ? (
         <SettingsPage />
       ) : (

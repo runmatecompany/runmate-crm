@@ -23,15 +23,32 @@ export default function Sidebar({ activeId, onSelect, userId, userName, onLogout
       </div>
 
       <nav className="sidebar-nav">
-        {MENU_ITEMS.map((item) => (
-          <button
-            key={item.id}
-            className={item.id === activeId ? "sidebar-link active" : "sidebar-link"}
-            onClick={() => onSelect(item.id)}
-          >
-            {item.label}
-          </button>
-        ))}
+        {MENU_ITEMS.map((item) => {
+          const isParentActive = item.id === activeId || (item.children?.some((c) => c.id === activeId) ?? false);
+          return (
+            <div key={item.id} className="sidebar-group">
+              <button
+                className={isParentActive ? "sidebar-link active" : "sidebar-link"}
+                onClick={() => onSelect(item.children ? item.children[0].id : item.id)}
+              >
+                {item.label}
+              </button>
+              {item.children && (
+                <div className="sidebar-submenu">
+                  {item.children.map((child) => (
+                    <button
+                      key={child.id}
+                      className={child.id === activeId ? "sidebar-link sidebar-sublink active" : "sidebar-link sidebar-sublink"}
+                      onClick={() => onSelect(child.id)}
+                    >
+                      {child.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </nav>
 
       <div className="sidebar-footer">

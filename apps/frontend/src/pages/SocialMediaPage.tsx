@@ -10,13 +10,23 @@ import ApprovalQueueView from "../components/socialMedia/ApprovalQueueView";
 import ShootCalendar from "../components/socialMedia/ShootCalendar";
 import ContentCalendar from "../components/socialMedia/ContentCalendar";
 
-type Tab = "kanban" | "queue" | "shoot-calendar" | "content-calendar";
+export type SocialMediaTab = "kanban" | "queue" | "shoot-calendar" | "content-calendar";
 
-export default function SocialMediaPage() {
+const TAB_LABELS: Record<SocialMediaTab, string> = {
+  kanban: "Folyamat",
+  queue: "Jóváhagyásra vár",
+  "shoot-calendar": "Forgatási naptár",
+  "content-calendar": "Tartalomnaptár",
+};
+
+interface SocialMediaPageProps {
+  tab: SocialMediaTab;
+}
+
+export default function SocialMediaPage({ tab }: SocialMediaPageProps) {
   const { auth } = useAuth();
   const token = auth?.token ?? null;
 
-  const [tab, setTab] = useState<Tab>("kanban");
   const [items, setItems] = useState<ContentItem[]>([]);
   const [hasAccess, setHasAccess] = useState(true);
   const [clients, setClients] = useState<Client[]>([]);
@@ -39,6 +49,12 @@ export default function SocialMediaPage() {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  // Ha a felhasználó egy másik almenüpontra vált, miközben egy tartalom
+  // részletes nézetét látja, ne maradjon ott — kövesse az új fület.
+  useEffect(() => {
+    setOpenItemId(null);
+  }, [tab]);
 
   useEffect(() => {
     if (!token) return;
@@ -79,32 +95,9 @@ export default function SocialMediaPage() {
   return (
     <main className="leads-page sm-page">
       <div className="leads-header">
-        <h1>Social Media</h1>
+        <h1>Social Media — {TAB_LABELS[tab]}</h1>
         <button type="button" onClick={() => setShowCreate(true)}>
           + Új tartalom
-        </button>
-      </div>
-
-      <div className="leads-status-tabs">
-        <button type="button" className={tab === "kanban" ? "leads-status-tab active" : "leads-status-tab"} onClick={() => setTab("kanban")}>
-          Folyamat
-        </button>
-        <button type="button" className={tab === "queue" ? "leads-status-tab active" : "leads-status-tab"} onClick={() => setTab("queue")}>
-          Jóváhagyásra vár
-        </button>
-        <button
-          type="button"
-          className={tab === "shoot-calendar" ? "leads-status-tab active" : "leads-status-tab"}
-          onClick={() => setTab("shoot-calendar")}
-        >
-          Forgatási naptár
-        </button>
-        <button
-          type="button"
-          className={tab === "content-calendar" ? "leads-status-tab active" : "leads-status-tab"}
-          onClick={() => setTab("content-calendar")}
-        >
-          Tartalomnaptár
         </button>
       </div>
 
