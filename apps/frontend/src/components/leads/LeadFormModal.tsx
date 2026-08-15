@@ -1,4 +1,4 @@
-import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { extractLeadFromImages, type Lead, type LeadFormInput } from "../../lib/leads";
 
 interface LeadFormModalProps {
@@ -39,23 +39,51 @@ export default function LeadFormModal({ lead, token, onClose, onSave }: LeadForm
   const [extractError, setExtractError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  async function addFiles(files: File[]) {
+    if (files.length === 0) return;
+    setExtractError(null);
+    const dataUrls = await Promise.all(files.map(readAsDataUrl));
+    setImages((prev) => {
+      const room = MAX_IMAGES - prev.length;
+      if (room <= 0) return prev;
+      return [
+        ...prev,
+        ...dataUrls.slice(0, room).map((dataUrl, i) => ({ id: `${Date.now()}-${i}`, dataUrl })),
+      ];
+    });
+  }
+
   async function handleFilesSelected(e: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.currentTarget.files ?? []);
     e.currentTarget.value = "";
-    if (files.length === 0) return;
-    setExtractError(null);
-    const room = MAX_IMAGES - images.length;
-    const accepted = files.slice(0, room);
-    const dataUrls = await Promise.all(accepted.map(readAsDataUrl));
-    setImages((prev) => [
-      ...prev,
-      ...dataUrls.map((dataUrl, i) => ({ id: `${Date.now()}-${i}`, dataUrl })),
-    ]);
+    await addFiles(files);
   }
 
   function removeImage(id: string) {
     setImages((prev) => prev.filter((img) => img.id !== id));
   }
+
+  // Vágólapról beillesztett kép (pl. "kép másolása" egy screenshotból)
+  // fájlmentés nélkül is hozzáadható Ctrl+V-vel, amíg az új lead ablak nyitva van.
+  useEffect(() => {
+    if (lead) return;
+    function handlePaste(e: ClipboardEvent) {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      const files: File[] = [];
+      for (const item of items) {
+        if (item.type.startsWith("image/")) {
+          const file = item.getAsFile();
+          if (file) files.push(file);
+        }
+      }
+      if (files.length === 0) return;
+      e.preventDefault();
+      void addFiles(files);
+    }
+    window.addEventListener("paste", handlePaste);
+    return () => window.removeEventListener("paste", handlePaste);
+  }, [lead]);
 
   async function handleExtract() {
     if (images.length === 0) return;
@@ -106,7 +134,10 @@ export default function LeadFormModal({ lead, token, onClose, onSave }: LeadForm
 
         {!lead && (
           <div className="lead-image-upload">
-            <label>Fotók (névjegykártya, képernyőfotó) — az AI kitölti belőlük a mezőket</label>
+            <label>
+              Fotók (névjegykártya, képernyőfotó) — az AI kitölti belőlük a mezőket. Vágólapról is
+              beillesztheted (Ctrl+V), nem kell előbb lementened a képet.
+            </label>
             <div className="lead-image-list">
               {images.map((img) => (
                 <div key={img.id} className="lead-image-thumb">
