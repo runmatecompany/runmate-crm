@@ -16,4 +16,6 @@ export const config = {
   jwtSecret: required("JWT_SECRET"),
   jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? "8h",
   emailEncryptionKey: required("EMAIL_ENCRYPTION_KEY"),
+  // Opcionális: hiányában a lead-fotó AI-kitöltés funkció ki van kapcsolva.
+  geminiApiKey: process.env.GEMINI_API_KEY || undefined,
 };

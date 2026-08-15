@@ -34,6 +34,15 @@ export interface LeadFormInput {
   notes?: string;
 }
 
+export interface ExtractedLeadFields {
+  companyName: string | null;
+  contactName: string | null;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  notes: string | null;
+}
+
 export interface LeadsListResult {
   leads: Lead[];
   hasAccess: boolean;
@@ -76,4 +85,14 @@ export async function updateLeadStatus(token: string, id: number, status: LeadSt
 
 export async function deleteLead(token: string, id: number): Promise<void> {
   await authFetch(token, `/leads/${id}`, { method: "DELETE" });
+}
+
+export async function extractLeadFromImages(token: string, images: string[]): Promise<ExtractedLeadFields> {
+  const res = await authFetch(token, "/leads/extract-from-images", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ images }),
+  });
+  const data = await res.json();
+  return data.fields;
 }

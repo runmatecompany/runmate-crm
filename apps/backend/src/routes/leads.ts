@@ -9,6 +9,7 @@ import {
   updateLeadStatus,
   type LeadStatus,
 } from "../db/leads.js";
+import { extractLeadFromImages, isLeadExtractionEnabled, type LeadImageInput } from "../lib/leadExtraction.js";
 
 const LEAD_STATUS_VALUES = ["to_call", "called", "call_back", "became_customer", "not_interested"] as const;
 
@@ -37,6 +38,22 @@ const statusBodySchema = {
   type: "object",
   required: ["status"],
   properties: { status: { type: "string", enum: [...LEAD_STATUS_VALUES] } },
+} as const;
+
+const DATA_URL_PATTERN = /^data:(image\/(?:png|jpeg|jpg|webp|gif));base64,(.+)$/;
+
+const extractBodySchema = {
+  type: "object",
+  required: ["images"],
+  properties: {
+    images: {
+      type: "array",
+      minItems: 1,
+      maxItems: 5,
+      // ~8 MB base64 kép (kb. 6 MB nyers) — bőven elég egy telefonos fotóhoz.
+      items: { type: "string", maxLength: 8_000_000 },
+    },
+  },
 } as const;
 
 interface LeadDetailsBody {
@@ -81,6 +98,37 @@ export default async function leadsRoutes(fastify: FastifyInstance) {
       }
       const lead = await createLead({ ...request.body, createdBy: request.user.sub });
       return reply.code(201).send({ lead });
+    }
+  );
+
+  fastify.post<{ Body: { images: string[] } }>(
+    "/leads/extract-from-images",
+    { onRequest: [fastify.authenticate], schema: { body: extractBodySchema } },
+    async (request, reply) => {
+      if (!(await canAccessLeadsModule(request.user.sub, request.user.role))) {
+        return reply.code(403).send({ error: "Nincs hozzáférésed a Leadek modulhoz" });
+      }
+      if (!isLeadExtractionEnabled()) {
+        return reply.code(503).send({ error: "Az AI kitöltés nincs beállítva a szerveren" });
+      }
+
+      const images: LeadImageInput[] = [];
+      for (const dataUrl of request.body.images) {
+        const match = dataUrl.match(DATA_URL_PATTERN);
+        if (!match) {
+          return reply.code(400).send({ error: "Érvénytelen kép formátum" });
+        }
+        const [, mime, base64] = match;
+        images.push({ mediaType: (mime === "image/jpg" ? "image/jpeg" : mime) as LeadImageInput["mediaType"], base64 });
+      }
+
+      try {
+        const fields = await extractLeadFromImages(images);
+        return { fields };
+      } catch (err) {
+        fastify.log.error(err, "Lead extraction failed");
+        return reply.code(502).send({ error: "Nem sikerült feldolgozni a képeket" });
+      }
     }
   );
 

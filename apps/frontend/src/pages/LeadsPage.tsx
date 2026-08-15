@@ -155,9 +155,10 @@ export default function LeadsPage() {
         </table>
       )}
 
-      {editingLead && (
+      {editingLead && token && (
         <LeadFormModal
           lead={editingLead === "new" ? null : editingLead}
+          token={token}
           onClose={() => setEditingLead(null)}
           onSave={handleSave}
         />
