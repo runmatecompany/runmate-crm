@@ -4,6 +4,7 @@ import {
   clearRoomHistory,
   getMessageSenderId,
   getOrCreateDmRoom,
+  getOtherDmMember,
   getRoomBroadcastUserIds,
   getRoomMeta,
   insertMessage,
@@ -22,9 +23,25 @@ import {
   sendToUser,
   getOnlineUserIds,
 } from "../realtime/connections.js";
+import {
+  getAllActiveCalls,
+  getParticipants,
+  joinCall,
+  leaveAllCallsForSocket,
+  leaveCall,
+  setScreenSharing,
+} from "../realtime/calls.js";
 import type { JwtUserPayload } from "../plugins/jwt.js";
 
-const CALL_FRAME_TYPES = new Set(["call-offer", "call-answer", "call-ice-candidate", "call-end", "call-reject"]);
+// Páronkénti WebRTC-egyeztetés (offer/answer/ice) — a hívó fél maga adja meg,
+// kivel egyeztet (targetUserId), a szerver csak relézi. Ugyanez a mintázat
+// szolgálja ki mind a DM, mind a csoportos (mesh) hívást.
+const CALL_RELAY_FRAME_TYPES = new Set(["call-offer", "call-answer", "call-ice-candidate"]);
+
+async function broadcastCallRoster(roomId: number): Promise<void> {
+  const recipientIds = await getRoomBroadcastUserIds(roomId);
+  broadcastToUsers(recipientIds, { type: "call-roster-updated", roomId, participants: getParticipants(roomId) });
+}
 
 // DM-nél bármelyik résztvevő törölheti/állíthatja vissza a saját beszélgetését,
 // csoportszobánál (céges csatorna, mindenki látja) csak admin — nehogy
@@ -48,6 +65,18 @@ export default async function chatRoutes(fastify: FastifyInstance) {
 
   fastify.get("/chat/presence", { onRequest: [fastify.authenticate] }, async () => {
     return { onlineUserIds: getOnlineUserIds() };
+  });
+
+  // Snapshot az összes, a felhasználó számára látható szoba aktív hívásairól —
+  // kapcsolódáskor/reconnectkor tölti be a szobalista és a fejléc badge-eket,
+  // utána a call-roster-updated WS frame-ek tartják élőben.
+  fastify.get("/chat/calls", { onRequest: [fastify.authenticate] }, async (request) => {
+    const accessibleRoomIds = (await listRoomsForUser(request.user.sub)).map((r) => r.id);
+    const all = getAllActiveCalls();
+    const calls = accessibleRoomIds
+      .filter((id) => all.has(id))
+      .map((roomId) => ({ roomId, participants: all.get(roomId)! }));
+    return { calls };
   });
 
   fastify.get<{ Params: { id: string }; Querystring: { before?: string; limit?: string } }>(
@@ -148,11 +177,54 @@ export default async function chatRoutes(fastify: FastifyInstance) {
         return;
       }
 
-      if (CALL_FRAME_TYPES.has(frame.type)) {
+      if (CALL_RELAY_FRAME_TYPES.has(frame.type)) {
         if (!frame.roomId || !frame.targetUserId) return;
         const allowed = await canAccessRoom(frame.roomId, userId);
         if (!allowed) return;
         sendToUser(frame.targetUserId, { ...frame, fromUserId: userId });
+        return;
+      }
+
+      if (frame.type === "call-join") {
+        if (!frame.roomId) return;
+        const allowed = await canAccessRoom(frame.roomId, userId);
+        if (!allowed) return;
+        const result = joinCall(frame.roomId, userId, socket);
+        if (!result.ok) {
+          sendToUser(userId, { type: "call-join-rejected", roomId: frame.roomId, reason: result.reason });
+          return;
+        }
+        sendToUser(userId, { type: "call-joined", roomId: frame.roomId, participants: result.existing });
+        await broadcastCallRoster(frame.roomId);
+        return;
+      }
+
+      if (frame.type === "call-leave") {
+        if (!frame.roomId) return;
+        if (!leaveCall(frame.roomId, userId, socket)) return;
+        await broadcastCallRoster(frame.roomId);
+        return;
+      }
+
+      if (frame.type === "call-screen-share-state") {
+        if (!frame.roomId || typeof frame.sharing !== "boolean") return;
+        if (!setScreenSharing(frame.roomId, userId, frame.sharing)) return;
+        await broadcastCallRoster(frame.roomId);
+        return;
+      }
+
+      if (frame.type === "call-invite" || frame.type === "call-decline") {
+        if (!frame.roomId) return;
+        const allowed = await canAccessRoom(frame.roomId, userId);
+        if (!allowed) return;
+        // A célpontot mindig a szerver oldja fel (a DM másik tagja), nem a
+        // kliens által küldött értékből — így senki nem tud csengetést
+        // küldeni egy tetszőleges felhasználónak egy olyan szoba nevében,
+        // aminek nem is tagja a célzott személy.
+        const targetUserId = await getOtherDmMember(frame.roomId, userId);
+        if (!targetUserId) return;
+        const relayedType = frame.type === "call-invite" ? "call-invite" : "call-declined";
+        sendToUser(targetUserId, { type: relayedType, roomId: frame.roomId, fromUserId: userId, fromName: frame.fromName });
         return;
       }
 
@@ -205,6 +277,11 @@ export default async function chatRoutes(fastify: FastifyInstance) {
       const wentOffline = unregisterConnection(userId, socket);
       if (wentOffline) {
         broadcastToAll({ type: "presence-changed", userId, online: false });
+      }
+
+      const affectedRoomIds = leaveAllCallsForSocket(socket);
+      for (const roomId of affectedRoomIds) {
+        void broadcastCallRoster(roomId);
       }
     });
   });

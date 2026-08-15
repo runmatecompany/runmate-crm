@@ -118,6 +118,15 @@ export async function canAccessRoom(roomId: number, userId: number): Promise<boo
   return (rowCount ?? 0) > 0;
 }
 
+// A DM másik tagjának feloldásához (pl. a call-invite célpontjához).
+export async function getOtherDmMember(roomId: number, userId: number): Promise<number | null> {
+  const { rows } = await pool.query<{ user_id: number }>(
+    `SELECT user_id FROM chat_room_members WHERE room_id = $1 AND user_id != $2 LIMIT 1`,
+    [roomId, userId]
+  );
+  return rows[0]?.user_id ?? null;
+}
+
 export interface RoomMeta {
   id: number;
   is_dm: boolean;

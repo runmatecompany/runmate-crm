@@ -1,5 +1,6 @@
 import { roomDisplayName, type RoomSummary } from "../../lib/chat";
 import { useRealtime } from "../../lib/realtime";
+import { useCall } from "../../lib/call";
 import Avatar from "../Avatar";
 
 interface RoomListProps {
@@ -9,6 +10,20 @@ interface RoomListProps {
   isAdmin: boolean;
   onCreateRoom: () => void;
   onNewDm: () => void;
+}
+
+function CallBadge({ roomId }: { roomId: number }) {
+  const { roomRosters } = useCall();
+  const participants = roomRosters.get(roomId);
+  if (!participants || participants.length === 0) return null;
+  return (
+    <span
+      className="room-call-badge"
+      title={`Hívásban: ${participants.map((p) => p.name).join(", ")}`}
+    >
+      🔊 {participants.length}
+    </span>
+  );
 }
 
 export default function RoomList({ rooms, activeRoomId, onSelect, isAdmin, onCreateRoom, onNewDm }: RoomListProps) {
@@ -34,7 +49,10 @@ export default function RoomList({ rooms, activeRoomId, onSelect, isAdmin, onCre
           className={room.id === activeRoomId ? "chat-room-item active" : "chat-room-item"}
           onClick={() => onSelect(room.id)}
         >
-          <span className="chat-room-name">{roomDisplayName(room, names)}</span>
+          <span className="chat-room-item-row">
+            <span className="chat-room-name">{roomDisplayName(room, names)}</span>
+            <CallBadge roomId={room.id} />
+          </span>
           {room.last_message_body && <span className="chat-room-preview">{room.last_message_body}</span>}
         </button>
       ))}
@@ -58,6 +76,7 @@ export default function RoomList({ rooms, activeRoomId, onSelect, isAdmin, onCre
               <Avatar userId={room.other_user_id} name={room.other_user_name ?? "?"} size={22} />
             )}
             <span className="chat-room-name">{roomDisplayName(room, names)}</span>
+            <CallBadge roomId={room.id} />
           </span>
           {room.last_message_body && <span className="chat-room-preview">{room.last_message_body}</span>}
         </button>

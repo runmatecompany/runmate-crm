@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { useCall } from "../lib/call";
+import { useCall, type RemoteParticipant } from "../lib/call";
+import Avatar from "./Avatar";
 
 function formatDuration(seconds: number): string {
   const m = Math.floor(seconds / 60)
@@ -11,16 +12,42 @@ function formatDuration(seconds: number): string {
   return `${m}:${s}`;
 }
 
-export default function CallOverlay() {
-  const { status, peer, muted, remoteStream, acceptCall, rejectCall, endCall, toggleMute } = useCall();
-  const audioRef = useRef<HTMLAudioElement>(null);
-  const [elapsed, setElapsed] = useState(0);
-
+function RemoteAudio({ stream }: { stream: MediaStream | null }) {
+  const ref = useRef<HTMLAudioElement>(null);
   useEffect(() => {
-    if (audioRef.current) {
-      audioRef.current.srcObject = remoteStream;
-    }
-  }, [remoteStream]);
+    if (ref.current) ref.current.srcObject = stream;
+  }, [stream]);
+  return <audio ref={ref} autoPlay />;
+}
+
+function ScreenVideo({ stream, label }: { stream: MediaStream; label: string }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    if (ref.current) ref.current.srcObject = stream;
+  }, [stream]);
+  return (
+    <div className="call-screen-tile">
+      <video ref={ref} autoPlay playsInline className="call-screen-video" />
+      <span className="call-screen-tile-label">{label}</span>
+    </div>
+  );
+}
+
+export default function CallOverlay() {
+  const {
+    status,
+    peer,
+    participants,
+    muted,
+    sharingScreen,
+    localScreenStream,
+    acceptCall,
+    rejectCall,
+    leaveCall,
+    toggleMute,
+    toggleScreenShare,
+  } = useCall();
+  const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
     if (status !== "connected") {
@@ -31,13 +58,22 @@ export default function CallOverlay() {
     return () => clearInterval(interval);
   }, [status]);
 
-  if (status === "idle" || !peer) return null;
+  if (status === "idle") return null;
+
+  const screenShares: { userId: number; name: string; stream: MediaStream }[] = [
+    ...(localScreenStream ? [{ userId: -1, name: "Te", stream: localScreenStream }] : []),
+    ...participants
+      .filter((p): p is RemoteParticipant & { screenStream: MediaStream } => p.screenStream != null)
+      .map((p) => ({ userId: p.userId, name: p.name, stream: p.screenStream })),
+  ];
 
   return (
     <div className="call-overlay">
-      <audio ref={audioRef} autoPlay />
+      {participants.map((p) => (
+        <RemoteAudio key={p.userId} stream={p.micStream} />
+      ))}
 
-      {status === "ringing" && (
+      {status === "ringing" && peer && (
         <div className="call-card">
           <div className="call-peer-name">{peer.name} hív téged</div>
           <div className="call-actions">
@@ -51,11 +87,11 @@ export default function CallOverlay() {
         </div>
       )}
 
-      {status === "calling" && (
+      {status === "calling" && peer && (
         <div className="call-card">
           <div className="call-peer-name">Hívás... {peer.name}</div>
           <div className="call-actions">
-            <button type="button" className="call-btn call-reject" onClick={endCall}>
+            <button type="button" className="call-btn call-reject" onClick={leaveCall}>
               Megszakítás
             </button>
           </div>
@@ -63,16 +99,39 @@ export default function CallOverlay() {
       )}
 
       {status === "connected" && (
-        <div className="call-bar">
-          <span className="call-bar-info">
-            Hívás — {peer.name} · {formatDuration(elapsed)}
-          </span>
-          <button type="button" className="call-bar-btn" onClick={toggleMute}>
-            {muted ? "Némítás fel" : "Némítás"}
-          </button>
-          <button type="button" className="call-bar-btn call-bar-end" onClick={endCall}>
-            Hívás vége
-          </button>
+        <div className="call-panel">
+          {screenShares.length > 0 && (
+            <div className="call-screen-grid">
+              {screenShares.map((s) => (
+                <ScreenVideo key={s.userId} stream={s.stream} label={s.name} />
+              ))}
+            </div>
+          )}
+
+          <div className="call-bar">
+            <div className="call-participants">
+              {participants.map((p) => (
+                <div key={p.userId} className="call-participant" title={p.name}>
+                  <Avatar userId={p.userId} name={p.name} size={26} />
+                  {p.sharingScreen && <span className="call-participant-sharing" title="Képernyőt oszt meg" />}
+                </div>
+              ))}
+            </div>
+            <span className="call-bar-info">{formatDuration(elapsed)}</span>
+            <button type="button" className="call-bar-btn" onClick={toggleMute}>
+              {muted ? "Némítás fel" : "Némítás"}
+            </button>
+            <button
+              type="button"
+              className={sharingScreen ? "call-bar-btn call-share-btn active" : "call-bar-btn call-share-btn"}
+              onClick={toggleScreenShare}
+            >
+              {sharingScreen ? "Megosztás leállítása" : "Képernyőmegosztás"}
+            </button>
+            <button type="button" className="call-bar-btn call-bar-end" onClick={leaveCall}>
+              Kilépés
+            </button>
+          </div>
         </div>
       )}
     </div>

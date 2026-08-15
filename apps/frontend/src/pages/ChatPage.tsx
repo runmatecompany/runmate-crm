@@ -30,7 +30,7 @@ export default function ChatPage() {
   const token = auth?.token ?? null;
   const isAdmin = auth?.user.role === "admin";
   const { onChatMessage, sendChatMessage, sendFrame, onFrame, names } = useRealtime();
-  const { status: callStatus, startCall } = useCall();
+  const { status: callStatus, roomId: callRoomId, roomRosters, joinCall } = useCall();
   const { requestedRoomId, clearRequestedRoom, setViewingRoomId } = useNavigation();
 
   const [rooms, setRooms] = useState<RoomSummary[]>([]);
@@ -239,7 +239,14 @@ export default function ChatPage() {
     setActiveRoomId(roomId);
   }
 
+  function handleJoinCall(room: RoomSummary) {
+    const otherName = room.other_user_id != null ? (names[room.other_user_id] ?? room.other_user_name) : undefined;
+    joinCall(room.id, room.is_dm, room.other_user_id ?? undefined, otherName ?? undefined);
+  }
+
   const activeRoom = rooms.find((r) => r.id === activeRoomId) ?? null;
+  const activeRoomRoster = activeRoom ? (roomRosters.get(activeRoom.id) ?? []) : [];
+  const inActiveRoomCall = callStatus === "connected" && activeRoom != null && callRoomId === activeRoom.id;
   const typingColleague = colleagues.find((c) => c.id === typingUserId);
   const typingUserName =
     typingUserId != null ? (names[typingUserId] ?? typingColleague?.name ?? "Valaki") : null;
@@ -267,20 +274,24 @@ export default function ChatPage() {
                 />
               )}
               <span>{roomDisplayName(activeRoom, names)}</span>
-              {activeRoom.is_dm && activeRoom.other_user_id != null && (
+              {!inActiveRoomCall && activeRoomRoster.length === 0 && (
                 <button
                   type="button"
                   className="chat-call-btn"
                   disabled={callStatus !== "idle"}
-                  onClick={() =>
-                    startCall(
-                      activeRoom.id,
-                      activeRoom.other_user_id as number,
-                      names[activeRoom.other_user_id as number] ?? activeRoom.other_user_name ?? "?"
-                    )
-                  }
+                  onClick={() => handleJoinCall(activeRoom)}
                 >
                   Hívás indítása
+                </button>
+              )}
+              {!inActiveRoomCall && activeRoomRoster.length > 0 && (
+                <button
+                  type="button"
+                  className="chat-call-btn chat-call-join-btn"
+                  disabled={callStatus !== "idle"}
+                  onClick={() => handleJoinCall(activeRoom)}
+                >
+                  🔊 {activeRoomRoster.length} fő hívásban — Csatlakozás
                 </button>
               )}
             </div>

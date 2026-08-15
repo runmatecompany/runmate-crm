@@ -29,6 +29,16 @@ export interface Colleague {
   role: "admin" | "user";
 }
 
+export interface CallParticipant {
+  userId: number;
+  sharingScreen: boolean;
+}
+
+export interface RoomCallState {
+  roomId: number;
+  participants: CallParticipant[];
+}
+
 export async function listRooms(token: string): Promise<RoomSummary[]> {
   const res = await authFetch(token, "/chat/rooms");
   const data = await res.json();
@@ -59,6 +69,12 @@ export async function clearRoom(token: string, roomId: number): Promise<void> {
 
 export async function restoreRoom(token: string, roomId: number): Promise<void> {
   await authFetch(token, `/chat/rooms/${roomId}/restore`, { method: "POST" });
+}
+
+export async function fetchActiveCalls(token: string): Promise<RoomCallState[]> {
+  const res = await authFetch(token, "/chat/calls");
+  const data = await res.json();
+  return data.calls;
 }
 
 export async function createRoom(token: string, name: string): Promise<RoomSummary> {
