@@ -15,12 +15,17 @@ import clientsRoutes from "./routes/clients.js";
 import contentItemsRoutes from "./routes/contentItems.js";
 import socialMediaApprovalRoutes from "./routes/socialMediaApproval.js";
 import adminSocialMediaConfigRoutes from "./routes/admin/socialMediaConfig.js";
+import googleCalendarOauthRoutes from "./routes/googleCalendarOauth.js";
+import adminGoogleCalendarRoutes from "./routes/admin/googleCalendar.js";
+import calendarFileRoutes from "./routes/calendarFile.js";
 import adminUserAccessRoutes from "./routes/admin/userAccess.js";
 
 export function buildApp() {
   // Az alapértelmezett 1 MB-os body limit kevés lenne egy base64-kódolt
-  // profilképhez, ezért ezt kicsit megemeljük.
-  const app = Fastify({ logger: true, bodyLimit: 5 * 1024 * 1024 });
+  // profilképhez, ezért ezt kicsit megemeljük. A maxParamLength (find-my-way
+  // alapértelmezetten 100 karakter) is kevés lenne a Google Naptár .ics
+  // linkek aláírt tokenjéhez (lib/googleCalendar/icsToken.ts).
+  const app = Fastify({ logger: true, bodyLimit: 5 * 1024 * 1024, maxParamLength: 300 });
 
   // Dev: engedjük a Tauri webview / Vite dev szerver origin-jét.
   // Élesben érdemes konkrét origin(ek)re szűkíteni.
@@ -43,6 +48,9 @@ export function buildApp() {
   app.register(contentItemsRoutes);
   app.register(socialMediaApprovalRoutes);
   app.register(adminSocialMediaConfigRoutes);
+  app.register(googleCalendarOauthRoutes);
+  app.register(adminGoogleCalendarRoutes);
+  app.register(calendarFileRoutes);
   app.register(adminUserAccessRoutes);
 
   app.get("/health", async () => ({ status: "ok" }));

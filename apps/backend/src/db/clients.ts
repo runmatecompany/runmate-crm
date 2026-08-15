@@ -9,6 +9,7 @@ export interface ClientRow {
   address: string | null;
   notes: string | null;
   lead_id: number | null;
+  next_shoot_date: string | null;
   created_by: number | null;
   created_by_name: string | null;
   created_at: string;
@@ -18,7 +19,7 @@ export interface ClientRow {
 const CLIENT_SELECT = `
   SELECT
     c.id, c.company_name, c.contact_name, c.phone, c.email, c.address, c.notes,
-    c.lead_id, c.created_by, cu.name AS created_by_name,
+    c.lead_id, c.next_shoot_date, c.created_by, cu.name AS created_by_name,
     c.created_at, c.updated_at
   FROM clients c
   LEFT JOIN users cu ON cu.id = c.created_by
@@ -93,6 +94,10 @@ export async function updateClientDetails(
   );
   if (!rowCount) return undefined;
   return getClientById(id);
+}
+
+export async function updateClientNextShootDate(id: number, date: Date): Promise<void> {
+  await pool.query(`UPDATE clients SET next_shoot_date = $2, updated_at = now() WHERE id = $1`, [id, date]);
 }
 
 export async function deleteClient(id: number): Promise<boolean> {

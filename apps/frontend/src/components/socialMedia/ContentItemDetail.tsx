@@ -7,6 +7,7 @@ import {
   getContentItem,
   listApprovals,
   sendReminder,
+  toDatetimeLocalValue,
   transitionContentItem,
   updateContentItem,
   type Approval,
@@ -23,6 +24,7 @@ function formatDateTime(value: string | null): string {
   if (!value) return "—";
   return new Date(value).toLocaleString("hu-HU", { dateStyle: "medium", timeStyle: "short" });
 }
+
 
 export default function ContentItemDetail({ itemId, onBack, onChanged }: ContentItemDetailProps) {
   const { auth } = useAuth();
@@ -44,6 +46,15 @@ export default function ContentItemDetail({ itemId, onBack, onChanged }: Content
       setApprovals(loadedApprovals);
       setScriptDraft(loadedItem.script_content ?? "");
       setEditedUrlDraft(loadedItem.edited_media_url ?? "");
+      // Ha a Google Naptár szinkron már ismeri az ügyfél következő
+      // forgatását, azzal töltjük elő a dátum-mezőt (elfogadható vagy felülírható).
+      if (
+        loadedItem.status === "shoot_pending" &&
+        loadedItem.client_next_shoot_date &&
+        new Date(loadedItem.client_next_shoot_date).getTime() > Date.now()
+      ) {
+        setActionInputValue(toDatetimeLocalValue(loadedItem.client_next_shoot_date));
+      }
     });
   }, [token, itemId]);
 

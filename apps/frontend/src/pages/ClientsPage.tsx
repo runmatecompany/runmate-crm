@@ -84,6 +84,7 @@ export default function ClientsPage() {
               <th>Kapcsolattartó</th>
               <th>Telefon</th>
               <th>Email</th>
+              <th>Következő forgatás</th>
               <th></th>
             </tr>
           </thead>
@@ -94,6 +95,11 @@ export default function ClientsPage() {
                 <td>{client.contact_name}</td>
                 <td>{client.phone}</td>
                 <td>{client.email}</td>
+                <td>
+                  {client.next_shoot_date
+                    ? new Date(client.next_shoot_date).toLocaleString("hu-HU", { dateStyle: "medium", timeStyle: "short" })
+                    : "—"}
+                </td>
                 <td>
                   <div className="leads-row-actions">
                     <button type="button" onClick={() => setEditingClient(client)}>

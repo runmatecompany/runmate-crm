@@ -19,6 +19,7 @@ export interface ContentItemRow {
   client_name: string;
   client_contact_name: string | null;
   client_email: string | null;
+  client_next_shoot_date: string | null;
   title: string;
   platform: Platform;
   status: ContentStatus;
@@ -38,6 +39,7 @@ const CONTENT_ITEM_SELECT = `
   SELECT
     ci.id, ci.client_id, cl.company_name AS client_name,
     cl.contact_name AS client_contact_name, cl.email AS client_email,
+    cl.next_shoot_date AS client_next_shoot_date,
     ci.title, ci.platform, ci.status,
     ci.shoot_date, ci.script_content, ci.raw_media_url, ci.edited_media_url,
     ci.scheduled_publish_at, ci.published_at,

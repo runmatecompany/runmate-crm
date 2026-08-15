@@ -9,6 +9,7 @@ export interface Client {
   address: string | null;
   notes: string | null;
   lead_id: number | null;
+  next_shoot_date: string | null;
   created_by: number | null;
   created_by_name: string | null;
   created_at: string;

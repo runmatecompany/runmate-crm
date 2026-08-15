@@ -22,4 +22,8 @@ export const config = {
   // a Social Media jóváhagyó linkek épülnek. Hiányában a jóváhagyás-kérő
   // emailek küldése hibát ad, de minden más funkció működik.
   publicUrl: process.env.PUBLIC_URL || undefined,
+  // Opcionális: Google Cloud OAuth 2.0 Client ID/Secret a Google Naptár
+  // integrációhoz. Hiányában a naptár-összekötés funkció ki van kapcsolva.
+  googleClientId: process.env.GOOGLE_CLIENT_ID || undefined,
+  googleClientSecret: process.env.GOOGLE_CLIENT_SECRET || undefined,
 };

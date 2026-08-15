@@ -4,6 +4,7 @@ import {
   CONTENT_STATUS_ORDER,
   PLATFORM_LABELS,
   getCardAction,
+  toDatetimeLocalValue,
   transitionContentItem,
   type ContentItem,
 } from "../../lib/socialMedia";
@@ -46,7 +47,9 @@ export default function KanbanBoard({ items, onOpen, onChanged }: KanbanBoardPro
     if (cardAction.kind === "none") return;
     if (cardAction.kind === "review") return; // a Jóváhagyva/Módosítás kell gombok külön kezelve
     if (cardAction.input === "shootDate") {
-      const value = prompt("Forgatás dátuma (ÉÉÉÉ-HH-NN vagy ÉÉÉÉ-HH-NNTÓÓ:PP):");
+      const hasSuggestion = item.client_next_shoot_date && new Date(item.client_next_shoot_date).getTime() > Date.now();
+      const suggested = hasSuggestion ? toDatetimeLocalValue(item.client_next_shoot_date!) : "";
+      const value = prompt("Forgatás dátuma (ÉÉÉÉ-HH-NN vagy ÉÉÉÉ-HH-NNTÓÓ:PP):", suggested);
       if (!value) return;
       void runAction(item, cardAction.action, value);
     } else if (cardAction.input === "rawMediaUrl") {

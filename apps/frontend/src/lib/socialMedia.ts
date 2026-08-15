@@ -50,6 +50,7 @@ export interface ContentItem {
   client_name: string;
   client_contact_name: string | null;
   client_email: string | null;
+  client_next_shoot_date: string | null;
   title: string;
   platform: Platform;
   status: ContentStatus;
@@ -139,6 +140,16 @@ export function getCardAction(status: ContentStatus): CardAction {
     case "published":
       return { kind: "none" };
   }
+}
+
+// <input type="datetime-local"> "ÉÉÉÉ-HH-NNTÓÓ:PP" formátumot vár, a helyi
+// időzóna szerint (nem UTC) — ezért nem elég a plain toISOString(). A
+// kanban prompt()-jának alapértéke és a részletes nézet dátum-mezője is
+// ugyanezt a formátumot várja, hogy a felhasználó egyszerűen elfogadhassa.
+export function toDatetimeLocalValue(value: string): string {
+  const date = new Date(value);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 export async function listContentItems(token: string): Promise<ContentItemsListResult> {

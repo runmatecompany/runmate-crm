@@ -10,7 +10,7 @@ export interface EmailContent {
   html: string;
 }
 
-function wrap(bodyHtml: string): string {
+export function wrap(bodyHtml: string): string {
   return `
     <div style="font-family: sans-serif; max-width: 560px; margin: 0 auto; color: #222;">
       ${bodyHtml}
@@ -39,6 +39,28 @@ export function editApprovalEmail(ctx: ApprovalEmailContext): EmailContent {
       <p>Elkészült a(z) <strong>"${ctx.contentTitle}"</strong> tartalom vágott változata, kérnénk a jóváhagyásodat közzététel előtt.</p>
       <p><a href="${ctx.link}" style="display:inline-block;padding:0.7em 1.4em;background:#2f7fe0;color:#fff;text-decoration:none;border-radius:6px;">Videó megtekintése és jóváhagyása</a></p>
       <p>Ha valami nem stimmel, a linken keresztül módosítást is kérhetsz, csak írd le, mit változtatnánk.</p>
+    `),
+  };
+}
+
+export interface ShootDateConfirmedContext {
+  clientName: string;
+  shootDateLabel: string;
+  googleAddUrl: string;
+  icsUrl: string;
+}
+
+export function shootDateConfirmedEmail(ctx: ShootDateConfirmedContext): EmailContent {
+  return {
+    subject: `Következő forgatás: ${ctx.shootDateLabel}`,
+    html: wrap(`
+      <p>Kedves ${ctx.clientName}!</p>
+      <p>Megbeszéltük, hogy a következő forgatás <strong>${ctx.shootDateLabel}</strong> lesz.</p>
+      <p>
+        <a href="${ctx.googleAddUrl}" style="display:inline-block;padding:0.7em 1.2em;background:#2f7fe0;color:#fff;text-decoration:none;border-radius:6px;margin-right:0.6em;">Hozzáadás Google Naptárhoz</a>
+        <a href="${ctx.icsUrl}" style="display:inline-block;padding:0.7em 1.2em;background:#eee;color:#333;text-decoration:none;border-radius:6px;">Hozzáadás Apple/egyéb naptárhoz</a>
+      </p>
+      <p>A naptárbejegyzés egy nappal korábban emlékeztetni fog mindkettőnket.</p>
     `),
   };
 }
