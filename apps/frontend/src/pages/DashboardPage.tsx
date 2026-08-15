@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import Sidebar, { MENU_ITEMS } from "../components/Sidebar";
+import Sidebar from "../components/Sidebar";
 import { useAuth } from "../lib/auth";
 import { useNavigation } from "../lib/navigation";
+import { MENU_ITEMS } from "../lib/menuItems";
 import ChatPage from "./ChatPage";
 import MessagesPage from "./MessagesPage";
 import LeadsPage from "./LeadsPage";

@@ -1,18 +1,7 @@
 import logo from "../assets/logo.png";
 import { useUpdater } from "../lib/updater";
+import { MENU_ITEMS } from "../lib/menuItems";
 import Avatar from "./Avatar";
-
-export interface MenuItem {
-  id: string;
-  label: string;
-}
-
-export const MENU_ITEMS: MenuItem[] = [
-  { id: "messages", label: "Üzenetek" },
-  { id: "leads", label: "Leadek" },
-  { id: "chat", label: "Chat" },
-  { id: "settings", label: "Beállítások" },
-];
 
 interface SidebarProps {
   activeId: string;

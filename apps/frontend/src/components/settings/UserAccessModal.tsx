@@ -4,6 +4,7 @@ import type { Colleague } from "../../lib/chat";
 import { listAdminEmailAccounts, type EmailAccountAdminView } from "../../lib/email";
 import { getUserAccess, setUserAccess } from "../../lib/userAccess";
 import { useEscapeToClose } from "../../lib/useEscapeToClose";
+import { menuItemLabel } from "../../lib/menuItems";
 
 interface UserAccessModalProps {
   user: Colleague;
@@ -82,7 +83,7 @@ export default function UserAccessModal({ user, onClose }: UserAccessModalProps)
                 checked={leadsAccess}
                 onChange={(e) => setLeadsAccessState(e.currentTarget.checked)}
               />
-              Leadek modul
+              {menuItemLabel("leads", "Leadek")} modul
             </label>
 
             <label className="chat-colleague-pick email-account-access-option user-access-module">
@@ -91,7 +92,7 @@ export default function UserAccessModal({ user, onClose }: UserAccessModalProps)
                 checked={emailModuleAccess}
                 onChange={(e) => setEmailModuleAccessState(e.currentTarget.checked)}
               />
-              Email modul
+              {menuItemLabel("messages", "Email")} modul
             </label>
             <div className="user-access-submenu">
               {accounts.length === 0 && <p className="chat-empty-hint">Nincs még email fiók felvéve.</p>}
