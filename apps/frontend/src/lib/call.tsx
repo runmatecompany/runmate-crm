@@ -16,8 +16,16 @@ export interface RemoteParticipant {
   userId: number;
   name: string;
   micStream: MediaStream | null;
+  cameraStream: MediaStream | null;
   screenStream: MediaStream | null;
   sharingScreen: boolean;
+  cameraOn: boolean;
+}
+
+interface PeerTransceivers {
+  mic: RTCRtpTransceiver;
+  camera: RTCRtpTransceiver;
+  screen: RTCRtpTransceiver;
 }
 
 export interface DisplayParticipant {
@@ -33,18 +41,23 @@ interface CallValue {
   participants: RemoteParticipant[];
   muted: boolean;
   sharingScreen: boolean;
+  cameraOn: boolean;
   localScreenStream: MediaStream | null;
+  localCameraStream: MediaStream | null;
   roomRosters: Map<number, DisplayParticipant[]>;
   inputDeviceId: string | null;
   outputDeviceId: string | null;
+  cameraDeviceId: string | null;
   joinCall: (roomId: number, isDm: boolean, otherUserId?: number, otherName?: string) => void;
   leaveCall: () => void;
   acceptCall: () => void;
   rejectCall: () => void;
   toggleMute: () => void;
   toggleScreenShare: () => void;
+  toggleCamera: () => void;
   setInputDevice: (deviceId: string | null) => void;
   setOutputDevice: (deviceId: string | null) => void;
+  setCameraDevice: (deviceId: string | null) => void;
 }
 
 const CallContext = createContext<CallValue | undefined>(undefined);
@@ -53,6 +66,7 @@ const ICE_SERVERS = [{ urls: "stun:stun.l.google.com:19302" }];
 
 const INPUT_DEVICE_KEY = "runmate-crm-call-input-device";
 const OUTPUT_DEVICE_KEY = "runmate-crm-call-output-device";
+const CAMERA_DEVICE_KEY = "runmate-crm-call-camera-device";
 
 export function CallProvider({ children }: { children: ReactNode }) {
   const { auth } = useAuth();
@@ -65,7 +79,9 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const [participants, setParticipants] = useState<Map<number, RemoteParticipant>>(new Map());
   const [muted, setMuted] = useState(false);
   const [sharingScreen, setSharingScreen] = useState(false);
+  const [cameraOn, setCameraOn] = useState(false);
   const [localScreenStream, setLocalScreenStream] = useState<MediaStream | null>(null);
+  const [localCameraStream, setLocalCameraStream] = useState<MediaStream | null>(null);
   const [roomRosters, setRoomRosters] = useState<Map<number, DisplayParticipant[]>>(new Map());
   const [colleagueNames, setColleagueNames] = useState<Record<number, string>>({});
   const [inputDeviceId, setInputDeviceIdState] = useState<string | null>(
@@ -74,14 +90,19 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const [outputDeviceId, setOutputDeviceIdState] = useState<string | null>(
     () => localStorage.getItem(OUTPUT_DEVICE_KEY) || null
   );
+  const [cameraDeviceId, setCameraDeviceIdState] = useState<string | null>(
+    () => localStorage.getItem(CAMERA_DEVICE_KEY) || null
+  );
 
   const peersRef = useRef<Map<number, RTCPeerConnection>>(new Map());
+  const transceiversRef = useRef<Map<number, PeerTransceivers>>(new Map());
   const politeRef = useRef<Map<number, boolean>>(new Map());
   const makingOfferRef = useRef<Map<number, boolean>>(new Map());
   const ignoreOfferRef = useRef<Map<number, boolean>>(new Map());
   const pendingCandidatesRef = useRef<Map<number, RTCIceCandidateInit[]>>(new Map());
   const localMicStreamRef = useRef<MediaStream | null>(null);
   const localScreenStreamRef = useRef<MediaStream | null>(null);
+  const localCameraStreamRef = useRef<MediaStream | null>(null);
   const currentRoomIdRef = useRef<number | null>(null);
   const statusRef = useRef<CallStatus>("idle");
   statusRef.current = status;
@@ -89,6 +110,8 @@ export function CallProvider({ children }: { children: ReactNode }) {
   mutedRef.current = muted;
   const inputDeviceIdRef = useRef<string | null>(inputDeviceId);
   inputDeviceIdRef.current = inputDeviceId;
+  const cameraDeviceIdRef = useRef<string | null>(cameraDeviceId);
+  cameraDeviceIdRef.current = cameraDeviceId;
 
   // Egy résztvevő nevének feloldásához — a Realtime kontextus élő
   // frissítéseit (profile-updated) és a kollégalistát is figyelembe véve,
@@ -109,21 +132,26 @@ export function CallProvider({ children }: { children: ReactNode }) {
     stopRingtone();
     for (const pc of peersRef.current.values()) pc.close();
     peersRef.current.clear();
+    transceiversRef.current.clear();
     politeRef.current.clear();
     makingOfferRef.current.clear();
     ignoreOfferRef.current.clear();
     pendingCandidatesRef.current.clear();
     localMicStreamRef.current?.getTracks().forEach((track) => track.stop());
     localScreenStreamRef.current?.getTracks().forEach((track) => track.stop());
+    localCameraStreamRef.current?.getTracks().forEach((track) => track.stop());
     localMicStreamRef.current = null;
     localScreenStreamRef.current = null;
+    localCameraStreamRef.current = null;
     currentRoomIdRef.current = null;
     setRoomId(null);
     setPeer(null);
     setParticipants(new Map());
     setMuted(false);
     setSharingScreen(false);
+    setCameraOn(false);
     setLocalScreenStream(null);
+    setLocalCameraStream(null);
     setStatus("idle");
   }
 
@@ -131,6 +159,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
     const pc = peersRef.current.get(remoteUserId);
     if (pc) pc.close();
     peersRef.current.delete(remoteUserId);
+    transceiversRef.current.delete(remoteUserId);
     politeRef.current.delete(remoteUserId);
     makingOfferRef.current.delete(remoteUserId);
     ignoreOfferRef.current.delete(remoteUserId);
@@ -155,10 +184,27 @@ export function CallProvider({ children }: { children: ReactNode }) {
     makingOfferRef.current.set(remoteUserId, false);
     ignoreOfferRef.current.set(remoteUserId, false);
 
-    const mic = localMicStreamRef.current;
-    if (mic) mic.getTracks().forEach((track) => pc.addTrack(track, mic));
-    const screen = localScreenStreamRef.current;
-    if (screen) screen.getTracks().forEach((track) => pc.addTrack(track, screen));
+    // Mindhárom médiafajtának (mikrofon, kamera, képernyő) fix sorrendben
+    // mindig létrehozunk egy-egy transceivert, akkor is, ha épp nincs aktív
+    // track hozzá — így a másik fél oldalán is ugyanebben a sorrendben jönnek
+    // létre az m-line-ok, és az ontrack-ben a transceiver-referencia alapján
+    // egyértelműen tudjuk, melyik videótrack kamera és melyik képernyő
+    // (a puszta track.kind ehhez nem lenne elég, mindkettő "video").
+    const micTransceiver = pc.addTransceiver("audio", { direction: "sendrecv" });
+    const cameraTransceiver = pc.addTransceiver("video", { direction: "sendrecv" });
+    const screenTransceiver = pc.addTransceiver("video", { direction: "sendrecv" });
+    transceiversRef.current.set(remoteUserId, {
+      mic: micTransceiver,
+      camera: cameraTransceiver,
+      screen: screenTransceiver,
+    });
+
+    const micTrack = localMicStreamRef.current?.getAudioTracks()[0];
+    if (micTrack) void micTransceiver.sender.replaceTrack(micTrack);
+    const cameraTrack = localCameraStreamRef.current?.getVideoTracks()[0];
+    if (cameraTrack) void cameraTransceiver.sender.replaceTrack(cameraTrack);
+    const screenTrack = localScreenStreamRef.current?.getVideoTracks()[0];
+    if (screenTrack) void screenTransceiver.sender.replaceTrack(screenTrack);
 
     pc.onnegotiationneeded = async () => {
       try {
@@ -188,32 +234,34 @@ export function CallProvider({ children }: { children: ReactNode }) {
       }
     };
 
-    // Nincs kamera-videó ebben az appban, és a képernyőmegosztás szándékosan
-    // csak videótrack-et küld (nincs rendszerhang-megosztás) — így a
-    // track.kind egyértelműen eldönti, hogy mikrofon vagy képernyő adatáról
-    // van szó, nem kell stream-azonosító alapján találgatni.
     pc.ontrack = (event) => {
-      const kind = event.track.kind;
+      const slots = transceiversRef.current.get(remoteUserId);
+      let field: "micStream" | "cameraStream" | "screenStream" | null = null;
+      if (event.transceiver === slots?.mic) field = "micStream";
+      else if (event.transceiver === slots?.camera) field = "cameraStream";
+      else if (event.transceiver === slots?.screen) field = "screenStream";
+      if (!field) return;
+
       setParticipants((prev) => {
         const next = new Map(prev);
         const current = next.get(remoteUserId) ?? {
           userId: remoteUserId,
           name: resolveName(remoteUserId),
           micStream: null,
+          cameraStream: null,
           screenStream: null,
           sharingScreen: false,
+          cameraOn: false,
         };
-        if (kind === "audio") current.micStream = event.streams[0] ?? null;
-        if (kind === "video") current.screenStream = event.streams[0] ?? null;
-        next.set(remoteUserId, current);
+        next.set(remoteUserId, { ...current, [field]: event.streams[0] ?? null });
         return next;
       });
       event.track.onended = () => {
-        if (kind !== "video") return;
+        if (field === "micStream") return;
         setParticipants((prev) => {
           const next = new Map(prev);
           const current = next.get(remoteUserId);
-          if (current) next.set(remoteUserId, { ...current, screenStream: null });
+          if (current) next.set(remoteUserId, { ...current, [field]: null });
           return next;
         });
       };
@@ -227,8 +275,10 @@ export function CallProvider({ children }: { children: ReactNode }) {
         userId: remoteUserId,
         name: resolveName(remoteUserId),
         micStream: null,
+        cameraStream: null,
         screenStream: null,
         sharingScreen: false,
+        cameraOn: false,
       });
       return next;
     });
@@ -306,9 +356,8 @@ export function CallProvider({ children }: { children: ReactNode }) {
       });
       const newTrack = newStream.getAudioTracks()[0];
       newTrack.enabled = !mutedRef.current;
-      for (const pc of peersRef.current.values()) {
-        const sender = pc.getSenders().find((s) => s.track?.kind === "audio");
-        if (sender) void sender.replaceTrack(newTrack);
+      for (const slots of transceiversRef.current.values()) {
+        void slots.mic.sender.replaceTrack(newTrack);
       }
       localMicStreamRef.current.getTracks().forEach((track) => track.stop());
       localMicStreamRef.current = newStream;
@@ -320,6 +369,27 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const setOutputDevice = useCallback((deviceId: string | null) => {
     localStorage.setItem(OUTPUT_DEVICE_KEY, deviceId ?? "");
     setOutputDeviceIdState(deviceId);
+  }, []);
+
+  const setCameraDevice = useCallback(async (deviceId: string | null) => {
+    localStorage.setItem(CAMERA_DEVICE_KEY, deviceId ?? "");
+    setCameraDeviceIdState(deviceId);
+    if (!localCameraStreamRef.current) return; // nincs bekapcsolva a kamera, csak a preferencia mentődik
+
+    try {
+      const newStream = await navigator.mediaDevices.getUserMedia({
+        video: deviceId ? { deviceId: { exact: deviceId } } : true,
+      });
+      const newTrack = newStream.getVideoTracks()[0];
+      for (const slots of transceiversRef.current.values()) {
+        void slots.camera.sender.replaceTrack(newTrack);
+      }
+      localCameraStreamRef.current.getTracks().forEach((track) => track.stop());
+      localCameraStreamRef.current = newStream;
+      setLocalCameraStream(newStream);
+    } catch {
+      // a kiválasztott kamera nem elérhető, marad a jelenlegi
+    }
   }, []);
 
   const toggleMute = useCallback(() => {
@@ -335,12 +405,8 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const stopScreenShare = useCallback(() => {
     const stream = localScreenStreamRef.current;
     if (!stream) return;
-    for (const pc of peersRef.current.values()) {
-      for (const sender of pc.getSenders()) {
-        if (sender.track && stream.getTracks().includes(sender.track)) {
-          pc.removeTrack(sender);
-        }
-      }
+    for (const slots of transceiversRef.current.values()) {
+      void slots.screen.sender.replaceTrack(null);
     }
     stream.getTracks().forEach((track) => track.stop());
     localScreenStreamRef.current = null;
@@ -363,10 +429,11 @@ export function CallProvider({ children }: { children: ReactNode }) {
       const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
       localScreenStreamRef.current = stream;
       setLocalScreenStream(stream);
-      for (const pc of peersRef.current.values()) {
-        stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+      const track = stream.getVideoTracks()[0];
+      for (const slots of transceiversRef.current.values()) {
+        void slots.screen.sender.replaceTrack(track);
       }
-      stream.getVideoTracks()[0].onended = () => stopScreenShare();
+      track.onended = () => stopScreenShare();
       setSharingScreen(true);
       if (currentRoomIdRef.current != null) {
         sendFrame({ type: "call-screen-share-state", roomId: currentRoomIdRef.current, sharing: true });
@@ -375,6 +442,47 @@ export function CallProvider({ children }: { children: ReactNode }) {
       // felhasználó megszakította a képernyőválasztót — nincs teendő
     }
   }, [sendFrame, stopScreenShare]);
+
+  const stopCamera = useCallback(() => {
+    const stream = localCameraStreamRef.current;
+    if (!stream) return;
+    for (const slots of transceiversRef.current.values()) {
+      void slots.camera.sender.replaceTrack(null);
+    }
+    stream.getTracks().forEach((track) => track.stop());
+    localCameraStreamRef.current = null;
+    setLocalCameraStream(null);
+    setCameraOn(false);
+    if (currentRoomIdRef.current != null) {
+      sendFrame({ type: "call-camera-state", roomId: currentRoomIdRef.current, cameraOn: false });
+    }
+  }, [sendFrame]);
+
+  const toggleCamera = useCallback(async () => {
+    if (localCameraStreamRef.current) {
+      stopCamera();
+      return;
+    }
+    try {
+      const deviceId = cameraDeviceIdRef.current;
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: deviceId ? { deviceId: { exact: deviceId } } : true,
+      });
+      localCameraStreamRef.current = stream;
+      setLocalCameraStream(stream);
+      const track = stream.getVideoTracks()[0];
+      for (const slots of transceiversRef.current.values()) {
+        void slots.camera.sender.replaceTrack(track);
+      }
+      track.onended = () => stopCamera();
+      setCameraOn(true);
+      if (currentRoomIdRef.current != null) {
+        sendFrame({ type: "call-camera-state", roomId: currentRoomIdRef.current, cameraOn: true });
+      }
+    } catch {
+      // felhasználó megtagadta a kamera-hozzáférést, vagy nincs kamera
+    }
+  }, [sendFrame, stopCamera]);
 
   useEffect(() => {
     const unsubs = [
@@ -431,7 +539,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
           const next = new Map(prev);
           for (const p of roomParticipants) {
             const current = next.get(p.userId);
-            if (current) next.set(p.userId, { ...current, sharingScreen: p.sharingScreen });
+            if (current) next.set(p.userId, { ...current, sharingScreen: p.sharingScreen, cameraOn: p.cameraOn });
           }
           return next;
         });
@@ -535,18 +643,23 @@ export function CallProvider({ children }: { children: ReactNode }) {
         participants: Array.from(participants.values()),
         muted,
         sharingScreen,
+        cameraOn,
         localScreenStream,
+        localCameraStream,
         roomRosters,
         inputDeviceId,
         outputDeviceId,
+        cameraDeviceId,
         joinCall,
         leaveCall,
         acceptCall,
         rejectCall,
         toggleMute,
         toggleScreenShare,
+        toggleCamera,
         setInputDevice,
         setOutputDevice,
+        setCameraDevice,
       }}
     >
       {children}

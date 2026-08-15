@@ -33,6 +33,7 @@ export interface Colleague {
 export interface CallParticipant {
   userId: number;
   sharingScreen: boolean;
+  cameraOn: boolean;
 }
 
 export interface RoomCallState {

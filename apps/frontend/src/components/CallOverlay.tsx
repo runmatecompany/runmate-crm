@@ -37,15 +37,18 @@ function RemoteAudio({ stream }: { stream: MediaStream | null }) {
 }
 
 function CallDeviceSettings() {
-  const { inputDeviceId, outputDeviceId, setInputDevice, setOutputDevice } = useCall();
+  const { inputDeviceId, outputDeviceId, cameraDeviceId, setInputDevice, setOutputDevice, setCameraDevice } =
+    useCall();
   const [inputs, setInputs] = useState<MediaDeviceInfo[]>([]);
   const [outputs, setOutputs] = useState<MediaDeviceInfo[]>([]);
+  const [cameras, setCameras] = useState<MediaDeviceInfo[]>([]);
 
   useEffect(() => {
     function refresh() {
       navigator.mediaDevices.enumerateDevices().then((devices) => {
         setInputs(devices.filter((d) => d.kind === "audioinput"));
         setOutputs(devices.filter((d) => d.kind === "audiooutput"));
+        setCameras(devices.filter((d) => d.kind === "videoinput"));
       });
     }
     refresh();
@@ -83,19 +86,35 @@ function CallDeviceSettings() {
           ))}
         </select>
       </label>
+      <label className="call-device-row">
+        <span>Kamera</span>
+        <select
+          value={cameraDeviceId ?? ""}
+          onChange={(e) => setCameraDevice(e.currentTarget.value || null)}
+        >
+          <option value="">Alapértelmezett</option>
+          {cameras.map((d) => (
+            <option key={d.deviceId} value={d.deviceId}>
+              {d.label || "Kamera"}
+            </option>
+          ))}
+        </select>
+      </label>
     </div>
   );
 }
 
-function ScreenVideo({ stream, label }: { stream: MediaStream; label: string }) {
+function VideoTile({ stream, label, kind }: { stream: MediaStream; label: string; kind: "screen" | "camera" }) {
   const ref = useRef<HTMLVideoElement>(null);
   useEffect(() => {
     if (ref.current) ref.current.srcObject = stream;
   }, [stream]);
   return (
     <div className="call-screen-tile">
-      <video ref={ref} autoPlay playsInline className="call-screen-video" />
-      <span className="call-screen-tile-label">{label}</span>
+      <video ref={ref} autoPlay playsInline muted className="call-screen-video" />
+      <span className="call-screen-tile-label">
+        {kind === "screen" ? "🖥" : "📷"} {label}
+      </span>
     </div>
   );
 }
@@ -107,12 +126,15 @@ export default function CallOverlay() {
     participants,
     muted,
     sharingScreen,
+    cameraOn,
     localScreenStream,
+    localCameraStream,
     acceptCall,
     rejectCall,
     leaveCall,
     toggleMute,
     toggleScreenShare,
+    toggleCamera,
   } = useCall();
   const [elapsed, setElapsed] = useState(0);
   const [showSettings, setShowSettings] = useState(false);
@@ -129,11 +151,15 @@ export default function CallOverlay() {
 
   if (status === "idle") return null;
 
-  const screenShares: { userId: number; name: string; stream: MediaStream }[] = [
-    ...(localScreenStream ? [{ userId: -1, name: "Te", stream: localScreenStream }] : []),
+  const videoTiles: { key: string; name: string; stream: MediaStream; kind: "screen" | "camera" }[] = [
+    ...(localScreenStream ? [{ key: "self-screen", name: "Te", stream: localScreenStream, kind: "screen" as const }] : []),
+    ...(localCameraStream ? [{ key: "self-camera", name: "Te", stream: localCameraStream, kind: "camera" as const }] : []),
     ...participants
       .filter((p): p is RemoteParticipant & { screenStream: MediaStream } => p.screenStream != null)
-      .map((p) => ({ userId: p.userId, name: p.name, stream: p.screenStream })),
+      .map((p) => ({ key: `${p.userId}-screen`, name: p.name, stream: p.screenStream, kind: "screen" as const })),
+    ...participants
+      .filter((p): p is RemoteParticipant & { cameraStream: MediaStream } => p.cameraStream != null)
+      .map((p) => ({ key: `${p.userId}-camera`, name: p.name, stream: p.cameraStream, kind: "camera" as const })),
   ];
 
   return (
@@ -169,10 +195,10 @@ export default function CallOverlay() {
 
       {status === "connected" && (
         <div className="call-panel">
-          {screenShares.length > 0 && (
+          {videoTiles.length > 0 && (
             <div className="call-screen-grid">
-              {screenShares.map((s) => (
-                <ScreenVideo key={s.userId} stream={s.stream} label={s.name} />
+              {videoTiles.map((t) => (
+                <VideoTile key={t.key} stream={t.stream} label={t.name} kind={t.kind} />
               ))}
             </div>
           )}
@@ -184,7 +210,12 @@ export default function CallOverlay() {
               {participants.map((p) => (
                 <div key={p.userId} className="call-participant" title={p.name}>
                   <Avatar userId={p.userId} name={p.name} size={26} />
-                  {p.sharingScreen && <span className="call-participant-sharing" title="Képernyőt oszt meg" />}
+                  {(p.sharingScreen || p.cameraOn) && (
+                    <span
+                      className="call-participant-sharing"
+                      title={p.sharingScreen ? "Képernyőt oszt meg" : "Kamera bekapcsolva"}
+                    />
+                  )}
                 </div>
               ))}
             </div>
@@ -198,6 +229,13 @@ export default function CallOverlay() {
               onClick={toggleScreenShare}
             >
               {sharingScreen ? "Megosztás leállítása" : "Képernyőmegosztás"}
+            </button>
+            <button
+              type="button"
+              className={cameraOn ? "call-bar-btn call-share-btn active" : "call-bar-btn call-share-btn"}
+              onClick={toggleCamera}
+            >
+              {cameraOn ? "Kamera kikapcsolása" : "Kamera bekapcsolása"}
             </button>
             <button
               type="button"

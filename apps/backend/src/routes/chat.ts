@@ -31,6 +31,7 @@ import {
   joinCall,
   leaveAllCallsForSocket,
   leaveCall,
+  setCameraState,
   setScreenSharing,
 } from "../realtime/calls.js";
 import type { JwtUserPayload } from "../plugins/jwt.js";
@@ -268,6 +269,13 @@ export default async function chatRoutes(fastify: FastifyInstance) {
       if (frame.type === "call-screen-share-state") {
         if (!frame.roomId || typeof frame.sharing !== "boolean") return;
         if (!setScreenSharing(frame.roomId, userId, frame.sharing)) return;
+        await broadcastCallRoster(frame.roomId);
+        return;
+      }
+
+      if (frame.type === "call-camera-state") {
+        if (!frame.roomId || typeof frame.cameraOn !== "boolean") return;
+        if (!setCameraState(frame.roomId, userId, frame.cameraOn)) return;
         await broadcastCallRoster(frame.roomId);
         return;
       }

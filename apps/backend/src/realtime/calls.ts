@@ -9,6 +9,7 @@ interface ChatSocket {
 export interface CallParticipant {
   userId: number;
   sharingScreen: boolean;
+  cameraOn: boolean;
 }
 
 interface InternalParticipant extends CallParticipant {
@@ -24,7 +25,11 @@ const activeCalls = new Map<number, Map<number, InternalParticipant>>();
 export function getParticipants(roomId: number): CallParticipant[] {
   const room = activeCalls.get(roomId);
   if (!room) return [];
-  return Array.from(room.values()).map(({ userId, sharingScreen }) => ({ userId, sharingScreen }));
+  return Array.from(room.values()).map(({ userId, sharingScreen, cameraOn }) => ({
+    userId,
+    sharingScreen,
+    cameraOn,
+  }));
 }
 
 export function getAllActiveCalls(): Map<number, CallParticipant[]> {
@@ -56,9 +61,14 @@ export function joinCall(roomId: number, userId: number, socket: ChatSocket): Jo
 
   const existing = Array.from(room.values())
     .filter((p) => p.userId !== userId)
-    .map(({ userId, sharingScreen }) => ({ userId, sharingScreen }));
+    .map(({ userId, sharingScreen, cameraOn }) => ({ userId, sharingScreen, cameraOn }));
 
-  room.set(userId, { userId, socket, sharingScreen: current?.sharingScreen ?? false });
+  room.set(userId, {
+    userId,
+    socket,
+    sharingScreen: current?.sharingScreen ?? false,
+    cameraOn: current?.cameraOn ?? false,
+  });
   return { ok: true, existing };
 }
 
@@ -76,6 +86,13 @@ export function setScreenSharing(roomId: number, userId: number, sharing: boolea
   const participant = activeCalls.get(roomId)?.get(userId);
   if (!participant) return false;
   participant.sharingScreen = sharing;
+  return true;
+}
+
+export function setCameraState(roomId: number, userId: number, cameraOn: boolean): boolean {
+  const participant = activeCalls.get(roomId)?.get(userId);
+  if (!participant) return false;
+  participant.cameraOn = cameraOn;
   return true;
 }
 
