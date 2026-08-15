@@ -4,10 +4,12 @@ import { useRealtime } from "../lib/realtime";
 import { useCall } from "../lib/call";
 import { useNavigation } from "../lib/navigation";
 import {
+  clearRoom,
   createRoom,
   listColleagues,
   listMessages,
   listRooms,
+  restoreRoom,
   roomDisplayName,
   startDm,
   type ChatMessage,
@@ -144,6 +146,23 @@ export default function ChatPage() {
     };
   }, [onFrame, activeRoomId, auth]);
 
+  // A /clear és /restore parancsok másik kliensen (vagy más nézetben) futtatva
+  // is azonnal frissítsék az aktuálisan nyitott beszélgetést.
+  useEffect(() => {
+    const offCleared = onFrame("room-cleared", (frame) => {
+      if (frame.roomId === activeRoomId) setMessages([]);
+    });
+    const offRestored = onFrame("room-restored", (frame) => {
+      if (activeRoomId != null && frame.roomId === activeRoomId && token) {
+        listMessages(token, activeRoomId).then(setMessages);
+      }
+    });
+    return () => {
+      offCleared();
+      offRestored();
+    };
+  }, [onFrame, activeRoomId, token]);
+
   function handleDraftChange(e: ChangeEvent<HTMLInputElement>) {
     const value = e.currentTarget.value;
     setDraft(value);
@@ -155,10 +174,52 @@ export default function ChatPage() {
     }
   }
 
+  async function handleClearCommand(roomId: number) {
+    if (!token) return;
+    if (
+      !confirm(
+        "Biztosan törlöd ennek a beszélgetésnek az előzményeit? A nézetből eltűnik mindenkinél, de admin a /restore paranccsal vissza tudja állítani."
+      )
+    ) {
+      return;
+    }
+    try {
+      await clearRoom(token, roomId);
+      setMessages([]);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Nem sikerült törölni az előzményeket");
+    }
+  }
+
+  async function handleRestoreCommand(roomId: number) {
+    if (!token) return;
+    try {
+      await restoreRoom(token, roomId);
+      setMessages(await listMessages(token, roomId));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Nem sikerült visszaállítani az előzményeket");
+    }
+  }
+
   function handleSend(e: FormEvent) {
     e.preventDefault();
     if (!draft.trim() || activeRoomId == null) return;
-    sendChatMessage(activeRoomId, draft.trim());
+    const trimmed = draft.trim();
+
+    if (trimmed.startsWith("/")) {
+      setDraft("");
+      const command = trimmed.toLowerCase();
+      if (command === "/clear") {
+        void handleClearCommand(activeRoomId);
+      } else if (command === "/restore") {
+        void handleRestoreCommand(activeRoomId);
+      } else {
+        alert(`Ismeretlen parancs: ${trimmed}`);
+      }
+      return;
+    }
+
+    sendChatMessage(activeRoomId, trimmed);
     setDraft("");
   }
 

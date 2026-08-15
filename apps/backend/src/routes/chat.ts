@@ -1,15 +1,18 @@
 import type { FastifyInstance } from "fastify";
 import {
   canAccessRoom,
+  clearRoomHistory,
   getMessageSenderId,
   getOrCreateDmRoom,
   getRoomBroadcastUserIds,
+  getRoomMeta,
   insertMessage,
   listColleagues,
   listMessages,
   listRoomsForUser,
   markDelivered,
   markRoomRead,
+  restoreRoomHistory,
 } from "../db/chat.js";
 import {
   registerConnection,
@@ -22,6 +25,16 @@ import {
 import type { JwtUserPayload } from "../plugins/jwt.js";
 
 const CALL_FRAME_TYPES = new Set(["call-offer", "call-answer", "call-ice-candidate", "call-end", "call-reject"]);
+
+// DM-nél bármelyik résztvevő törölheti/állíthatja vissza a saját beszélgetését,
+// csoportszobánál (céges csatorna, mindenki látja) csak admin — nehogy
+// véletlenül bárki kitörölje mindenki előzményét.
+async function canClearRoom(roomId: number, userId: number, role: "admin" | "user"): Promise<boolean> {
+  const meta = await getRoomMeta(roomId);
+  if (!meta) return false;
+  if (meta.is_dm) return canAccessRoom(roomId, userId);
+  return role === "admin";
+}
 
 export default async function chatRoutes(fastify: FastifyInstance) {
   fastify.get("/chat/rooms", { onRequest: [fastify.authenticate] }, async (request) => {
@@ -48,7 +61,8 @@ export default async function chatRoutes(fastify: FastifyInstance) {
       }
       const limit = request.query.limit ? Number(request.query.limit) : 50;
       const before = request.query.before ? Number(request.query.before) : undefined;
-      const messages = await listMessages(roomId, limit, before);
+      const meta = await getRoomMeta(roomId);
+      const messages = await listMessages(roomId, limit, before, meta?.cleared_at ?? null);
 
       // Ha most kérte le először ezeket az üzeneteket, kézbesítettnek
       // számítanak (akkor is, ha korábban offline volt).
@@ -69,6 +83,36 @@ export default async function chatRoutes(fastify: FastifyInstance) {
       const otherUserId = Number(request.params.userId);
       const roomId = await getOrCreateDmRoom(request.user.sub, otherUserId);
       return { roomId };
+    }
+  );
+
+  fastify.post<{ Params: { id: string } }>(
+    "/chat/rooms/:id/clear",
+    { onRequest: [fastify.authenticate] },
+    async (request, reply) => {
+      const roomId = Number(request.params.id);
+      if (!(await canClearRoom(roomId, request.user.sub, request.user.role))) {
+        return reply.code(403).send({ error: "Nincs jogosultságod törölni ezt a beszélgetést" });
+      }
+      await clearRoomHistory(roomId, request.user.sub);
+      const recipientIds = await getRoomBroadcastUserIds(roomId);
+      broadcastToUsers(recipientIds, { type: "room-cleared", roomId });
+      return { ok: true };
+    }
+  );
+
+  fastify.post<{ Params: { id: string } }>(
+    "/chat/rooms/:id/restore",
+    { onRequest: [fastify.authenticate] },
+    async (request, reply) => {
+      const roomId = Number(request.params.id);
+      if (!(await canClearRoom(roomId, request.user.sub, request.user.role))) {
+        return reply.code(403).send({ error: "Nincs jogosultságod visszaállítani ezt a beszélgetést" });
+      }
+      await restoreRoomHistory(roomId);
+      const recipientIds = await getRoomBroadcastUserIds(roomId);
+      broadcastToUsers(recipientIds, { type: "room-restored", roomId });
+      return { ok: true };
     }
   );
 

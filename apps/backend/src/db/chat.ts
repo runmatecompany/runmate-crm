@@ -118,6 +118,30 @@ export async function canAccessRoom(roomId: number, userId: number): Promise<boo
   return (rowCount ?? 0) > 0;
 }
 
+export interface RoomMeta {
+  id: number;
+  is_dm: boolean;
+  cleared_at: string | null;
+}
+
+export async function getRoomMeta(roomId: number): Promise<RoomMeta | undefined> {
+  const { rows } = await pool.query<RoomMeta>("SELECT id, is_dm, cleared_at FROM chat_rooms WHERE id = $1", [
+    roomId,
+  ]);
+  return rows[0];
+}
+
+// "Soft clear": az üzenetek megmaradnak, csak a cleared_at utániakat listázzuk
+// (lásd listMessages `since` paramétere). A /restore parancs ezt NULL-ra
+// állítja vissza, ezzel az egész előzmény újra látszik.
+export async function clearRoomHistory(roomId: number, clearedBy: number): Promise<void> {
+  await pool.query(`UPDATE chat_rooms SET cleared_at = now(), cleared_by = $2 WHERE id = $1`, [roomId, clearedBy]);
+}
+
+export async function restoreRoomHistory(roomId: number): Promise<void> {
+  await pool.query(`UPDATE chat_rooms SET cleared_at = NULL, cleared_by = NULL WHERE id = $1`, [roomId]);
+}
+
 // Kinek kell elküldeni egy új üzenetet: csoportszobánál mindenkinek, DM-nél
 // csak a két tagnak.
 export async function getRoomBroadcastUserIds(roomId: number): Promise<number[]> {
@@ -146,26 +170,34 @@ const RECEIPT_JOIN = `
   ) receipt ON true
 `;
 
-export async function listMessages(roomId: number, limit = 50, before?: number): Promise<ChatMessage[]> {
+export async function listMessages(
+  roomId: number,
+  limit = 50,
+  before?: number,
+  since?: string | null
+): Promise<ChatMessage[]> {
+  const params: unknown[] = [roomId, limit];
+  let beforeClause = "";
+  let sinceClause = "";
+  if (before) {
+    params.push(before);
+    beforeClause = `AND m.id < $${params.length}`;
+  }
+  if (since) {
+    params.push(since);
+    sinceClause = `AND m.created_at > $${params.length}`;
+  }
+
   const { rows } = await pool.query<ChatMessage>(
-    before
-      ? `SELECT m.id, m.room_id, m.sender_id, u.name AS sender_name, m.body, m.created_at,
-                receipt.delivered_at, receipt.read_at
-         FROM chat_messages m
-         JOIN users u ON u.id = m.sender_id
-         ${RECEIPT_JOIN}
-         WHERE m.room_id = $1 AND m.id < $3
-         ORDER BY m.id DESC
-         LIMIT $2`
-      : `SELECT m.id, m.room_id, m.sender_id, u.name AS sender_name, m.body, m.created_at,
-                receipt.delivered_at, receipt.read_at
-         FROM chat_messages m
-         JOIN users u ON u.id = m.sender_id
-         ${RECEIPT_JOIN}
-         WHERE m.room_id = $1
-         ORDER BY m.id DESC
-         LIMIT $2`,
-    before ? [roomId, limit, before] : [roomId, limit]
+    `SELECT m.id, m.room_id, m.sender_id, u.name AS sender_name, m.body, m.created_at,
+            receipt.delivered_at, receipt.read_at
+     FROM chat_messages m
+     JOIN users u ON u.id = m.sender_id
+     ${RECEIPT_JOIN}
+     WHERE m.room_id = $1 ${beforeClause} ${sinceClause}
+     ORDER BY m.id DESC
+     LIMIT $2`,
+    params
   );
   return rows.reverse();
 }

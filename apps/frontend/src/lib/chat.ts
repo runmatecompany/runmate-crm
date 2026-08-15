@@ -53,6 +53,14 @@ export async function startDm(token: string, userId: number): Promise<number> {
   return data.roomId;
 }
 
+export async function clearRoom(token: string, roomId: number): Promise<void> {
+  await authFetch(token, `/chat/rooms/${roomId}/clear`, { method: "POST" });
+}
+
+export async function restoreRoom(token: string, roomId: number): Promise<void> {
+  await authFetch(token, `/chat/rooms/${roomId}/restore`, { method: "POST" });
+}
+
 export async function createRoom(token: string, name: string): Promise<RoomSummary> {
   const res = await authFetch(token, "/admin/chat/rooms", {
     method: "POST",
