@@ -16,7 +16,7 @@ export default function SettingsPage() {
   const sections: SettingsSection[] = [
     { id: "profile", label: "Profilom" },
     ...(isAdmin ? [{ id: "email-accounts", label: "Email fiókok" }] : []),
-    ...(isAdmin ? [{ id: "profiles", label: "Profilok" }] : []),
+    ...(isAdmin ? [{ id: "profiles", label: "Fiókok" }] : []),
   ];
 
   const [activeSection, setActiveSection] = useState(sections[0].id);

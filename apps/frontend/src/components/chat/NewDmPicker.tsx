@@ -1,4 +1,5 @@
 import type { Colleague } from "../../lib/chat";
+import { useEscapeToClose } from "../../lib/useEscapeToClose";
 
 interface NewDmPickerProps {
   colleagues: Colleague[];
@@ -7,9 +8,10 @@ interface NewDmPickerProps {
 }
 
 export default function NewDmPicker({ colleagues, onClose, onPick }: NewDmPickerProps) {
+  useEscapeToClose(onClose);
   return (
-    <div className="chat-modal-backdrop" onClick={onClose}>
-      <div className="chat-modal" onClick={(e) => e.stopPropagation()}>
+    <div className="chat-modal-backdrop">
+      <div className="chat-modal">
         <h2>Privát üzenet indítása</h2>
         <div className="chat-member-picker">
           {colleagues.length === 0 && <p className="chat-empty-hint">Nincs más kolléga még.</p>}

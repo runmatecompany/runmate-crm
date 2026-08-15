@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { extractLeadFromImages, type ExtractedLeadFields, type Lead, type LeadFormInput } from "../../lib/leads";
+import { useEscapeToClose } from "../../lib/useEscapeToClose";
 
 interface LeadFormModalProps {
   lead: Lead | null;
@@ -26,6 +27,7 @@ function readAsDataUrl(file: File): Promise<string> {
 }
 
 export default function LeadFormModal({ lead, token, onClose, onSave }: LeadFormModalProps) {
+  useEscapeToClose(onClose);
   const [companyName, setCompanyName] = useState(lead?.company_name ?? "");
   const [contactName, setContactName] = useState(lead?.contact_name ?? "");
   const [phone, setPhone] = useState(lead?.phone ?? "");
@@ -201,8 +203,8 @@ export default function LeadFormModal({ lead, token, onClose, onSave }: LeadForm
   }
 
   return (
-    <div className="chat-modal-backdrop" onClick={onClose}>
-      <form className="chat-modal lead-form" onClick={(e) => e.stopPropagation()} onSubmit={handleSubmit}>
+    <div className="chat-modal-backdrop">
+      <form className="chat-modal lead-form" onSubmit={handleSubmit}>
         <h2>{lead ? "Lead szerkesztése" : "Új lead"}</h2>
 
         {!lead && (

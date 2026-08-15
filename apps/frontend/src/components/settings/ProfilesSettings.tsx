@@ -18,7 +18,7 @@ export default function ProfilesSettings() {
 
   return (
     <div className="profiles-settings">
-      <h1>Profilok</h1>
+      <h1>Fiókok</h1>
       <p className="chat-modal-hint">
         Válassz ki egy felhasználót, hogy beállítsd, mely modulokhoz (email fiókok, Leadek) férjen hozzá. Az
         adminisztrátorok mindig automatikusan mindenhez hozzáférnek.

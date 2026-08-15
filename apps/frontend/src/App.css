@@ -1470,9 +1470,10 @@ button:hover {
 .leads-status-select {
   appearance: none;
   -webkit-appearance: none;
-  padding: 0.4em 1.8em 0.4em 0.8em;
+  padding: 0.55em 1.8em 0.55em 0.8em;
   font-size: 0.82em;
   font-weight: 600;
+  line-height: 1.4;
   border-radius: 999px;
   cursor: pointer;
   background-color: var(--surface-alt);

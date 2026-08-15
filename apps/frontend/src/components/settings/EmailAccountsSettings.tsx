@@ -55,7 +55,7 @@ export default function EmailAccountsSettings() {
         </button>
       </div>
       <p className="chat-modal-hint">
-        Az itt felvett fiókokhoz a hozzáférést a Beállítások &gt; Profilok oldalon, felhasználónként kezelheted.
+        Az itt felvett fiókokhoz a hozzáférést a Beállítások &gt; Fiókok oldalon, felhasználónként kezelheted.
       </p>
 
       {loading && <p className="chat-empty-hint">Betöltés...</p>}

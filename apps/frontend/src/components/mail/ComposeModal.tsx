@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { useEscapeToClose } from "../../lib/useEscapeToClose";
 
 export interface ComposeInitial {
   to?: string;
@@ -23,6 +24,7 @@ interface ComposeModalProps {
 }
 
 export default function ComposeModal({ initial, onClose, onSend }: ComposeModalProps) {
+  useEscapeToClose(onClose);
   const [to, setTo] = useState(initial.to ?? "");
   const [subject, setSubject] = useState(initial.subject ?? "");
   const [body, setBody] = useState(initial.body ?? "");
@@ -54,8 +56,8 @@ export default function ComposeModal({ initial, onClose, onSend }: ComposeModalP
   }
 
   return (
-    <div className="chat-modal-backdrop" onClick={onClose}>
-      <form className="chat-modal mail-compose-modal" onClick={(e) => e.stopPropagation()} onSubmit={handleSubmit}>
+    <div className="chat-modal-backdrop">
+      <form className="chat-modal mail-compose-modal" onSubmit={handleSubmit}>
         <h2>{initial.inReplyToUid ? "Válasz" : "Új levél"}</h2>
 
         <label htmlFor="mail-to">Címzett</label>

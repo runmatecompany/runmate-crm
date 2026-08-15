@@ -3,6 +3,7 @@ import { useAuth } from "../../lib/auth";
 import type { Colleague } from "../../lib/chat";
 import { listAdminEmailAccounts, type EmailAccountAdminView } from "../../lib/email";
 import { getUserAccess, setUserAccess } from "../../lib/userAccess";
+import { useEscapeToClose } from "../../lib/useEscapeToClose";
 
 interface UserAccessModalProps {
   user: Colleague;
@@ -10,6 +11,7 @@ interface UserAccessModalProps {
 }
 
 export default function UserAccessModal({ user, onClose }: UserAccessModalProps) {
+  useEscapeToClose(onClose);
   const { auth } = useAuth();
   const [accounts, setAccounts] = useState<EmailAccountAdminView[]>([]);
   const [leadsAccess, setLeadsAccessState] = useState(false);
@@ -62,8 +64,8 @@ export default function UserAccessModal({ user, onClose }: UserAccessModalProps)
   }
 
   return (
-    <div className="chat-modal-backdrop" onClick={onClose}>
-      <div className="chat-modal" onClick={(e) => e.stopPropagation()}>
+    <div className="chat-modal-backdrop">
+      <div className="chat-modal">
         <h2>{user.name} jogosultságai</h2>
         <p className="chat-modal-hint">
           Az első pipa dönti el, hogy az adott modul egyáltalán megjelenjen-e {user.name} számára. Ha a modulnak

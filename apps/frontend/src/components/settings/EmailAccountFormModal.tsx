@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { useAuth } from "../../lib/auth";
+import { useEscapeToClose } from "../../lib/useEscapeToClose";
 import {
   testEmailAccountConnection,
   type EmailAccountAdminView,
@@ -20,6 +21,7 @@ const SECURITY_OPTIONS: { value: MailSecurity; label: string }[] = [
 ];
 
 export default function EmailAccountFormModal({ account, onClose, onSave }: EmailAccountFormModalProps) {
+  useEscapeToClose(onClose);
   const { auth } = useAuth();
   const [displayName, setDisplayName] = useState(account?.display_name ?? "");
   const [fromName, setFromName] = useState(account?.from_name ?? "");
@@ -91,8 +93,8 @@ export default function EmailAccountFormModal({ account, onClose, onSave }: Emai
   }
 
   return (
-    <div className="chat-modal-backdrop" onClick={onClose}>
-      <form className="chat-modal email-account-form" onClick={(e) => e.stopPropagation()} onSubmit={handleSubmit}>
+    <div className="chat-modal-backdrop">
+      <form className="chat-modal email-account-form" onSubmit={handleSubmit}>
         <h2>{account ? "Email fiók szerkesztése" : "Új email fiók"}</h2>
 
         <label htmlFor="ea-display-name">Megjelenített név (belső, csak neked)</label>
