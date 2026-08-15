@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import { useAuth } from "./auth";
 import { useRealtime } from "./realtime";
 import { fetchActiveCalls, listColleagues, type CallParticipant } from "./chat";
+import { playConnectedChime, startRingtone, stopRingtone } from "./callSounds";
 
 export type CallStatus = "idle" | "calling" | "ringing" | "connected";
 
@@ -88,6 +89,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
   }, [token]);
 
   function resetCallState() {
+    stopRingtone();
     for (const pc of peersRef.current.values()) pc.close();
     peersRef.current.clear();
     politeRef.current.clear();
@@ -259,10 +261,13 @@ export function CallProvider({ children }: { children: ReactNode }) {
 
   const acceptCall = useCallback(() => {
     if (!peer) return;
+    stopRingtone();
+    playConnectedChime();
     void joinCall(peer.roomId, true, peer.userId, peer.name);
   }, [peer, joinCall]);
 
   const rejectCall = useCallback(() => {
+    stopRingtone();
     if (peer) {
       sendFrame({ type: "call-decline", roomId: peer.roomId });
     }
@@ -364,6 +369,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
           peer.roomId === frame.roomId &&
           !roomParticipants.some((p) => p.userId === peer.userId)
         ) {
+          stopRingtone();
           setPeer(null);
           setStatus("idle");
         }
@@ -384,6 +390,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
         });
         if (statusRef.current === "calling" && roomParticipants.length > 0) {
           setStatus("connected");
+          playConnectedChime();
         }
       }),
 
@@ -396,6 +403,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
         setRoomId(frame.roomId);
         setPeer({ roomId: frame.roomId, userId: frame.fromUserId, name: frame.fromName ?? "Valaki" });
         setStatus("ringing");
+        startRingtone();
       }),
 
       onFrame("call-declined", () => {
