@@ -23,7 +23,7 @@ import { sendApprovalReminderEmail, NotifyError } from "../lib/socialMedia/notif
 import { approvalTokenExpiry, generateApprovalToken } from "../lib/socialMedia/token.js";
 import { getAuthorizedClient } from "../lib/googleCalendar/oauth.js";
 import { driveFolderLink } from "../lib/googleDrive/api.js";
-import { ensureMonthFolder, uploadStreamToFolder } from "../lib/googleDrive/upload.js";
+import { ensureVideoSubfolder, uploadStreamToFolder } from "../lib/googleDrive/upload.js";
 import { provisionClientDriveFolders } from "../lib/googleDrive/onboarding.js";
 
 const PLATFORM_VALUES = ["instagram", "tiktok", "youtube", "facebook"] as const;
@@ -236,14 +236,14 @@ export default async function contentItemsRoutes(fastify: FastifyInstance) {
 
       let client = await getClientById(existing.client_id);
       if (!client) return reply.code(404).send({ error: "Client not found" });
-      if (!client.drive_raw_folder_id) {
+      if (!client.drive_folder_id) {
         try {
           await provisionClientDriveFolders(client);
           client = (await getClientById(existing.client_id))!;
         } catch (err) {
           request.log.error(err, "Drive folder onboarding failed during upload");
         }
-        if (!client.drive_raw_folder_id) {
+        if (!client.drive_folder_id) {
           return reply.code(400).send({ error: "Nem sikerült létrehozni az ügyfél Drive-mappáját" });
         }
       }
@@ -253,11 +253,11 @@ export default async function contentItemsRoutes(fastify: FastifyInstance) {
         .slice(0, 7);
 
       try {
-        const monthFolderId = await ensureMonthFolder(oauth, client.id, client.drive_raw_folder_id, yearMonth);
+        const rawFolderId = await ensureVideoSubfolder(oauth, client.id, client.drive_folder_id, yearMonth, "raw");
 
         let uploadedCount = 0;
         for await (const part of request.files()) {
-          await uploadStreamToFolder(oauth, monthFolderId, part.filename, part.mimetype, part.file);
+          await uploadStreamToFolder(oauth, rawFolderId, part.filename, part.mimetype, part.file);
           uploadedCount++;
         }
         if (uploadedCount === 0) {
@@ -267,13 +267,82 @@ export default async function contentItemsRoutes(fastify: FastifyInstance) {
         const item = await transitionContentItem(
           existing.id,
           "upload_raw",
-          { rawMediaUrl: driveFolderLink(monthFolderId) }
+          { rawMediaUrl: driveFolderLink(rawFolderId) }
         );
         return { item };
       } catch (err) {
         if (err instanceof TransitionError) {
           return reply.code(400).send({ error: err.message });
         }
+        request.log.error(err, "Drive upload failed");
+        return reply.code(502).send({ error: err instanceof Error ? err.message : "Nem sikerült feltölteni a fájlokat" });
+      }
+    }
+  );
+
+  // A "Vágásra vár" nézet feltöltés-gombjának végpontja: a megvágott
+  // videó(ka)t a Drive-on az ügyfél aznapi hónap-almappájának "Megvágva"
+  // mappájába streameli, majd elmenti a mappa linkjét edited_media_url-ként.
+  // Ez NEM állapotváltás — a jóváhagyásra küldés ("Vágás küldése
+  // jóváhagyásra") ugyanúgy külön, tudatos lépés marad, mint eddig a kézzel
+  // beírt linknél.
+  fastify.post<{ Params: { id: string } }>(
+    "/content-items/:id/upload-edited",
+    { onRequest: [fastify.authenticate] },
+    async (request, reply) => {
+      const { sub: userId, role } = request.user;
+      if (!(await canAccessSocialMediaModule(userId, role))) {
+        return reply.code(403).send({ error: "Nincs hozzáférésed a Social Media modulhoz" });
+      }
+      const existing = await getContentItemById(Number(request.params.id));
+      if (!existing) return reply.code(404).send({ error: "Content item not found" });
+      if (!canAccessItem(existing, userId, role)) {
+        return reply.code(403).send({ error: "Nincs hozzárendelve hozzád ez a tartalom" });
+      }
+
+      const oauth = await getAuthorizedClient();
+      if (!oauth) {
+        return reply.code(400).send({ error: "Nincs beállítva Google-kapcsolat (Beállítások > Google-integráció)" });
+      }
+
+      let client = await getClientById(existing.client_id);
+      if (!client) return reply.code(404).send({ error: "Client not found" });
+      if (!client.drive_folder_id) {
+        try {
+          await provisionClientDriveFolders(client);
+          client = (await getClientById(existing.client_id))!;
+        } catch (err) {
+          request.log.error(err, "Drive folder onboarding failed during upload");
+        }
+        if (!client.drive_folder_id) {
+          return reply.code(400).send({ error: "Nem sikerült létrehozni az ügyfél Drive-mappáját" });
+        }
+      }
+
+      const yearMonth = (existing.shoot_date ? new Date(existing.shoot_date) : new Date())
+        .toISOString()
+        .slice(0, 7);
+
+      try {
+        const editedFolderId = await ensureVideoSubfolder(oauth, client.id, client.drive_folder_id, yearMonth, "edited");
+
+        let uploadedCount = 0;
+        for await (const part of request.files()) {
+          await uploadStreamToFolder(oauth, editedFolderId, part.filename, part.mimetype, part.file);
+          uploadedCount++;
+        }
+        if (uploadedCount === 0) {
+          return reply.code(400).send({ error: "Nincs kiválasztott fájl" });
+        }
+
+        const item = await updateContentItemDetails(existing.id, {
+          title: existing.title,
+          platform: existing.platform,
+          assignedTo: existing.assigned_to ?? undefined,
+          editedMediaUrl: driveFolderLink(editedFolderId),
+        });
+        return { item };
+      } catch (err) {
         request.log.error(err, "Drive upload failed");
         return reply.code(502).send({ error: err instanceof Error ? err.message : "Nem sikerült feltölteni a fájlokat" });
       }

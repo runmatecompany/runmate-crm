@@ -197,9 +197,10 @@ export async function transitionContentItem(
 // XMLHttpRequest kell (nem fetch) a valódi feltöltési előrehaladás-eseményekhez
 // — a fetch streamelt request body-jának nincs egyszerű, széles körben
 // elérhető progress-API-ja a böngészőkben/webview-kban.
-export function uploadRawFiles(
+function uploadFiles(
   token: string,
   itemId: number,
+  endpoint: "upload-raw" | "upload-edited",
   files: File[],
   onProgress?: (fraction: number) => void
 ): Promise<ContentItem> {
@@ -208,7 +209,7 @@ export function uploadRawFiles(
     const formData = new FormData();
     for (const file of files) formData.append("files", file);
 
-    xhr.open("POST", `${getApiUrl()}/content-items/${itemId}/upload-raw`);
+    xhr.open("POST", `${getApiUrl()}/content-items/${itemId}/${endpoint}`);
     xhr.setRequestHeader("Authorization", `Bearer ${token}`);
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable && onProgress) onProgress(e.loaded / e.total);
@@ -231,6 +232,24 @@ export function uploadRawFiles(
     xhr.onerror = () => reject(new Error("Hálózati hiba a feltöltés közben"));
     xhr.send(formData);
   });
+}
+
+export function uploadRawFiles(
+  token: string,
+  itemId: number,
+  files: File[],
+  onProgress?: (fraction: number) => void
+): Promise<ContentItem> {
+  return uploadFiles(token, itemId, "upload-raw", files, onProgress);
+}
+
+export function uploadEditedFiles(
+  token: string,
+  itemId: number,
+  files: File[],
+  onProgress?: (fraction: number) => void
+): Promise<ContentItem> {
+  return uploadFiles(token, itemId, "upload-edited", files, onProgress);
 }
 
 export async function listApprovals(token: string, itemId: number): Promise<Approval[]> {

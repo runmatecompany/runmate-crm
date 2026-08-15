@@ -6,22 +6,48 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { Readable } from "node:stream";
 import type { OAuth2Client } from "google-auth-library";
-import { getCachedMonthFolder, recordMonthFolder } from "../../db/googleDrive.js";
+import {
+  getCachedMonthFolder,
+  recordMonthFolder,
+  getCachedVideoSubfolder,
+  recordVideoSubfolder,
+  type VideoSubfolderKind,
+} from "../../db/googleDrive.js";
 import { findOrCreateFolder, startResumableUpload } from "./api.js";
 
-// A hónap-almappa lusta létrehozással jön létre (első feltöltéskor az adott
-// hónapra), és a content_upload_folders táblában gyorsítótárazva marad.
+// A hónap-mappa ("{ügyfélmappa}/ÉÉÉÉ-HH") lusta létrehozással jön létre, és a
+// content_upload_folders táblában gyorsítótárazva marad.
 export async function ensureMonthFolder(
   client: OAuth2Client,
   clientId: number,
-  rawFolderId: string,
+  clientFolderId: string,
   yearMonth: string
 ): Promise<string> {
   const cached = await getCachedMonthFolder(clientId, yearMonth);
   if (cached) return cached;
-  const folder = await findOrCreateFolder(client, rawFolderId, yearMonth);
+  const folder = await findOrCreateFolder(client, clientFolderId, yearMonth);
   await recordMonthFolder(clientId, yearMonth, folder.id);
   return folder.id;
+}
+
+// A hónap-mappán belüli "Videók/Nyersek" ill. "Videók/Megvágva" almappa —
+// csak akkor jön ténylegesen létre, amikor az első fájl tényleg oda kerül
+// (forgatás utáni nyers feltöltés, ill. vágás utáni feltöltés).
+export async function ensureVideoSubfolder(
+  client: OAuth2Client,
+  clientId: number,
+  clientFolderId: string,
+  yearMonth: string,
+  kind: VideoSubfolderKind
+): Promise<string> {
+  const cached = await getCachedVideoSubfolder(clientId, yearMonth, kind);
+  if (cached) return cached;
+
+  const monthFolderId = await ensureMonthFolder(client, clientId, clientFolderId, yearMonth);
+  const videosFolder = await findOrCreateFolder(client, monthFolderId, "Videók");
+  const subFolder = await findOrCreateFolder(client, videosFolder.id, kind === "raw" ? "Nyersek" : "Megvágva");
+  await recordVideoSubfolder(clientId, yearMonth, kind, subFolder.id);
+  return subFolder.id;
 }
 
 // A bejövő (multipart) fájl-stream-et előbb egy ideiglenes fájlba írjuk

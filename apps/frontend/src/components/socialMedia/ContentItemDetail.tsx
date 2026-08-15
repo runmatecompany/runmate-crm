@@ -10,6 +10,7 @@ import {
   toDatetimeLocalValue,
   transitionContentItem,
   updateContentItem,
+  uploadEditedFiles,
   uploadRawFiles,
   type Approval,
   type ContentItem,
@@ -34,14 +35,15 @@ export default function ContentItemDetail({ itemId, onBack, onChanged }: Content
   const [item, setItem] = useState<ContentItem | null>(null);
   const [approvals, setApprovals] = useState<Approval[]>([]);
   const [scriptDraft, setScriptDraft] = useState("");
-  const [editedUrlDraft, setEditedUrlDraft] = useState("");
   const [shootDateDraft, setShootDateDraft] = useState("");
   const [savingField, setSavingField] = useState(false);
   const [actionInputValue, setActionInputValue] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [editedUploadProgress, setEditedUploadProgress] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const editedFileInputRef = useRef<HTMLInputElement>(null);
 
   const refresh = useCallback(() => {
     if (!token) return;
@@ -49,7 +51,6 @@ export default function ContentItemDetail({ itemId, onBack, onChanged }: Content
       setItem(loadedItem);
       setApprovals(loadedApprovals);
       setScriptDraft(loadedItem.script_content ?? "");
-      setEditedUrlDraft(loadedItem.edited_media_url ?? "");
       setShootDateDraft(loadedItem.shoot_date ? toDatetimeLocalValue(loadedItem.shoot_date) : "");
     });
   }, [token, itemId]);
@@ -67,22 +68,6 @@ export default function ContentItemDetail({ itemId, onBack, onChanged }: Content
         platform: item.platform,
         assignedTo: item.assigned_to ?? undefined,
         scriptContent: scriptDraft,
-      });
-      setItem(updated);
-    } finally {
-      setSavingField(false);
-    }
-  }
-
-  async function saveEditedUrl() {
-    if (!token || !item) return;
-    setSavingField(true);
-    try {
-      const updated = await updateContentItem(token, item.id, {
-        title: item.title,
-        platform: item.platform,
-        assignedTo: item.assigned_to ?? undefined,
-        editedMediaUrl: editedUrlDraft,
       });
       setItem(updated);
     } finally {
@@ -138,6 +123,24 @@ export default function ContentItemDetail({ itemId, onBack, onChanged }: Content
     } finally {
       setBusy(false);
       setUploadProgress(null);
+    }
+  }
+
+  async function handleEditedFilesSelected(e: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.currentTarget.files ?? []);
+    e.currentTarget.value = "";
+    if (!token || !item || files.length === 0) return;
+    setSavingField(true);
+    setError(null);
+    setEditedUploadProgress(0);
+    try {
+      const updated = await uploadEditedFiles(token, item.id, files, setEditedUploadProgress);
+      setItem(updated);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Nem sikerült feltölteni a fájlokat");
+    } finally {
+      setSavingField(false);
+      setEditedUploadProgress(null);
     }
   }
 
@@ -264,18 +267,21 @@ export default function ContentItemDetail({ itemId, onBack, onChanged }: Content
 
       {(item.status === "editing" || item.edited_media_url) && (
         <div className="sm-detail-field">
-          <label htmlFor="sm-edited-url">Vágott anyag linkje</label>
-          <input
-            id="sm-edited-url"
-            value={editedUrlDraft}
-            onChange={(e) => setEditedUrlDraft(e.currentTarget.value)}
-            disabled={item.status !== "editing"}
-            placeholder="https://..."
-          />
+          <label>Vágott anyag</label>
+          {item.edited_media_url && (
+            <p>
+              <a href={item.edited_media_url} target="_blank" rel="noreferrer">{item.edited_media_url}</a>
+            </p>
+          )}
           {item.status === "editing" && (
-            <button type="button" disabled={savingField} onClick={saveEditedUrl}>
-              {savingField ? "Mentés..." : "Link mentése"}
-            </button>
+            <div className="sm-detail-action-form">
+              <input ref={editedFileInputRef} type="file" multiple hidden onChange={handleEditedFilesSelected} />
+              <button type="button" disabled={savingField} onClick={() => editedFileInputRef.current?.click()}>
+                {editedUploadProgress != null
+                  ? `Feltöltés... ${Math.round(editedUploadProgress * 100)}%`
+                  : "Fájlok feltöltése"}
+              </button>
+            </div>
           )}
         </div>
       )}
