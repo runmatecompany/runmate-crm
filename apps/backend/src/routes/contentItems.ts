@@ -17,14 +17,17 @@ import {
 } from "../db/contentApprovals.js";
 import { getUserById } from "../db/users.js";
 import { pool } from "../db/pool.js";
+import { getClientById } from "../db/clients.js";
 import { transitionContentItem, TransitionError, type TransitionAction, type TransitionPayload } from "../lib/socialMedia/transitions.js";
 import { sendApprovalReminderEmail, NotifyError } from "../lib/socialMedia/notify.js";
 import { approvalTokenExpiry, generateApprovalToken } from "../lib/socialMedia/token.js";
+import { getAuthorizedClient } from "../lib/googleCalendar/oauth.js";
+import { driveFolderLink } from "../lib/googleDrive/api.js";
+import { ensureMonthFolder, uploadStreamToFolder } from "../lib/googleDrive/upload.js";
+import { provisionClientDriveFolders } from "../lib/googleDrive/onboarding.js";
 
 const PLATFORM_VALUES = ["instagram", "tiktok", "youtube", "facebook"] as const;
 const TRANSITION_ACTIONS = [
-  "set_shoot_date",
-  "start_script",
   "send_script_for_approval",
   "approve_script",
   "reject_script",
@@ -55,6 +58,7 @@ const updateBodySchema = {
     assignedTo: { type: "integer" },
     scriptContent: { type: "string" },
     editedMediaUrl: { type: "string" },
+    shootDate: { type: "string" },
   },
 } as const;
 
@@ -66,7 +70,6 @@ const transitionBodySchema = {
     payload: {
       type: "object",
       properties: {
-        shootDate: { type: "string" },
         rawMediaUrl: { type: "string" },
         scheduledPublishAt: { type: "string" },
         feedback: { type: "string" },
@@ -135,7 +138,14 @@ export default async function contentItemsRoutes(fastify: FastifyInstance) {
 
   fastify.put<{
     Params: { id: string };
-    Body: { title: string; platform: Platform; assignedTo?: number; scriptContent?: string; editedMediaUrl?: string };
+    Body: {
+      title: string;
+      platform: Platform;
+      assignedTo?: number;
+      scriptContent?: string;
+      editedMediaUrl?: string;
+      shootDate?: string;
+    };
   }>("/content-items/:id", { onRequest: [fastify.authenticate], schema: { body: updateBodySchema } }, async (
     request,
     reply
@@ -198,6 +208,74 @@ export default async function contentItemsRoutes(fastify: FastifyInstance) {
           return reply.code(400).send({ error: err.message });
         }
         throw err;
+      }
+    }
+  );
+
+  // A "Fájlok feltöltése" gomb végpontja: a kiválasztott fájlokat a Drive-on
+  // az ügyfél aznapi hónap-almappájába streameli, majd az upload_raw
+  // átmenettel a mappa linkjét menti raw_media_url-ként.
+  fastify.post<{ Params: { id: string } }>(
+    "/content-items/:id/upload-raw",
+    { onRequest: [fastify.authenticate] },
+    async (request, reply) => {
+      const { sub: userId, role } = request.user;
+      if (!(await canAccessSocialMediaModule(userId, role))) {
+        return reply.code(403).send({ error: "Nincs hozzáférésed a Social Media modulhoz" });
+      }
+      const existing = await getContentItemById(Number(request.params.id));
+      if (!existing) return reply.code(404).send({ error: "Content item not found" });
+      if (!canAccessItem(existing, userId, role)) {
+        return reply.code(403).send({ error: "Nincs hozzárendelve hozzád ez a tartalom" });
+      }
+
+      const oauth = await getAuthorizedClient();
+      if (!oauth) {
+        return reply.code(400).send({ error: "Nincs beállítva Google-kapcsolat (Beállítások > Google-integráció)" });
+      }
+
+      let client = await getClientById(existing.client_id);
+      if (!client) return reply.code(404).send({ error: "Client not found" });
+      if (!client.drive_raw_folder_id) {
+        try {
+          await provisionClientDriveFolders(client);
+          client = (await getClientById(existing.client_id))!;
+        } catch (err) {
+          request.log.error(err, "Drive folder onboarding failed during upload");
+        }
+        if (!client.drive_raw_folder_id) {
+          return reply.code(400).send({ error: "Nem sikerült létrehozni az ügyfél Drive-mappáját" });
+        }
+      }
+
+      const yearMonth = (existing.shoot_date ? new Date(existing.shoot_date) : new Date())
+        .toISOString()
+        .slice(0, 7);
+
+      try {
+        const monthFolderId = await ensureMonthFolder(oauth, client.id, client.drive_raw_folder_id, yearMonth);
+
+        let uploadedCount = 0;
+        for await (const part of request.files()) {
+          await uploadStreamToFolder(oauth, monthFolderId, part.filename, part.mimetype, part.file);
+          uploadedCount++;
+        }
+        if (uploadedCount === 0) {
+          return reply.code(400).send({ error: "Nincs kiválasztott fájl" });
+        }
+
+        const item = await transitionContentItem(
+          existing.id,
+          "upload_raw",
+          { rawMediaUrl: driveFolderLink(monthFolderId) }
+        );
+        return { item };
+      } catch (err) {
+        if (err instanceof TransitionError) {
+          return reply.code(400).send({ error: err.message });
+        }
+        request.log.error(err, "Drive upload failed");
+        return reply.code(502).send({ error: err instanceof Error ? err.message : "Nem sikerült feltölteni a fájlokat" });
       }
     }
   );

@@ -1,8 +1,7 @@
 import { getAuthorizedClient } from "./oauth.js";
 import { getConnection, hasProcessedEvent, recordProcessedEvent, updateSyncToken } from "../../db/googleCalendar.js";
 import { listAllClients, updateClientNextShootDate, type ClientRow } from "../../db/clients.js";
-import { listContentItems } from "../../db/contentItems.js";
-import { transitionContentItem } from "../socialMedia/transitions.js";
+import { createContentItem } from "../../db/contentItems.js";
 import { sendShootDateConfirmedEmail } from "./notify.js";
 
 const EVENTS_URL = "https://www.googleapis.com/calendar/v3/calendars/primary/events";
@@ -46,16 +45,17 @@ export function matchClient(event: GoogleCalendarEvent, clients: ClientRow[]): C
 async function processMatchedEvent(event: GoogleCalendarEvent, client: ClientRow, start: Date): Promise<void> {
   await updateClientNextShootDate(client.id, start);
 
-  const items = await listContentItems({});
-  const pendingForClient = items.filter((i) => i.client_id === client.id && i.status === "shoot_pending");
-  for (const item of pendingForClient) {
-    try {
-      await transitionContentItem(item.id, "set_shoot_date", { shootDate: start.toISOString() });
-    } catch {
-      // Ha időközben más állapotba került, kihagyjuk — a next_shoot_date
-      // mentése attól még megtörtént.
-    }
-  }
+  // Nincs többé külön "forgatás egyeztetése" előfázis — a naptárba írt
+  // dátum önmagában elindítja a folyamatot: azonnal létrejön egy új
+  // tartalom "Scriptre vár" állapotban, a forgatás dátumával előtöltve.
+  // A cím/platform csak ésszerű alapérték, azonnal szerkeszthető.
+  const dateLabel = start.toLocaleDateString("hu-HU", { year: "numeric", month: "long", day: "numeric" });
+  await createContentItem({
+    clientId: client.id,
+    title: `Forgatás – ${dateLabel}`,
+    platform: "instagram",
+    shootDate: start,
+  });
 
   await recordProcessedEvent({ googleEventId: event.id, clientId: client.id, eventStart: start });
 

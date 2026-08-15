@@ -1,5 +1,6 @@
 import cors from "@fastify/cors";
 import formbody from "@fastify/formbody";
+import multipart from "@fastify/multipart";
 import websocket from "@fastify/websocket";
 import Fastify from "fastify";
 import jwtPlugin from "./plugins/jwt.js";
@@ -34,6 +35,10 @@ export function buildApp() {
   // A publikus jóváhagyó oldal sima HTML <form>-ot postol
   // (application/x-www-form-urlencoded), nem JSON-t.
   app.register(formbody);
+  // A nyersanyag-feltöltés (routes/contentItems.ts upload-raw) streamelt
+  // multipart fájlokat fogad — a bodyLimit ide nem vonatkozik, ez saját
+  // limitet kap (nagy videófájlokhoz bőven elég keret).
+  app.register(multipart, { limits: { fileSize: 10 * 1024 * 1024 * 1024 } });
 
   app.register(jwtPlugin);
   app.register(authRoutes);

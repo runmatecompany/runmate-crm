@@ -10,6 +10,8 @@ export interface Client {
   notes: string | null;
   lead_id: number | null;
   next_shoot_date: string | null;
+  drive_folder_id: string | null;
+  drive_raw_folder_id: string | null;
   created_by: number | null;
   created_by_name: string | null;
   created_at: string;

@@ -12,6 +12,8 @@ import {
 } from "../db/leads.js";
 import { extractLeadFromImages, isLeadExtractionEnabled, type LeadImageInput } from "../lib/leadExtraction.js";
 import { canAccessClientsModule } from "./clients.js";
+import { getClientById } from "../db/clients.js";
+import { provisionClientDriveFolders } from "../lib/googleDrive/onboarding.js";
 
 const LEAD_STATUS_VALUES = ["to_call", "called", "call_back", "became_customer", "not_interested"] as const;
 
@@ -177,6 +179,18 @@ export default async function leadsRoutes(fastify: FastifyInstance) {
       const existing = await getLeadById(leadId);
       if (!existing) return reply.code(404).send({ error: "Lead not found" });
       const clientId = await convertLeadToClient(leadId, userId);
+
+      // Onboarding: Drive-mappastruktúra automatikus létrehozása, ugyanaz a
+      // best-effort minta, mint a kézi ügyfél-létrehozásnál (routes/clients.ts).
+      const newClient = await getClientById(clientId);
+      if (newClient) {
+        try {
+          await provisionClientDriveFolders(newClient);
+        } catch (err) {
+          fastify.log.error(err, "Drive folder onboarding failed for converted client");
+        }
+      }
+
       return reply.code(201).send({ clientId });
     }
   );

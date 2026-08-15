@@ -1,8 +1,6 @@
 import { pool } from "./pool.js";
 
 export type ContentStatus =
-  | "shoot_pending"
-  | "shoot_scheduled"
   | "script_writing"
   | "script_review"
   | "shoot_done"
@@ -76,14 +74,18 @@ export interface CreateContentItemInput {
   title: string;
   platform: Platform;
   assignedTo?: number;
+  shootDate?: Date | string;
 }
 
+// Mindig "script_writing" ("Scriptre vár") állapotban indul — nincs többé
+// külön forgatás-egyeztető előfázis, a forgatás dátumát vagy a Google
+// Naptár szinkron adja meg létrehozáskor, vagy utólag kézzel szerkeszthető.
 export async function createContentItem(input: CreateContentItemInput): Promise<ContentItemRow> {
   const { rows } = await pool.query<{ id: number }>(
-    `INSERT INTO content_items (client_id, title, platform, assigned_to)
-     VALUES ($1, $2, $3, $4)
+    `INSERT INTO content_items (client_id, title, platform, assigned_to, status, shoot_date)
+     VALUES ($1, $2, $3, $4, 'script_writing', $5)
      RETURNING id`,
-    [input.clientId, input.title, input.platform, input.assignedTo ?? null]
+    [input.clientId, input.title, input.platform, input.assignedTo ?? null, input.shootDate ?? null]
   );
   const created = await getContentItemById(rows[0].id);
   return created!;
@@ -95,12 +97,14 @@ export interface UpdateContentItemDetailsInput {
   assignedTo?: number;
   scriptContent?: string;
   editedMediaUrl?: string;
+  shootDate?: string;
 }
 
-// A cím/platform/felelős mellett ez szolgál a script szövegének és a vágott
-// anyag linkjének szerkesztésére is — ezeket a mezőket a felhasználó
-// folyamatosan írja/frissíti, mielőtt a send_script_for_approval /
-// send_edit_for_approval akció "pillanatképet" (snapshot) készít belőlük.
+// A cím/platform/felelős mellett ez szolgál a script szövegének, a vágott
+// anyag linkjének és a forgatás dátumának szerkesztésére is — ezeket a
+// mezőket a felhasználó folyamatosan írja/frissíti, mielőtt a
+// send_script_for_approval / send_edit_for_approval akció "pillanatképet"
+// (snapshot) készít belőlük.
 export async function updateContentItemDetails(
   id: number,
   input: UpdateContentItemDetailsInput
@@ -110,9 +114,18 @@ export async function updateContentItemDetails(
        title = $2, platform = $3, assigned_to = $4,
        script_content = COALESCE($5, script_content),
        edited_media_url = COALESCE($6, edited_media_url),
+       shoot_date = COALESCE($7, shoot_date),
        updated_at = now()
      WHERE id = $1`,
-    [id, input.title, input.platform, input.assignedTo ?? null, input.scriptContent ?? null, input.editedMediaUrl ?? null]
+    [
+      id,
+      input.title,
+      input.platform,
+      input.assignedTo ?? null,
+      input.scriptContent ?? null,
+      input.editedMediaUrl ?? null,
+      input.shootDate ?? null,
+    ]
   );
   if (!rowCount) return undefined;
   return getContentItemById(id);

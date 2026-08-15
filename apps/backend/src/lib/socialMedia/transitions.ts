@@ -9,8 +9,6 @@ import { approvalTokenExpiry, generateApprovalToken } from "./token.js";
 import { sendApprovalRequestEmail } from "./notify.js";
 
 export type TransitionAction =
-  | "set_shoot_date"
-  | "start_script"
   | "send_script_for_approval"
   | "approve_script"
   | "reject_script"
@@ -21,7 +19,6 @@ export type TransitionAction =
   | "schedule";
 
 export interface TransitionPayload {
-  shootDate?: string;
   rawMediaUrl?: string;
   scheduledPublishAt?: string;
   feedback?: string;
@@ -30,8 +27,6 @@ export interface TransitionPayload {
 export class TransitionError extends Error {}
 
 const EXPECTED_FROM: Record<TransitionAction, ContentStatus> = {
-  set_shoot_date: "shoot_pending",
-  start_script: "shoot_scheduled",
   send_script_for_approval: "script_writing",
   approve_script: "script_review",
   reject_script: "script_review",
@@ -130,20 +125,6 @@ export async function transitionContentItem(
   assertStatus(item, action);
 
   switch (action) {
-    case "set_shoot_date": {
-      if (!payload.shootDate) throw new TransitionError("A forgatás dátuma kötelező");
-      await pool.query(`UPDATE content_items SET status='shoot_scheduled', shoot_date=$2, updated_at=now() WHERE id=$1`, [
-        itemId,
-        payload.shootDate,
-      ]);
-      return (await getContentItemById(itemId))!;
-    }
-
-    case "start_script": {
-      await pool.query(`UPDATE content_items SET status='script_writing', updated_at=now() WHERE id=$1`, [itemId]);
-      return (await getContentItemById(itemId))!;
-    }
-
     case "send_script_for_approval":
       return sendForApproval(item, "script", "script_review", item.script_content ?? "");
 

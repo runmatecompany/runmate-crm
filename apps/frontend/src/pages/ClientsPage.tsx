@@ -85,6 +85,7 @@ export default function ClientsPage() {
               <th>Telefon</th>
               <th>Email</th>
               <th>Következő forgatás</th>
+              <th>Drive</th>
               <th></th>
             </tr>
           </thead>
@@ -99,6 +100,19 @@ export default function ClientsPage() {
                   {client.next_shoot_date
                     ? new Date(client.next_shoot_date).toLocaleString("hu-HU", { dateStyle: "medium", timeStyle: "short" })
                     : "—"}
+                </td>
+                <td>
+                  {client.drive_folder_id ? (
+                    <a
+                      href={`https://drive.google.com/drive/folders/${client.drive_folder_id}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Mappa megnyitása
+                    </a>
+                  ) : (
+                    "—"
+                  )}
                 </td>
                 <td>
                   <div className="leads-row-actions">

@@ -7,6 +7,7 @@ import {
   listAllClients,
   updateClientDetails,
 } from "../db/clients.js";
+import { provisionClientDriveFolders } from "../lib/googleDrive/onboarding.js";
 
 const clientDetailsSchema = {
   companyName: { type: "string", minLength: 1 },
@@ -70,7 +71,17 @@ export default async function clientsRoutes(fastify: FastifyInstance) {
         return reply.code(403).send({ error: "Nincs hozzáférésed az Ügyfelek modulhoz" });
       }
       const client = await createClient({ ...request.body, createdBy: request.user.sub });
-      return reply.code(201).send({ client });
+
+      // Onboarding: Drive-mappastruktúra automatikus létrehozása. Best-effort
+      // — ha nincs Google-kapcsolat vagy hibázik, az ügyfél-létrehozás akkor
+      // is sikeres marad, csak logoljuk.
+      try {
+        await provisionClientDriveFolders(client);
+      } catch (err) {
+        fastify.log.error(err, "Drive folder onboarding failed for new client");
+      }
+
+      return reply.code(201).send({ client: (await getClientById(client.id))! });
     }
   );
 

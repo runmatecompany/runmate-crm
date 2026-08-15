@@ -4,6 +4,9 @@ import { getConnection } from "../../db/googleCalendar.js";
 
 const SCOPES = [
   "https://www.googleapis.com/auth/calendar.readonly",
+  // Csak azokhoz a fájlokhoz/mappákhoz ad hozzáférést, amiket maga az app
+  // hoz létre (ügyfél-mappák, feltöltött nyersanyag) — nem a teljes Drive-hoz.
+  "https://www.googleapis.com/auth/drive.file",
   "https://www.googleapis.com/auth/userinfo.email",
 ];
 

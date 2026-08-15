@@ -1,8 +1,7 @@
 import { authFetch } from "./api";
+import { getApiUrl } from "./serverConfig";
 
 export type ContentStatus =
-  | "shoot_pending"
-  | "shoot_scheduled"
   | "script_writing"
   | "script_review"
   | "shoot_done"
@@ -14,20 +13,16 @@ export type ContentStatus =
 export type Platform = "instagram" | "tiktok" | "youtube" | "facebook";
 
 export const CONTENT_STATUS_LABELS: Record<ContentStatus, string> = {
-  shoot_pending: "Forgatás egyeztetése",
-  shoot_scheduled: "Forgatás dátuma rögzítve",
-  script_writing: "Script írása",
-  script_review: "Script jóváhagyásra várva",
-  shoot_done: "Forgatás megtörtént",
-  editing: "Vágás folyamatban",
-  edit_review: "Vágás jóváhagyásra várva",
-  scheduling: "Időzítés esedékes",
+  script_writing: "Scriptre vár",
+  script_review: "Script jóváhagyásra vár",
+  shoot_done: "Forgatásra vár",
+  editing: "Vágásra vár",
+  edit_review: "Vágás jóváhagyásra vár",
+  scheduling: "Időzítésre vár",
   published: "Közzétéve",
 };
 
 export const CONTENT_STATUS_ORDER: ContentStatus[] = [
-  "shoot_pending",
-  "shoot_scheduled",
   "script_writing",
   "script_review",
   "shoot_done",
@@ -72,6 +67,7 @@ export interface ContentItemFormInput {
   assignedTo?: number;
   scriptContent?: string;
   editedMediaUrl?: string;
+  shootDate?: string;
 }
 
 export interface ContentItemsListResult {
@@ -80,8 +76,6 @@ export interface ContentItemsListResult {
 }
 
 export type TransitionAction =
-  | "set_shoot_date"
-  | "start_script"
   | "send_script_for_approval"
   | "approve_script"
   | "reject_script"
@@ -92,7 +86,6 @@ export type TransitionAction =
   | "schedule";
 
 export interface TransitionPayload {
-  shootDate?: string;
   rawMediaUrl?: string;
   scheduledPublishAt?: string;
   feedback?: string;
@@ -115,16 +108,12 @@ export interface Approval {
 // pontosan egyetlen érvényes következő lépés jelenjen meg — nincs szabadon
 // húzható/választható átmenet.
 export type CardAction =
-  | { kind: "forward"; action: TransitionAction; label: string; input?: "shootDate" | "rawMediaUrl" | "scheduledPublishAt" }
+  | { kind: "forward"; action: TransitionAction; label: string; input?: "rawMediaUrl" | "scheduledPublishAt" }
   | { kind: "review"; approveAction: TransitionAction; rejectAction: TransitionAction }
   | { kind: "none" };
 
 export function getCardAction(status: ContentStatus): CardAction {
   switch (status) {
-    case "shoot_pending":
-      return { kind: "forward", action: "set_shoot_date", label: "Forgatás dátumának rögzítése", input: "shootDate" };
-    case "shoot_scheduled":
-      return { kind: "forward", action: "start_script", label: "Script írásának megkezdése" };
     case "script_writing":
       return { kind: "forward", action: "send_script_for_approval", label: "Script küldése jóváhagyásra" };
     case "script_review":
@@ -203,6 +192,45 @@ export async function transitionContentItem(
   });
   const data = await res.json();
   return data.item;
+}
+
+// XMLHttpRequest kell (nem fetch) a valódi feltöltési előrehaladás-eseményekhez
+// — a fetch streamelt request body-jának nincs egyszerű, széles körben
+// elérhető progress-API-ja a böngészőkben/webview-kban.
+export function uploadRawFiles(
+  token: string,
+  itemId: number,
+  files: File[],
+  onProgress?: (fraction: number) => void
+): Promise<ContentItem> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    const formData = new FormData();
+    for (const file of files) formData.append("files", file);
+
+    xhr.open("POST", `${getApiUrl()}/content-items/${itemId}/upload-raw`);
+    xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable && onProgress) onProgress(e.loaded / e.total);
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          resolve(JSON.parse(xhr.responseText).item);
+        } catch {
+          reject(new Error("Érvénytelen válasz a szervertől"));
+        }
+      } else {
+        try {
+          reject(new Error(JSON.parse(xhr.responseText).error ?? "Feltöltés sikertelen"));
+        } catch {
+          reject(new Error("Feltöltés sikertelen"));
+        }
+      }
+    };
+    xhr.onerror = () => reject(new Error("Hálózati hiba a feltöltés közben"));
+    xhr.send(formData);
+  });
 }
 
 export async function listApprovals(token: string, itemId: number): Promise<Approval[]> {

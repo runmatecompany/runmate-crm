@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useAuth } from "../../lib/auth";
 import {
   CONTENT_STATUS_LABELS,
@@ -10,6 +10,7 @@ import {
   toDatetimeLocalValue,
   transitionContentItem,
   updateContentItem,
+  uploadRawFiles,
   type Approval,
   type ContentItem,
 } from "../../lib/socialMedia";
@@ -34,10 +35,13 @@ export default function ContentItemDetail({ itemId, onBack, onChanged }: Content
   const [approvals, setApprovals] = useState<Approval[]>([]);
   const [scriptDraft, setScriptDraft] = useState("");
   const [editedUrlDraft, setEditedUrlDraft] = useState("");
+  const [shootDateDraft, setShootDateDraft] = useState("");
   const [savingField, setSavingField] = useState(false);
   const [actionInputValue, setActionInputValue] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const refresh = useCallback(() => {
     if (!token) return;
@@ -46,15 +50,7 @@ export default function ContentItemDetail({ itemId, onBack, onChanged }: Content
       setApprovals(loadedApprovals);
       setScriptDraft(loadedItem.script_content ?? "");
       setEditedUrlDraft(loadedItem.edited_media_url ?? "");
-      // Ha a Google Naptár szinkron már ismeri az ügyfél következő
-      // forgatását, azzal töltjük elő a dátum-mezőt (elfogadható vagy felülírható).
-      if (
-        loadedItem.status === "shoot_pending" &&
-        loadedItem.client_next_shoot_date &&
-        new Date(loadedItem.client_next_shoot_date).getTime() > Date.now()
-      ) {
-        setActionInputValue(toDatetimeLocalValue(loadedItem.client_next_shoot_date));
-      }
+      setShootDateDraft(loadedItem.shoot_date ? toDatetimeLocalValue(loadedItem.shoot_date) : "");
     });
   }, [token, itemId]);
 
@@ -94,6 +90,22 @@ export default function ContentItemDetail({ itemId, onBack, onChanged }: Content
     }
   }
 
+  async function saveShootDate() {
+    if (!token || !item || !shootDateDraft) return;
+    setSavingField(true);
+    try {
+      const updated = await updateContentItem(token, item.id, {
+        title: item.title,
+        platform: item.platform,
+        assignedTo: item.assigned_to ?? undefined,
+        shootDate: new Date(shootDateDraft).toISOString(),
+      });
+      setItem(updated);
+    } finally {
+      setSavingField(false);
+    }
+  }
+
   async function runAction(action: Parameters<typeof transitionContentItem>[2], payload?: Record<string, string>) {
     if (!token || !item) return;
     setBusy(true);
@@ -107,6 +119,25 @@ export default function ContentItemDetail({ itemId, onBack, onChanged }: Content
       setError(err instanceof Error ? err.message : "Nem sikerült végrehajtani a lépést");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function handleFilesSelected(e: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.currentTarget.files ?? []);
+    e.currentTarget.value = "";
+    if (!token || !item || files.length === 0) return;
+    setBusy(true);
+    setError(null);
+    setUploadProgress(0);
+    try {
+      await uploadRawFiles(token, item.id, files, setUploadProgress);
+      refresh();
+      onChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Nem sikerült feltölteni a fájlokat");
+    } finally {
+      setBusy(false);
+      setUploadProgress(null);
     }
   }
 
@@ -148,26 +179,25 @@ export default function ContentItemDetail({ itemId, onBack, onChanged }: Content
             {cardAction.label}
           </button>
         )}
-        {cardAction.kind === "forward" && cardAction.input && (
+        {cardAction.kind === "forward" && cardAction.action === "upload_raw" && (
+          <div className="sm-detail-action-form">
+            <input ref={fileInputRef} type="file" multiple hidden onChange={handleFilesSelected} />
+            <button type="button" disabled={busy} onClick={() => fileInputRef.current?.click()}>
+              {uploadProgress != null ? `Feltöltés... ${Math.round(uploadProgress * 100)}%` : "Fájlok feltöltése"}
+            </button>
+          </div>
+        )}
+        {cardAction.kind === "forward" && cardAction.input && cardAction.action !== "upload_raw" && (
           <div className="sm-detail-action-form">
             <input
-              type={cardAction.input === "rawMediaUrl" ? "text" : "datetime-local"}
-              placeholder={cardAction.input === "rawMediaUrl" ? "https://..." : undefined}
+              type="datetime-local"
               value={actionInputValue}
               onChange={(e) => setActionInputValue(e.currentTarget.value)}
             />
             <button
               type="button"
               disabled={busy || !actionInputValue.trim()}
-              onClick={() =>
-                runAction(cardAction.action, {
-                  [cardAction.input === "shootDate"
-                    ? "shootDate"
-                    : cardAction.input === "rawMediaUrl"
-                      ? "rawMediaUrl"
-                      : "scheduledPublishAt"]: actionInputValue,
-                })
-              }
+              onClick={() => runAction(cardAction.action, { scheduledPublishAt: actionInputValue })}
             >
               {cardAction.label}
             </button>
@@ -193,6 +223,19 @@ export default function ContentItemDetail({ itemId, onBack, onChanged }: Content
           </div>
         )}
         {cardAction.kind === "none" && <p className="chat-empty-hint">Ez a tartalom már közzétéve.</p>}
+      </div>
+
+      <div className="sm-detail-field">
+        <label htmlFor="sm-shoot-date">Forgatás dátuma</label>
+        <input
+          id="sm-shoot-date"
+          type="datetime-local"
+          value={shootDateDraft}
+          onChange={(e) => setShootDateDraft(e.currentTarget.value)}
+        />
+        <button type="button" disabled={savingField || !shootDateDraft} onClick={saveShootDate}>
+          {savingField ? "Mentés..." : "Dátum mentése"}
+        </button>
       </div>
 
       {(item.status === "script_writing" || item.script_content) && (
