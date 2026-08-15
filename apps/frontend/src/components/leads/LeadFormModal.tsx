@@ -101,7 +101,7 @@ export default function LeadFormModal({ lead, token, onClose, onSave }: LeadForm
 
   return (
     <div className="chat-modal-backdrop" onClick={onClose}>
-      <form className="chat-modal" onClick={(e) => e.stopPropagation()} onSubmit={handleSubmit}>
+      <form className="chat-modal lead-form" onClick={(e) => e.stopPropagation()} onSubmit={handleSubmit}>
         <h2>{lead ? "Lead szerkesztése" : "Új lead"}</h2>
 
         {!lead && (
@@ -139,29 +139,39 @@ export default function LeadFormModal({ lead, token, onClose, onSave }: LeadForm
           </div>
         )}
 
-        <label htmlFor="lead-company">Cégnév</label>
-        <input
-          id="lead-company"
-          value={companyName}
-          onChange={(e) => setCompanyName(e.currentTarget.value)}
-          required
-          autoFocus
-        />
+        <div className="lead-form-row">
+          <div>
+            <label htmlFor="lead-company">Cégnév</label>
+            <input
+              id="lead-company"
+              value={companyName}
+              onChange={(e) => setCompanyName(e.currentTarget.value)}
+              required
+              autoFocus
+            />
+          </div>
+          <div>
+            <label htmlFor="lead-contact">Kapcsolattartó</label>
+            <input id="lead-contact" value={contactName} onChange={(e) => setContactName(e.currentTarget.value)} />
+          </div>
+        </div>
 
-        <label htmlFor="lead-contact">Kapcsolattartó</label>
-        <input id="lead-contact" value={contactName} onChange={(e) => setContactName(e.currentTarget.value)} />
-
-        <label htmlFor="lead-phone">Telefon</label>
-        <input id="lead-phone" value={phone} onChange={(e) => setPhone(e.currentTarget.value)} />
-
-        <label htmlFor="lead-email">Email</label>
-        <input id="lead-email" value={email} onChange={(e) => setEmail(e.currentTarget.value)} />
+        <div className="lead-form-row">
+          <div>
+            <label htmlFor="lead-phone">Telefon</label>
+            <input id="lead-phone" value={phone} onChange={(e) => setPhone(e.currentTarget.value)} />
+          </div>
+          <div>
+            <label htmlFor="lead-email">Email</label>
+            <input id="lead-email" value={email} onChange={(e) => setEmail(e.currentTarget.value)} />
+          </div>
+        </div>
 
         <label htmlFor="lead-address">Cím</label>
         <input id="lead-address" value={address} onChange={(e) => setAddress(e.currentTarget.value)} />
 
         <label htmlFor="lead-notes">Jegyzet</label>
-        <textarea id="lead-notes" rows={4} value={notes} onChange={(e) => setNotes(e.currentTarget.value)} />
+        <textarea id="lead-notes" rows={3} value={notes} onChange={(e) => setNotes(e.currentTarget.value)} />
 
         {error && <p className="login-error">{error}</p>}
 

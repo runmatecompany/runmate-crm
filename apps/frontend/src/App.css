@@ -1462,6 +1462,23 @@ button:hover {
   padding: 0.4em 0.8em;
 }
 
+.lead-form {
+  width: 480px;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+.lead-form-row {
+  display: flex;
+  gap: 0.6em;
+}
+
+.lead-form-row > div {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
 .lead-image-upload {
   display: flex;
   flex-direction: column;
