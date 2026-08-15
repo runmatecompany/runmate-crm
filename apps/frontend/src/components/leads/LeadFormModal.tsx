@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
-import { extractLeadFromImages, type Lead, type LeadFormInput } from "../../lib/leads";
+import { extractLeadFromImages, type ExtractedLeadFields, type Lead, type LeadFormInput } from "../../lib/leads";
 
 interface LeadFormModalProps {
   lead: Lead | null;
@@ -14,6 +14,7 @@ interface PendingImage {
 }
 
 const MAX_IMAGES = 5;
+const AUTO_EXTRACT_DEBOUNCE_MS = 700;
 
 function readAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -38,19 +39,70 @@ export default function LeadFormModal({ lead, token, onClose, onSave }: LeadForm
   const [extracting, setExtracting] = useState(false);
   const [extractError, setExtractError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const imagesRef = useRef<PendingImage[]>([]);
+  const autoExtractTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    imagesRef.current = images;
+  }, [images]);
+
+  useEffect(
+    () => () => {
+      if (autoExtractTimer.current) clearTimeout(autoExtractTimer.current);
+    },
+    []
+  );
+
+  // Csak az üres mezőket tölti ki — amit a felhasználó már beírt, azt nem írja felül.
+  function applyExtractedFields(fields: ExtractedLeadFields) {
+    if (fields.companyName) setCompanyName((prev) => (prev.trim() ? prev : fields.companyName!));
+    if (fields.contactName) setContactName((prev) => (prev.trim() ? prev : fields.contactName!));
+    if (fields.phone) setPhone((prev) => (prev.trim() ? prev : fields.phone!));
+    if (fields.email) setEmail((prev) => (prev.trim() ? prev : fields.email!));
+    if (fields.address) setAddress((prev) => (prev.trim() ? prev : fields.address!));
+    if (fields.notes) setNotes((prev) => (prev.trim() ? prev : fields.notes!));
+  }
+
+  async function runExtraction(imgs: PendingImage[]) {
+    if (imgs.length === 0) return;
+    setExtracting(true);
+    setExtractError(null);
+    try {
+      const fields = await extractLeadFromImages(
+        token,
+        imgs.map((img) => img.dataUrl)
+      );
+      applyExtractedFields(fields);
+    } catch (err) {
+      setExtractError(err instanceof Error ? err.message : "Nem sikerült feldolgozni a képeket");
+    } finally {
+      setExtracting(false);
+    }
+  }
+
+  // Új kép hozzáadásakor (feltöltés vagy vágólap) egy rövid szünet után
+  // automatikusan elindítja az AI felismerést — nem kell külön gombot nyomni.
+  // A debounce azért kell, hogy több egymás után beillesztett kép (pl. névjegy
+  // két oldala) egyetlen hívásba kerüljön, ne külön-külön fizessük meg.
+  function scheduleAutoExtract() {
+    if (autoExtractTimer.current) clearTimeout(autoExtractTimer.current);
+    autoExtractTimer.current = setTimeout(() => {
+      autoExtractTimer.current = null;
+      void runExtraction(imagesRef.current);
+    }, AUTO_EXTRACT_DEBOUNCE_MS);
+  }
 
   async function addFiles(files: File[]) {
     if (files.length === 0) return;
     setExtractError(null);
     const dataUrls = await Promise.all(files.map(readAsDataUrl));
-    setImages((prev) => {
-      const room = MAX_IMAGES - prev.length;
-      if (room <= 0) return prev;
-      return [
-        ...prev,
-        ...dataUrls.slice(0, room).map((dataUrl, i) => ({ id: `${Date.now()}-${i}`, dataUrl })),
-      ];
-    });
+    const room = MAX_IMAGES - imagesRef.current.length;
+    if (room <= 0) return;
+    const added = dataUrls.slice(0, room).map((dataUrl, i) => ({ id: `${Date.now()}-${i}`, dataUrl }));
+    const next = [...imagesRef.current, ...added];
+    imagesRef.current = next;
+    setImages(next);
+    scheduleAutoExtract();
   }
 
   async function handleFilesSelected(e: ChangeEvent<HTMLInputElement>) {
@@ -60,7 +112,11 @@ export default function LeadFormModal({ lead, token, onClose, onSave }: LeadForm
   }
 
   function removeImage(id: string) {
-    setImages((prev) => prev.filter((img) => img.id !== id));
+    setImages((prev) => {
+      const next = prev.filter((img) => img.id !== id);
+      imagesRef.current = next;
+      return next;
+    });
   }
 
   // Vágólapról beillesztett kép (pl. "kép másolása" egy screenshotból)
@@ -85,26 +141,12 @@ export default function LeadFormModal({ lead, token, onClose, onSave }: LeadForm
     return () => window.removeEventListener("paste", handlePaste);
   }, [lead]);
 
-  async function handleExtract() {
-    if (images.length === 0) return;
-    setExtracting(true);
-    setExtractError(null);
-    try {
-      const fields = await extractLeadFromImages(
-        token,
-        images.map((img) => img.dataUrl)
-      );
-      if (fields.companyName && !companyName.trim()) setCompanyName(fields.companyName);
-      if (fields.contactName && !contactName.trim()) setContactName(fields.contactName);
-      if (fields.phone && !phone.trim()) setPhone(fields.phone);
-      if (fields.email && !email.trim()) setEmail(fields.email);
-      if (fields.address && !address.trim()) setAddress(fields.address);
-      if (fields.notes && !notes.trim()) setNotes(fields.notes);
-    } catch (err) {
-      setExtractError(err instanceof Error ? err.message : "Nem sikerült feldolgozni a képeket");
-    } finally {
-      setExtracting(false);
+  function handleManualExtract() {
+    if (autoExtractTimer.current) {
+      clearTimeout(autoExtractTimer.current);
+      autoExtractTimer.current = null;
     }
+    void runExtraction(imagesRef.current);
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -135,8 +177,9 @@ export default function LeadFormModal({ lead, token, onClose, onSave }: LeadForm
         {!lead && (
           <div className="lead-image-upload">
             <label>
-              Fotók (névjegykártya, képernyőfotó) — az AI kitölti belőlük a mezőket. Vágólapról is
-              beillesztheted (Ctrl+V), nem kell előbb lementened a képet.
+              Fotók (névjegykártya, képernyőfotó) — a kép hozzáadása után az AI automatikusan
+              kitölti belőlük a mezőket. Vágólapról is beillesztheted (Ctrl+V), nem kell előbb
+              lementened a képet.
             </label>
             <div className="lead-image-list">
               {images.map((img) => (
@@ -162,8 +205,13 @@ export default function LeadFormModal({ lead, token, onClose, onSave }: LeadForm
               onChange={handleFilesSelected}
             />
             {images.length > 0 && (
-              <button type="button" className="lead-image-extract" onClick={handleExtract} disabled={extracting}>
-                {extracting ? "Feldolgozás..." : "AI kitöltés a fotókból"}
+              <button
+                type="button"
+                className="lead-image-extract"
+                onClick={handleManualExtract}
+                disabled={extracting}
+              >
+                {extracting ? "Feldolgozás..." : "AI kitöltés újra a fotókból"}
               </button>
             )}
             {extractError && <p className="login-error">{extractError}</p>}
