@@ -89,3 +89,61 @@ export async function startResumableUpload(
 export function driveFolderLink(folderId: string): string {
   return `https://drive.google.com/drive/folders/${folderId}`;
 }
+
+const FOLDER_MIME_TYPE = "application/vnd.google-apps.folder";
+
+export interface DriveItem {
+  id: string;
+  name: string;
+  mimeType: string;
+}
+
+// A beépített Drive-böngészőhöz: egy mappa közvetlen tartalma (almappák és
+// fájlok egyben, mappa-elsőbbséggel rendezve).
+export async function listFolderChildren(client: OAuth2Client, folderId: string): Promise<DriveItem[]> {
+  const url = new URL(DRIVE_FILES_URL);
+  url.searchParams.set("q", `'${folderId}' in parents and trashed = false`);
+  url.searchParams.set("fields", "files(id,name,mimeType)");
+  url.searchParams.set("orderBy", "folder,name");
+  url.searchParams.set("pageSize", "1000");
+  const data = await driveFetch<{ files?: DriveItem[] }>(client, url);
+  return data.files ?? [];
+}
+
+export function isDriveFolder(item: Pick<DriveItem, "mimeType">): boolean {
+  return item.mimeType === FOLDER_MIME_TYPE;
+}
+
+// Felfelé sétál a szülőláncon a gyökér-mappáig, hogy (a) morzsamenüt tudjunk
+// belőle építeni, és (b) ellenőrizhessük, hogy a kért mappa tényleg a
+// megengedett gyökér (Ügyfelek) alatt van-e — a beépített böngészőben ne
+// lehessen kilépni onnan. Null, ha a lánc nem fut bele a gyökérbe.
+export async function resolveBreadcrumb(
+  client: OAuth2Client,
+  folderId: string,
+  rootId: string,
+  maxDepth = 8
+): Promise<DriveFolder[] | null> {
+  const chain: DriveFolder[] = [];
+  let currentId = folderId;
+  for (let i = 0; i < maxDepth; i++) {
+    let info: { id: string; name: string; parents?: string[] };
+    try {
+      info = await driveFetch<{ id: string; name: string; parents?: string[] }>(
+        client,
+        `${DRIVE_FILES_URL}/${currentId}?fields=id,name,parents`
+      );
+    } catch {
+      // A lánc egy nem elérhető/nem hagyományos fájl-azonosítóba futott
+      // (pl. egy megosztott meghajtó gyökere) — ez nem lehet a mi
+      // gyökerünk alatt, tehát elutasítjuk.
+      return null;
+    }
+    chain.unshift({ id: info.id, name: info.name });
+    if (info.id === rootId) return chain;
+    const parentId = info.parents?.[0];
+    if (!parentId) return null;
+    currentId = parentId;
+  }
+  return null;
+}

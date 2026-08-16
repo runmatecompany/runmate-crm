@@ -2006,22 +2006,71 @@ button:hover {
 }
 
 .sm-drive-view {
-  max-width: 480px;
+  max-width: 640px;
 }
 
-.sm-drive-open-link {
-  display: inline-block;
-  margin-top: 1em;
-  padding: 0.6em 1.2em;
-  border-radius: 8px;
-  background-color: var(--accent);
-  color: #ffffff;
-  font-weight: 600;
+.sm-drive-breadcrumb {
+  margin-bottom: 0.8em;
+  font-size: 0.88em;
+  color: var(--text-muted);
+}
+
+.sm-drive-breadcrumb-sep {
+  margin: 0 0.35em;
+}
+
+.sm-drive-breadcrumb-item {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  color: var(--text-muted);
+  text-decoration: underline;
+}
+
+.sm-drive-breadcrumb-item:disabled {
+  color: var(--text);
   text-decoration: none;
+  font-weight: 600;
 }
 
-.sm-drive-open-link:hover {
-  background-color: var(--accent-hover);
+.sm-drive-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3em;
+}
+
+.sm-drive-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background-color: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.6em 0.8em;
+  color: var(--text);
+}
+
+.sm-drive-item-folder {
+  font-weight: 600;
+}
+
+.sm-drive-preview {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 12em);
+}
+
+.sm-drive-preview-title {
+  margin: 0.3em 0 0.6em;
+  font-size: 1em;
+}
+
+.sm-drive-preview-frame {
+  flex: 1;
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 10px;
 }
 
 .sm-kanban-card-action {

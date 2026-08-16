@@ -292,10 +292,28 @@ export async function sendReminder(token: string, itemId: number, approvalId: nu
   await authFetch(token, `/content-items/${itemId}/approvals/${approvalId}/remind`, { method: "POST" });
 }
 
-export async function getDriveRootLink(token: string): Promise<string> {
-  const res = await authFetch(token, "/social-media/drive-root");
-  const data = await res.json();
-  return data.link;
+export interface DriveBreadcrumbEntry {
+  id: string;
+  name: string;
+}
+
+export interface DriveItem {
+  id: string;
+  name: string;
+  mimeType: string;
+}
+
+export interface DriveBrowseResult {
+  folderId: string;
+  breadcrumb: DriveBreadcrumbEntry[];
+  folders: DriveItem[];
+  files: DriveItem[];
+}
+
+export async function browseDrive(token: string, folderId?: string): Promise<DriveBrowseResult> {
+  const query = folderId ? `?folderId=${encodeURIComponent(folderId)}` : "";
+  const res = await authFetch(token, `/social-media/drive/browse${query}`);
+  return res.json();
 }
 
 export async function getSocialMediaSenderAccount(token: string): Promise<number | null> {
