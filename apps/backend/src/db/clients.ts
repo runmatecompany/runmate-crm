@@ -13,18 +13,24 @@ export interface ClientRow {
   drive_folder_id: string | null;
   created_by: number | null;
   created_by_name: string | null;
+  onboarding_completed_at: string | null;
   created_at: string;
   updated_at: string;
 }
 
+// A JOIN client_ai_profiles-szal csak az onboarding_completed_at-ért van
+// (az Ügyfelek lista "Onboarding" oszlopához) — így nem kell N+1 külön
+// lekérdezés minden ügyfélhez.
 const CLIENT_SELECT = `
   SELECT
     c.id, c.company_name, c.contact_name, c.phone, c.email, c.address, c.notes,
     c.lead_id, c.next_shoot_date, c.drive_folder_id,
     c.created_by, cu.name AS created_by_name,
+    ap.onboarding_completed_at,
     c.created_at, c.updated_at
   FROM clients c
   LEFT JOIN users cu ON cu.id = c.created_by
+  LEFT JOIN client_ai_profiles ap ON ap.client_id = c.id
 `;
 
 export async function listAllClients(): Promise<ClientRow[]> {

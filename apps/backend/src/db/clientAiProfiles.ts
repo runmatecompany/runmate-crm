@@ -9,13 +9,18 @@ export interface ClientAiProfileRow {
   cta_style: string | null;
   platform_notes: string | null;
   reference_links: string | null;
+  has_social_presence: boolean;
+  inspiration_brands: string | null;
+  brand_mission: string | null;
+  onboarding_completed_at: string | null;
   updated_at: string;
 }
 
 export async function getClientAiProfile(clientId: number): Promise<ClientAiProfileRow | undefined> {
   const { rows } = await pool.query<ClientAiProfileRow>(
     `SELECT client_id, brand_voice, target_audience, visual_direction, forbidden_topics,
-            cta_style, platform_notes, reference_links, updated_at
+            cta_style, platform_notes, reference_links, has_social_presence, inspiration_brands,
+            brand_mission, onboarding_completed_at, updated_at
      FROM client_ai_profiles WHERE client_id = $1`,
     [clientId]
   );
@@ -30,19 +35,30 @@ export interface UpsertClientAiProfileInput {
   ctaStyle?: string;
   platformNotes?: string;
   referenceLinks?: string;
+  hasSocialPresence?: boolean;
+  inspirationBrands?: string;
+  brandMission?: string;
 }
 
+// Az onboarding_completed_at az ELSŐ sikeres mentéskor áll be, és utólagos
+// szerkesztéskor sem íródik felül (COALESCE) — ez jelzi az Ügyfelek
+// listában, hogy az onboarding-kérdőívet valaha kitöltötték, nem az utolsó
+// módosítás időpontját.
 export async function upsertClientAiProfile(
   clientId: number,
   input: UpsertClientAiProfileInput
 ): Promise<ClientAiProfileRow> {
   await pool.query(
     `INSERT INTO client_ai_profiles
-       (client_id, brand_voice, target_audience, visual_direction, forbidden_topics, cta_style, platform_notes, reference_links)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       (client_id, brand_voice, target_audience, visual_direction, forbidden_topics, cta_style, platform_notes,
+        reference_links, has_social_presence, inspiration_brands, brand_mission, onboarding_completed_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now())
      ON CONFLICT (client_id) DO UPDATE SET
        brand_voice = $2, target_audience = $3, visual_direction = $4, forbidden_topics = $5,
-       cta_style = $6, platform_notes = $7, reference_links = $8, updated_at = now()`,
+       cta_style = $6, platform_notes = $7, reference_links = $8, has_social_presence = $9,
+       inspiration_brands = $10, brand_mission = $11,
+       onboarding_completed_at = COALESCE(client_ai_profiles.onboarding_completed_at, now()),
+       updated_at = now()`,
     [
       clientId,
       input.brandVoice ?? null,
@@ -52,6 +68,9 @@ export async function upsertClientAiProfile(
       input.ctaStyle ?? null,
       input.platformNotes ?? null,
       input.referenceLinks ?? null,
+      input.hasSocialPresence ?? true,
+      input.inspirationBrands ?? null,
+      input.brandMission ?? null,
     ]
   );
   return (await getClientAiProfile(clientId))!;

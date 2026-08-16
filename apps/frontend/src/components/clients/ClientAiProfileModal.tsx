@@ -10,8 +10,10 @@ interface ClientAiProfileModalProps {
 }
 
 // Ezt a profilt tölti be minden AI-vázlat-generálás a Social Media modulban
-// (ContentItemDetail.tsx "AI-vázlat generálása" gombja) — csak admin
-// szerkesztheti, mert márka-kritikus adat.
+// (ContentItemDetail.tsx / Tervező "AI-vázlat generálása" gombjai) — csak
+// admin szerkesztheti, mert márka-kritikus adat. Ez egyben az ügyfél-
+// onboarding kérdőíve is: az első mentés jelöli az onboardingot késznek
+// (lásd db/clientAiProfiles.ts upsertClientAiProfile).
 export default function ClientAiProfileModal({ clientId, clientName, onClose }: ClientAiProfileModalProps) {
   useEscapeToClose(onClose);
   const { auth } = useAuth();
@@ -25,6 +27,9 @@ export default function ClientAiProfileModal({ clientId, clientName, onClose }: 
   const [platformNotes, setPlatformNotes] = useState("");
   const [forbiddenTopics, setForbiddenTopics] = useState("");
   const [referenceLinks, setReferenceLinks] = useState("");
+  const [hasSocialPresence, setHasSocialPresence] = useState(true);
+  const [inspirationBrands, setInspirationBrands] = useState("");
+  const [brandMission, setBrandMission] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -40,6 +45,9 @@ export default function ClientAiProfileModal({ clientId, clientName, onClose }: 
         setPlatformNotes(profile.platform_notes ?? "");
         setForbiddenTopics(profile.forbidden_topics ?? "");
         setReferenceLinks(profile.reference_links ?? "");
+        setHasSocialPresence(profile.has_social_presence);
+        setInspirationBrands(profile.inspiration_brands ?? "");
+        setBrandMission(profile.brand_mission ?? "");
       })
       .finally(() => setLoading(false));
   }, [token, clientId]);
@@ -58,6 +66,9 @@ export default function ClientAiProfileModal({ clientId, clientName, onClose }: 
         platformNotes: platformNotes.trim() || undefined,
         forbiddenTopics: forbiddenTopics.trim() || undefined,
         referenceLinks: referenceLinks.trim() || undefined,
+        hasSocialPresence,
+        inspirationBrands: inspirationBrands.trim() || undefined,
+        brandMission: brandMission.trim() || undefined,
       });
       onClose();
     } catch (err) {
@@ -122,14 +133,46 @@ export default function ClientAiProfileModal({ clientId, clientName, onClose }: 
               placeholder="Soronként egy"
             />
 
-            <label htmlFor="ai-reference-links">Korábbi jól teljesítő tartalmak (linkek)</label>
-            <textarea
-              id="ai-reference-links"
-              rows={3}
-              value={referenceLinks}
-              onChange={(e) => setReferenceLinks(e.currentTarget.value)}
-              placeholder="Soronként egy link"
-            />
+            <label className="ai-profile-checkbox">
+              <input
+                type="checkbox"
+                checked={!hasSocialPresence}
+                onChange={(e) => setHasSocialPresence(!e.currentTarget.checked)}
+              />
+              Az ügyfélnek nincs meglévő social media jelenléte
+            </label>
+
+            {hasSocialPresence ? (
+              <>
+                <label htmlFor="ai-reference-links">Korábbi jól teljesítő tartalmak (linkek)</label>
+                <textarea
+                  id="ai-reference-links"
+                  rows={3}
+                  value={referenceLinks}
+                  onChange={(e) => setReferenceLinks(e.currentTarget.value)}
+                  placeholder="Soronként egy link"
+                />
+              </>
+            ) : (
+              <>
+                <label htmlFor="ai-inspiration-brands">Inspirációs márkák/versenytársak</label>
+                <textarea
+                  id="ai-inspiration-brands"
+                  rows={2}
+                  value={inspirationBrands}
+                  onChange={(e) => setInspirationBrands(e.currentTarget.value)}
+                  placeholder="Olyan márkák, amiknek a social media stílusát megközelítenénk"
+                />
+
+                <label htmlFor="ai-brand-mission">Márka küldetése / fő üzenete</label>
+                <textarea
+                  id="ai-brand-mission"
+                  rows={2}
+                  value={brandMission}
+                  onChange={(e) => setBrandMission(e.currentTarget.value)}
+                />
+              </>
+            )}
           </>
         )}
 

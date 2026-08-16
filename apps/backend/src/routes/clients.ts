@@ -51,6 +51,9 @@ const aiProfileBodySchema = {
     ctaStyle: { type: "string" },
     platformNotes: { type: "string" },
     referenceLinks: { type: "string" },
+    hasSocialPresence: { type: "boolean" },
+    inspirationBrands: { type: "string" },
+    brandMission: { type: "string" },
   },
 } as const;
 
@@ -62,6 +65,9 @@ interface AiProfileBody {
   ctaStyle?: string;
   platformNotes?: string;
   referenceLinks?: string;
+  hasSocialPresence?: boolean;
+  inspirationBrands?: string;
+  brandMission?: string;
 }
 
 // Modul-szintű hozzáférés: admin mindig, más csak akkor, ha az admin

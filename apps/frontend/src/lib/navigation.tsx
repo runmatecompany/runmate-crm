@@ -10,6 +10,11 @@ interface NavigationValue {
   // beszélgetéshez.
   viewingRoomId: number | null;
   setViewingRoomId: (roomId: number | null) => void;
+  // Melyik ügyfélnek kérték megnyitni az onboarding (AI-profil) formját —
+  // lead→ügyfél konverzió után, hogy ne kelljen külön emlékezni rá.
+  requestedOnboardingClientId: number | null;
+  openClientOnboarding: (clientId: number) => void;
+  clearRequestedOnboarding: () => void;
 }
 
 const NavigationContext = createContext<NavigationValue | undefined>(undefined);
@@ -17,6 +22,7 @@ const NavigationContext = createContext<NavigationValue | undefined>(undefined);
 export function NavigationProvider({ children }: { children: ReactNode }) {
   const [requestedRoomId, setRequestedRoomId] = useState<number | null>(null);
   const [viewingRoomId, setViewingRoomId] = useState<number | null>(null);
+  const [requestedOnboardingClientId, setRequestedOnboardingClientId] = useState<number | null>(null);
 
   const openChatRoom = useCallback((roomId: number) => {
     setRequestedRoomId(roomId);
@@ -26,9 +32,26 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     setRequestedRoomId(null);
   }, []);
 
+  const openClientOnboarding = useCallback((clientId: number) => {
+    setRequestedOnboardingClientId(clientId);
+  }, []);
+
+  const clearRequestedOnboarding = useCallback(() => {
+    setRequestedOnboardingClientId(null);
+  }, []);
+
   return (
     <NavigationContext.Provider
-      value={{ requestedRoomId, openChatRoom, clearRequestedRoom, viewingRoomId, setViewingRoomId }}
+      value={{
+        requestedRoomId,
+        openChatRoom,
+        clearRequestedRoom,
+        viewingRoomId,
+        setViewingRoomId,
+        requestedOnboardingClientId,
+        openClientOnboarding,
+        clearRequestedOnboarding,
+      }}
     >
       {children}
     </NavigationContext.Provider>

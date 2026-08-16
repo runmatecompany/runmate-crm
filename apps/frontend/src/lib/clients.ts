@@ -11,9 +11,9 @@ export interface Client {
   lead_id: number | null;
   next_shoot_date: string | null;
   drive_folder_id: string | null;
-  drive_raw_folder_id: string | null;
   created_by: number | null;
   created_by_name: string | null;
+  onboarding_completed_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -70,6 +70,10 @@ export interface ClientAiProfile {
   cta_style: string | null;
   platform_notes: string | null;
   reference_links: string | null;
+  has_social_presence: boolean;
+  inspiration_brands: string | null;
+  brand_mission: string | null;
+  onboarding_completed_at: string | null;
   updated_at: string;
 }
 
@@ -81,6 +85,9 @@ export interface ClientAiProfileInput {
   ctaStyle?: string;
   platformNotes?: string;
   referenceLinks?: string;
+  hasSocialPresence?: boolean;
+  inspirationBrands?: string;
+  brandMission?: string;
 }
 
 export async function getClientAiProfile(token: string, clientId: number): Promise<ClientAiProfile | null> {

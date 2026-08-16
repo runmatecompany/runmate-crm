@@ -21,7 +21,7 @@ const SOCIAL_MEDIA_TABS: Record<string, SocialMediaTab> = {
 
 export default function DashboardPage() {
   const { auth, logout } = useAuth();
-  const { requestedRoomId } = useNavigation();
+  const { requestedRoomId, requestedOnboardingClientId } = useNavigation();
   const [activeId, setActiveId] = useState(MENU_ITEMS[0].id);
 
   useEffect(() => {
@@ -29,6 +29,12 @@ export default function DashboardPage() {
       setActiveId("chat");
     }
   }, [requestedRoomId]);
+
+  useEffect(() => {
+    if (requestedOnboardingClientId != null) {
+      setActiveId("clients");
+    }
+  }, [requestedOnboardingClientId]);
 
   const activeLabel = MENU_ITEMS.find((item) => item.id === activeId)?.label ?? "";
 

@@ -51,6 +51,10 @@ function buildPrompt(
   if (profile?.platform_notes) lines.push(`Platform-specifikus jegyzetek: ${profile.platform_notes}`);
   if (profile?.forbidden_topics) lines.push(`Kerülendő témák/szavak:\n${profile.forbidden_topics}`);
   if (profile?.reference_links) lines.push(`Korábbi jól teljesítő tartalmak (stílus-referenciaként):\n${profile.reference_links}`);
+  // Ha az ügyfélnek nincs meglévő social media jelenléte, ez a két mező adja
+  // az AI-nak a stílus-kontextust a referencia-tartalmak helyett.
+  if (profile?.inspiration_brands) lines.push(`Inspirációs márkák/versenytársak stílusa:\n${profile.inspiration_brands}`);
+  if (profile?.brand_mission) lines.push(`A márka küldetése/fő üzenete: ${profile.brand_mission}`);
   lines.push(
     `${TYPE_INSTRUCTIONS[type]} Ne írj bevezetőt vagy magyarázatot a tartalom előtt/után, csak magát a tartalmat add vissza.`
   );

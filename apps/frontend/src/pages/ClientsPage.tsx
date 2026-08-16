@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "../lib/auth";
+import { useNavigation } from "../lib/navigation";
 import {
   createClient,
   deleteClient,
@@ -15,6 +16,7 @@ export default function ClientsPage() {
   const { auth } = useAuth();
   const token = auth?.token ?? null;
   const isAdmin = auth?.user.role === "admin";
+  const { requestedOnboardingClientId, clearRequestedOnboarding } = useNavigation();
 
   const [clients, setClients] = useState<Client[]>([]);
   const [hasAccess, setHasAccess] = useState(true);
@@ -36,6 +38,16 @@ export default function ClientsPage() {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  // Lead→ügyfél konverzió után ide navigálunk vissza egy kérésbe csomagolt
+  // ügyfél-azonosítóval (lib/navigation.tsx) — mihelyt a lista betöltődött,
+  // automatikusan megnyitjuk rá az onboarding (AI-profil) formot.
+  useEffect(() => {
+    if (requestedOnboardingClientId == null || clients.length === 0) return;
+    const client = clients.find((c) => c.id === requestedOnboardingClientId);
+    if (client) setAiProfileClient(client);
+    clearRequestedOnboarding();
+  }, [requestedOnboardingClientId, clients, clearRequestedOnboarding]);
 
   async function handleDelete(client: Client) {
     if (!token) return;
@@ -87,48 +99,59 @@ export default function ClientsPage() {
               <th>Telefon</th>
               <th>Email</th>
               <th>Drive</th>
+              <th>Onboarding</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
-            {clients.map((client) => (
-              <tr key={client.id}>
-                <td>{client.company_name}</td>
-                <td>{client.contact_name}</td>
-                <td>{client.phone}</td>
-                <td>{client.email}</td>
-                <td>
-                  {client.drive_folder_id ? (
-                    <a
-                      href={`https://drive.google.com/drive/folders/${client.drive_folder_id}`}
-                      target="_blank"
-                      rel="noreferrer"
+            {clients.map((client) => {
+              const onboarded = client.onboarding_completed_at != null;
+              return (
+                <tr key={client.id}>
+                  <td>{client.company_name}</td>
+                  <td>{client.contact_name}</td>
+                  <td>{client.phone}</td>
+                  <td>{client.email}</td>
+                  <td>
+                    {client.drive_folder_id ? (
+                      <a
+                        href={`https://drive.google.com/drive/folders/${client.drive_folder_id}`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Mappa megnyitása
+                      </a>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                  <td>
+                    <span
+                      className={`sm-kanban-card-badge ${onboarded ? "sm-kanban-card-badge-sent" : "sm-kanban-card-badge-not_started"}`}
                     >
-                      Mappa megnyitása
-                    </a>
-                  ) : (
-                    "—"
-                  )}
-                </td>
-                <td>
-                  <div className="leads-row-actions">
-                    <button type="button" onClick={() => setEditingClient(client)}>
-                      Szerkesztés
-                    </button>
-                    {isAdmin && (
-                      <button type="button" onClick={() => setAiProfileClient(client)}>
-                        AI-profil
+                      {onboarded ? "Kész" : "Hiányzik"}
+                    </span>
+                  </td>
+                  <td>
+                    <div className="leads-row-actions">
+                      <button type="button" onClick={() => setEditingClient(client)}>
+                        Szerkesztés
                       </button>
-                    )}
-                    {isAdmin && (
-                      <button type="button" onClick={() => handleDelete(client)}>
-                        Törlés
-                      </button>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
+                      {isAdmin && (
+                        <button type="button" onClick={() => setAiProfileClient(client)}>
+                          {onboarded ? "AI-profil szerkesztése" : "Onboarding"}
+                        </button>
+                      )}
+                      {isAdmin && (
+                        <button type="button" onClick={() => handleDelete(client)}>
+                          Törlés
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       )}
@@ -145,7 +168,10 @@ export default function ClientsPage() {
         <ClientAiProfileModal
           clientId={aiProfileClient.id}
           clientName={aiProfileClient.company_name}
-          onClose={() => setAiProfileClient(null)}
+          onClose={() => {
+            setAiProfileClient(null);
+            refresh();
+          }}
         />
       )}
     </main>

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "../lib/auth";
+import { useNavigation } from "../lib/navigation";
 import {
   LEAD_STATUS_OPTIONS,
   convertLeadToClient,
@@ -18,6 +19,7 @@ export default function LeadsPage() {
   const { auth } = useAuth();
   const token = auth?.token ?? null;
   const isAdmin = auth?.user.role === "admin";
+  const { openClientOnboarding } = useNavigation();
 
   const [leads, setLeads] = useState<Lead[]>([]);
   const [hasAccess, setHasAccess] = useState(true);
@@ -51,8 +53,16 @@ export default function LeadsPage() {
     if (!confirm(`"${lead.company_name}" átkerül az Ügyfelek közé, és a lead állapota "Ügyfél lett"-re vált. Folytatod?`)) {
       return;
     }
-    await convertLeadToClient(token, lead.id);
+    const clientId = await convertLeadToClient(token, lead.id);
     refresh();
+    // Az AI-profil (onboarding-kérdőív) kitöltése admin-only, ezért csak
+    // adminnak nyitjuk meg automatikusan — máskülönben úgyis 403-at kapna
+    // mentéskor.
+    if (isAdmin) {
+      openClientOnboarding(clientId);
+    } else {
+      alert(`"${lead.company_name}" ügyfélként létrejött. Kérj meg egy adminisztrátort, hogy töltse ki az AI-profilját.`);
+    }
   }
 
   async function handleDelete(lead: Lead) {
