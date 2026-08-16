@@ -73,6 +73,9 @@ export interface ClientAiProfile {
   has_social_presence: boolean;
   inspiration_brands: string | null;
   brand_mission: string | null;
+  content_goals: string | null;
+  publishing_cadence: string | null;
+  approval_process_notes: string | null;
   onboarding_completed_at: string | null;
   updated_at: string;
 }
@@ -88,6 +91,9 @@ export interface ClientAiProfileInput {
   hasSocialPresence?: boolean;
   inspirationBrands?: string;
   brandMission?: string;
+  contentGoals?: string;
+  publishingCadence?: string;
+  approvalProcessNotes?: string;
 }
 
 export async function getClientAiProfile(token: string, clientId: number): Promise<ClientAiProfile | null> {

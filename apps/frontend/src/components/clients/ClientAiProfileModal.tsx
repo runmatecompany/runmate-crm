@@ -30,6 +30,9 @@ export default function ClientAiProfileModal({ clientId, clientName, onClose }: 
   const [hasSocialPresence, setHasSocialPresence] = useState(true);
   const [inspirationBrands, setInspirationBrands] = useState("");
   const [brandMission, setBrandMission] = useState("");
+  const [contentGoals, setContentGoals] = useState("");
+  const [publishingCadence, setPublishingCadence] = useState("");
+  const [approvalProcessNotes, setApprovalProcessNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -48,6 +51,9 @@ export default function ClientAiProfileModal({ clientId, clientName, onClose }: 
         setHasSocialPresence(profile.has_social_presence);
         setInspirationBrands(profile.inspiration_brands ?? "");
         setBrandMission(profile.brand_mission ?? "");
+        setContentGoals(profile.content_goals ?? "");
+        setPublishingCadence(profile.publishing_cadence ?? "");
+        setApprovalProcessNotes(profile.approval_process_notes ?? "");
       })
       .finally(() => setLoading(false));
   }, [token, clientId]);
@@ -69,6 +75,9 @@ export default function ClientAiProfileModal({ clientId, clientName, onClose }: 
         hasSocialPresence,
         inspirationBrands: inspirationBrands.trim() || undefined,
         brandMission: brandMission.trim() || undefined,
+        contentGoals: contentGoals.trim() || undefined,
+        publishingCadence: publishingCadence.trim() || undefined,
+        approvalProcessNotes: approvalProcessNotes.trim() || undefined,
       });
       onClose();
     } catch (err) {
@@ -103,6 +112,24 @@ export default function ClientAiProfileModal({ clientId, clientName, onClose }: 
               onChange={(e) => setTargetAudience(e.currentTarget.value)}
             />
 
+            <label htmlFor="ai-content-goals">Tartalmi cél és típusok</label>
+            <textarea
+              id="ai-content-goals"
+              rows={2}
+              value={contentGoals}
+              onChange={(e) => setContentGoals(e.currentTarget.value)}
+              placeholder="Pl. havi 4 videó Instagramra és TikTokra, 8 poszt"
+            />
+
+            <label htmlFor="ai-publishing-cadence">Publikálási ritmus</label>
+            <textarea
+              id="ai-publishing-cadence"
+              rows={2}
+              value={publishingCadence}
+              onChange={(e) => setPublishingCadence(e.currentTarget.value)}
+              placeholder="Pl. hetente 2 poszt, mindig kedden és pénteken"
+            />
+
             <label htmlFor="ai-visual-direction">Vizuális irány</label>
             <textarea
               id="ai-visual-direction"
@@ -122,6 +149,15 @@ export default function ClientAiProfileModal({ clientId, clientName, onClose }: 
               value={platformNotes}
               onChange={(e) => setPlatformNotes(e.currentTarget.value)}
               placeholder="Pl. TikTok: energikusabb hook; Instagram: rövidebb caption"
+            />
+
+            <label htmlFor="ai-approval-process">Jóváhagyási folyamat</label>
+            <textarea
+              id="ai-approval-process"
+              rows={2}
+              value={approvalProcessNotes}
+              onChange={(e) => setApprovalProcessNotes(e.currentTarget.value)}
+              placeholder="Pl. az ügyfél 48 órán belül visszajelez emailben"
             />
 
             <label htmlFor="ai-forbidden-topics">Kerülendő témák/szavak</label>

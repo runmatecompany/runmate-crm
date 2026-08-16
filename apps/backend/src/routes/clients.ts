@@ -54,6 +54,9 @@ const aiProfileBodySchema = {
     hasSocialPresence: { type: "boolean" },
     inspirationBrands: { type: "string" },
     brandMission: { type: "string" },
+    contentGoals: { type: "string" },
+    publishingCadence: { type: "string" },
+    approvalProcessNotes: { type: "string" },
   },
 } as const;
 
@@ -68,6 +71,9 @@ interface AiProfileBody {
   hasSocialPresence?: boolean;
   inspirationBrands?: string;
   brandMission?: string;
+  contentGoals?: string;
+  publishingCadence?: string;
+  approvalProcessNotes?: string;
 }
 
 // Modul-szintű hozzáférés: admin mindig, más csak akkor, ha az admin
