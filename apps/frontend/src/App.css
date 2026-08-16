@@ -2005,6 +2005,25 @@ button:hover {
   color: #3ecf8e;
 }
 
+.sm-drive-view {
+  max-width: 480px;
+}
+
+.sm-drive-open-link {
+  display: inline-block;
+  margin-top: 1em;
+  padding: 0.6em 1.2em;
+  border-radius: 8px;
+  background-color: var(--accent);
+  color: #ffffff;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.sm-drive-open-link:hover {
+  background-color: var(--accent-hover);
+}
+
 .sm-kanban-card-action {
   width: 100%;
   border-radius: 0;

@@ -15,6 +15,7 @@ const SOCIAL_MEDIA_TABS: Record<string, SocialMediaTab> = {
   "social-post-queue": "post-queue",
   "social-shoot-calendar": "shoot-calendar",
   "social-content-calendar": "content-calendar",
+  "social-drive": "drive",
 };
 
 export default function DashboardPage() {

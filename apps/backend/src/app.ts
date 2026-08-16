@@ -19,6 +19,7 @@ import adminSocialMediaConfigRoutes from "./routes/admin/socialMediaConfig.js";
 import googleCalendarOauthRoutes from "./routes/googleCalendarOauth.js";
 import adminGoogleCalendarRoutes from "./routes/admin/googleCalendar.js";
 import calendarFileRoutes from "./routes/calendarFile.js";
+import googleDriveRoutes from "./routes/googleDrive.js";
 import adminUserAccessRoutes from "./routes/admin/userAccess.js";
 
 export function buildApp() {
@@ -56,6 +57,7 @@ export function buildApp() {
   app.register(googleCalendarOauthRoutes);
   app.register(adminGoogleCalendarRoutes);
   app.register(calendarFileRoutes);
+  app.register(googleDriveRoutes);
   app.register(adminUserAccessRoutes);
 
   app.get("/health", async () => ({ status: "ok" }));

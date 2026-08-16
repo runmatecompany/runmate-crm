@@ -9,14 +9,16 @@ import ContentItemFormModal from "../components/socialMedia/ContentItemFormModal
 import PostQueueView from "../components/socialMedia/PostQueueView";
 import ShootCalendar from "../components/socialMedia/ShootCalendar";
 import ContentCalendar from "../components/socialMedia/ContentCalendar";
+import DriveView from "../components/socialMedia/DriveView";
 
-export type SocialMediaTab = "kanban" | "post-queue" | "shoot-calendar" | "content-calendar";
+export type SocialMediaTab = "kanban" | "post-queue" | "shoot-calendar" | "content-calendar" | "drive";
 
 const TAB_LABELS: Record<SocialMediaTab, string> = {
   kanban: "Content",
   "post-queue": "Posztolni valók",
   "shoot-calendar": "Forgatási naptár",
   "content-calendar": "Tartalomnaptár",
+  drive: "Drive",
 };
 
 interface SocialMediaPageProps {
@@ -107,6 +109,7 @@ export default function SocialMediaPage({ tab }: SocialMediaPageProps) {
       {!loading && tab === "post-queue" && <PostQueueView items={items} onOpen={setOpenItemId} onChanged={refresh} />}
       {!loading && tab === "shoot-calendar" && <ShootCalendar items={items} onOpen={setOpenItemId} />}
       {!loading && tab === "content-calendar" && <ContentCalendar items={items} onOpen={setOpenItemId} />}
+      {!loading && tab === "drive" && <DriveView />}
 
       {showCreate && (
         <ContentItemFormModal

@@ -19,6 +19,7 @@ export const MENU_ITEMS: MenuItem[] = [
       { id: "social-post-queue", label: "Posztolni valók" },
       { id: "social-shoot-calendar", label: "Forgatási naptár" },
       { id: "social-content-calendar", label: "Tartalomnaptár" },
+      { id: "social-drive", label: "Drive" },
     ],
   },
   { id: "chat", label: "Chat" },

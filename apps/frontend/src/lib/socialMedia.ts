@@ -292,6 +292,12 @@ export async function sendReminder(token: string, itemId: number, approvalId: nu
   await authFetch(token, `/content-items/${itemId}/approvals/${approvalId}/remind`, { method: "POST" });
 }
 
+export async function getDriveRootLink(token: string): Promise<string> {
+  const res = await authFetch(token, "/social-media/drive-root");
+  const data = await res.json();
+  return data.link;
+}
+
 export async function getSocialMediaSenderAccount(token: string): Promise<number | null> {
   const res = await authFetch(token, "/admin/social-media/config");
   const data = await res.json();
