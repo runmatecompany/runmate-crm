@@ -2,11 +2,19 @@ import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "../../lib/auth";
 import { browseDrive, createDriveDoc, type DriveBrowseResult, type DriveItem } from "../../lib/socialMedia";
 
-// A natív Google Docs/Sheets/Slides-fájloknak van szerkeszthető beágyazott
-// nézete (docs.google.com/.../edit — a Google ezt engedélyezi iframe-ben,
-// ellentétben a teljes Drive-mappaböngészővel). Minden másnál (videó, kép,
-// PDF stb.) csak a sima, olvasható előnézet létezik.
-function embedUrl(item: DriveItem): string {
+// Az appon belüli előnézet mindig az olvasható /preview beágyazást
+// használja — a docs.google.com/.../edit szerkesztőt a Tauri webview nem
+// tudja megnyitni (a Google bejelentkezéséhez szükséges felugró ablakot a
+// webview blokkolja, emiatt a cookie-engedélyezés soha nem zárul le).
+function previewUrl(fileId: string): string {
+  return `https://drive.google.com/file/d/${fileId}/preview`;
+}
+
+// Szerkesztéshez natív Google Docs/Sheets/Slides-fájloknál egy külső
+// böngészőben kell megnyitni — ott a felugró ablakos bejelentkezés
+// zökkenőmentesen működik. Minden másnál (videó, kép, PDF stb.) nincs
+// "szerkesztés" fogalom, null-t adunk vissza.
+function editUrl(item: DriveItem): string | null {
   switch (item.mimeType) {
     case "application/vnd.google-apps.document":
       return `https://docs.google.com/document/d/${item.id}/edit`;
@@ -15,14 +23,16 @@ function embedUrl(item: DriveItem): string {
     case "application/vnd.google-apps.presentation":
       return `https://docs.google.com/presentation/d/${item.id}/edit`;
     default:
-      return `https://drive.google.com/file/d/${item.id}/preview`;
+      return null;
   }
 }
 
 // Beépített, az "Ügyfelek" mappára korlátozott Drive-böngésző — a backend
 // garantálja, hogy egyik mappa se legyen ezen kívül elérhető, így itt nem
-// kell külön ellenőrizni. A fájlok Google beágyazott nézetben nyílnak meg
-// (iframe), sosem lép ki az alkalmazásból a felhasználó.
+// kell külön ellenőrizni. A fájlok beágyazott előnézetben nyílnak meg
+// (iframe) — szerkesztéshez (Docs/Sheets/Slides) egy külön gomb nyitja meg
+// külső böngészőben, mert a Tauri webview blokkolja a Google
+// bejelentkezéséhez szükséges felugró ablakot.
 export default function DriveView() {
   const { auth } = useAuth();
   const token = auth?.token ?? null;
@@ -66,13 +76,21 @@ export default function DriveView() {
   }
 
   if (openItem) {
+    const edit = editUrl(openItem);
     return (
       <div className="sm-drive-preview">
-        <button type="button" className="sm-detail-back" onClick={() => setOpenItem(null)}>
-          ← Vissza
-        </button>
+        <div className="sm-drive-preview-header">
+          <button type="button" className="sm-detail-back" onClick={() => setOpenItem(null)}>
+            ← Vissza
+          </button>
+          {edit && (
+            <a href={edit} target="_blank" rel="noreferrer" className="sm-drive-edit-link">
+              Megnyitás szerkesztésre (böngészőben)
+            </a>
+          )}
+        </div>
         <h2 className="sm-drive-preview-title">{openItem.name}</h2>
-        <iframe src={embedUrl(openItem)} className="sm-drive-preview-frame" allow="autoplay" title={openItem.name} />
+        <iframe src={previewUrl(openItem.id)} className="sm-drive-preview-frame" allow="autoplay" title={openItem.name} />
       </div>
     );
   }

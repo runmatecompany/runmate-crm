@@ -2068,6 +2068,17 @@ button:hover {
   height: calc(100vh - 12em);
 }
 
+.sm-drive-preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sm-drive-edit-link {
+  color: var(--accent);
+  font-size: 0.9em;
+}
+
 .sm-drive-preview-title {
   margin: 0.3em 0 0.6em;
   font-size: 1em;
