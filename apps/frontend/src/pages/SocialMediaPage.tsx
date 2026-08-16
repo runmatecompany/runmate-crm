@@ -14,7 +14,7 @@ import ContentCalendar from "../components/socialMedia/ContentCalendar";
 export type SocialMediaTab = "kanban" | "queue" | "post-queue" | "shoot-calendar" | "content-calendar";
 
 const TAB_LABELS: Record<SocialMediaTab, string> = {
-  kanban: "Folyamat",
+  kanban: "Content",
   queue: "Jóváhagyásra vár",
   "post-queue": "Posztolni valók",
   "shoot-calendar": "Forgatási naptár",
