@@ -292,17 +292,6 @@ export async function sendReminder(token: string, itemId: number, approvalId: nu
   await authFetch(token, `/content-items/${itemId}/approvals/${approvalId}/remind`, { method: "POST" });
 }
 
-export interface PendingApproval extends Approval {
-  content_title: string;
-  client_name: string;
-}
-
-export async function listPendingApprovals(token: string): Promise<PendingApproval[]> {
-  const res = await authFetch(token, "/content-items/approvals/pending");
-  const data = await res.json();
-  return data.approvals;
-}
-
 export async function getSocialMediaSenderAccount(token: string): Promise<number | null> {
   const res = await authFetch(token, "/admin/social-media/config");
   const data = await res.json();

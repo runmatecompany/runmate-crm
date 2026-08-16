@@ -2166,10 +2166,6 @@ button:hover {
   text-decoration: underline;
 }
 
-tr.sm-queue-row-stale td {
-  background-color: rgba(217, 164, 65, 0.08);
-}
-
 .sm-calendar {
   max-width: 800px;
 }

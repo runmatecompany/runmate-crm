@@ -6,16 +6,14 @@ import { createContentItem, listContentItems, type ContentItem } from "../lib/so
 import KanbanBoard from "../components/socialMedia/KanbanBoard";
 import ContentItemDetail from "../components/socialMedia/ContentItemDetail";
 import ContentItemFormModal from "../components/socialMedia/ContentItemFormModal";
-import ApprovalQueueView from "../components/socialMedia/ApprovalQueueView";
 import PostQueueView from "../components/socialMedia/PostQueueView";
 import ShootCalendar from "../components/socialMedia/ShootCalendar";
 import ContentCalendar from "../components/socialMedia/ContentCalendar";
 
-export type SocialMediaTab = "kanban" | "queue" | "post-queue" | "shoot-calendar" | "content-calendar";
+export type SocialMediaTab = "kanban" | "post-queue" | "shoot-calendar" | "content-calendar";
 
 const TAB_LABELS: Record<SocialMediaTab, string> = {
   kanban: "Content",
-  queue: "Jóváhagyásra vár",
   "post-queue": "Posztolni valók",
   "shoot-calendar": "Forgatási naptár",
   "content-calendar": "Tartalomnaptár",
@@ -106,7 +104,6 @@ export default function SocialMediaPage({ tab }: SocialMediaPageProps) {
       {loading && <p className="chat-empty-hint">Betöltés...</p>}
 
       {!loading && tab === "kanban" && <KanbanBoard items={items} onOpen={setOpenItemId} onChanged={refresh} />}
-      {!loading && tab === "queue" && <ApprovalQueueView onOpen={setOpenItemId} />}
       {!loading && tab === "post-queue" && <PostQueueView items={items} onOpen={setOpenItemId} onChanged={refresh} />}
       {!loading && tab === "shoot-calendar" && <ShootCalendar items={items} onOpen={setOpenItemId} />}
       {!loading && tab === "content-calendar" && <ContentCalendar items={items} onOpen={setOpenItemId} />}
