@@ -114,6 +114,18 @@ export function isDriveFolder(item: Pick<DriveItem, "mimeType">): boolean {
   return item.mimeType === FOLDER_MIME_TYPE;
 }
 
+const GOOGLE_DOC_MIME_TYPE = "application/vnd.google-apps.document";
+
+// A beépített Drive-böngésző "+ Új dokumentum" gombjához — üres Google
+// Dokumentumot hoz létre a megadott mappában.
+export async function createGoogleDoc(client: OAuth2Client, parentId: string, name: string): Promise<DriveItem> {
+  return driveFetch<DriveItem>(client, `${DRIVE_FILES_URL}?fields=id,name,mimeType`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, mimeType: GOOGLE_DOC_MIME_TYPE, parents: [parentId] }),
+  });
+}
+
 // Felfelé sétál a szülőláncon a gyökér-mappáig, hogy (a) morzsamenüt tudjunk
 // belőle építeni, és (b) ellenőrizhessük, hogy a kért mappa tényleg a
 // megengedett gyökér (Ügyfelek) alatt van-e — a beépített böngészőben ne

@@ -316,6 +316,16 @@ export async function browseDrive(token: string, folderId?: string): Promise<Dri
   return res.json();
 }
 
+export async function createDriveDoc(token: string, folderId: string, name: string): Promise<DriveItem> {
+  const res = await authFetch(token, "/social-media/drive/create-doc", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ folderId, name }),
+  });
+  const data = await res.json();
+  return data.file;
+}
+
 export async function getSocialMediaSenderAccount(token: string): Promise<number | null> {
   const res = await authFetch(token, "/admin/social-media/config");
   const data = await res.json();

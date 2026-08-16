@@ -2009,8 +2009,15 @@ button:hover {
   max-width: 640px;
 }
 
-.sm-drive-breadcrumb {
+.sm-drive-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1em;
   margin-bottom: 0.8em;
+}
+
+.sm-drive-breadcrumb {
   font-size: 0.88em;
   color: var(--text-muted);
 }
