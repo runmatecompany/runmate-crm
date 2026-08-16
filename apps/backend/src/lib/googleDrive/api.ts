@@ -137,6 +137,24 @@ export async function createGoogleFile(
   });
 }
 
+export async function renameItem(client: OAuth2Client, itemId: string, name: string): Promise<DriveItem> {
+  return driveFetch<DriveItem>(client, `${DRIVE_FILES_URL}/${itemId}?fields=id,name,mimeType`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name }),
+  });
+}
+
+// Kukába dobás (nem végleges törlés) — ugyanaz, mint amit a Drive saját
+// kuka-ikonja csinál, a Drive-on belül vissza is állítható.
+export async function trashItem(client: OAuth2Client, itemId: string): Promise<void> {
+  await driveFetch<{ id: string }>(client, `${DRIVE_FILES_URL}/${itemId}?fields=id`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ trashed: true }),
+  });
+}
+
 // Felfelé sétál a szülőláncon a gyökér-mappáig, hogy (a) morzsamenüt tudjunk
 // belőle építeni, és (b) ellenőrizhessük, hogy a kért mappa tényleg a
 // megengedett gyökér (Ügyfelek) alatt van-e — a beépített böngészőben ne

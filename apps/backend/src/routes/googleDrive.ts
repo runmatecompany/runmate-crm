@@ -8,11 +8,14 @@ import {
   createGoogleFile,
   isDriveFolder,
   listFolderChildren,
+  renameItem,
   resolveBreadcrumb,
+  trashItem,
   type CreatableKind,
   type DriveFolder,
   type DriveItem,
 } from "../lib/googleDrive/api.js";
+import { uploadStreamToFolder } from "../lib/googleDrive/upload.js";
 
 async function canAccessSocialMediaModule(userId: number, role: "admin" | "user"): Promise<boolean> {
   return role === "admin" || (await hasSocialMediaAccess(userId));
@@ -114,6 +117,117 @@ export default async function googleDriveRoutes(fastify: FastifyInstance) {
           : await createGoogleFile(oauth, folderId, name.trim(), kind);
 
       return reply.code(201).send({ file });
+    }
+  );
+
+  // Fájl/mappa átnevezése — az itemId-nek is a gyökér (Ügyfelek) alatt kell
+  // lennie, ugyanaz a határ-ellenőrzés fut le rá, mint egy mappa
+  // böngészésekor.
+  fastify.post<{ Body: { itemId: string; name: string } }>(
+    "/social-media/drive/rename",
+    { onRequest: [fastify.authenticate] },
+    async (request, reply) => {
+      const { sub: userId, role } = request.user;
+      if (!(await canAccessSocialMediaModule(userId, role))) {
+        return reply.code(403).send({ error: "Nincs hozzáférésed a Social Media modulhoz" });
+      }
+      const { itemId, name } = request.body;
+      if (!itemId || !name?.trim()) {
+        return reply.code(400).send({ error: "Hiányzó elem vagy név" });
+      }
+      const oauth = await getAuthorizedClient();
+      if (!oauth) {
+        return reply.code(400).send({ error: "Nincs beállítva Google-kapcsolat (Beállítások > Google-integráció)" });
+      }
+
+      const root = await getClientsRootFolder(oauth);
+      const breadcrumb = await ensureBreadcrumb(oauth, root, itemId);
+      if (!breadcrumb) {
+        return reply.code(403).send({ error: "Ez az elem nem érhető el innen" });
+      }
+
+      const file = await renameItem(oauth, itemId, name.trim());
+      // A gyorsítótárban a régi név maradna benne (és minden alatta lévő
+      // elem morzsamenüjében is) — töröljük a bejegyzést, hogy legközelebb
+      // friss névvel oldódjon fel; a leszármazottak morzsamenüje szerver-
+      // újraindításig elavult maradhat, ez csak megjelenítési részlet.
+      breadcrumbCache.delete(itemId);
+      return { file };
+    }
+  );
+
+  // Fájl/mappa kukába dobása — a gyökér (Ügyfelek) maga nem törölhető.
+  fastify.post<{ Body: { itemId: string } }>(
+    "/social-media/drive/delete",
+    { onRequest: [fastify.authenticate] },
+    async (request, reply) => {
+      const { sub: userId, role } = request.user;
+      if (!(await canAccessSocialMediaModule(userId, role))) {
+        return reply.code(403).send({ error: "Nincs hozzáférésed a Social Media modulhoz" });
+      }
+      const { itemId } = request.body;
+      if (!itemId) return reply.code(400).send({ error: "Hiányzó elem" });
+
+      const oauth = await getAuthorizedClient();
+      if (!oauth) {
+        return reply.code(400).send({ error: "Nincs beállítva Google-kapcsolat (Beállítások > Google-integráció)" });
+      }
+
+      const root = await getClientsRootFolder(oauth);
+      if (itemId === root.id) {
+        return reply.code(400).send({ error: "Az Ügyfelek gyökérmappa nem törölhető" });
+      }
+      const breadcrumb = await ensureBreadcrumb(oauth, root, itemId);
+      if (!breadcrumb) {
+        return reply.code(403).send({ error: "Ez az elem nem érhető el innen" });
+      }
+
+      await trashItem(oauth, itemId);
+      breadcrumbCache.delete(itemId);
+      return { ok: true };
+    }
+  );
+
+  // Tetszőleges fájl(ok) feltöltése a beépített böngészőben épp nyitva lévő
+  // mappába — ugyanaz a streamelt multipart minta, mint a nyersanyag/vágott
+  // videó feltöltésnél (routes/contentItems.ts), csak itt bármelyik
+  // validált mappára megy, nem csak a "Nyersek"/"Megvágva" almappára.
+  fastify.post<{ Querystring: { folderId?: string } }>(
+    "/social-media/drive/upload",
+    { onRequest: [fastify.authenticate] },
+    async (request, reply) => {
+      const { sub: userId, role } = request.user;
+      if (!(await canAccessSocialMediaModule(userId, role))) {
+        return reply.code(403).send({ error: "Nincs hozzáférésed a Social Media modulhoz" });
+      }
+      const folderId = request.query.folderId;
+      if (!folderId) return reply.code(400).send({ error: "Hiányzó mappa" });
+
+      const oauth = await getAuthorizedClient();
+      if (!oauth) {
+        return reply.code(400).send({ error: "Nincs beállítva Google-kapcsolat (Beállítások > Google-integráció)" });
+      }
+
+      const root = await getClientsRootFolder(oauth);
+      const breadcrumb = await ensureBreadcrumb(oauth, root, folderId);
+      if (!breadcrumb) {
+        return reply.code(403).send({ error: "Ez a mappa nem érhető el innen" });
+      }
+
+      try {
+        let uploadedCount = 0;
+        for await (const part of request.files()) {
+          await uploadStreamToFolder(oauth, folderId, part.filename, part.mimetype, part.file);
+          uploadedCount++;
+        }
+        if (uploadedCount === 0) {
+          return reply.code(400).send({ error: "Nincs kiválasztott fájl" });
+        }
+        return { ok: true, uploadedCount };
+      } catch (err) {
+        request.log.error(err, "Drive upload failed");
+        return reply.code(502).send({ error: err instanceof Error ? err.message : "Nem sikerült feltölteni a fájlokat" });
+      }
     }
   );
 }

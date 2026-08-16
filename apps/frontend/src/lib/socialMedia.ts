@@ -340,6 +340,62 @@ export async function createDriveItem(
   return data.file;
 }
 
+export async function renameDriveItem(token: string, itemId: string, name: string): Promise<DriveItem> {
+  const res = await authFetch(token, "/social-media/drive/rename", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ itemId, name }),
+  });
+  const data = await res.json();
+  return data.file;
+}
+
+export async function deleteDriveItem(token: string, itemId: string): Promise<void> {
+  await authFetch(token, "/social-media/drive/delete", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ itemId }),
+  });
+}
+
+// XMLHttpRequest kell itt is a feltöltési előrehaladáshoz, ugyanúgy, mint a
+// nyersanyag/vágott videó feltöltésénél.
+export function uploadDriveFiles(
+  token: string,
+  folderId: string,
+  files: File[],
+  onProgress?: (fraction: number) => void
+): Promise<{ uploadedCount: number }> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    const formData = new FormData();
+    for (const file of files) formData.append("files", file);
+
+    xhr.open("POST", `${getApiUrl()}/social-media/drive/upload?folderId=${encodeURIComponent(folderId)}`);
+    xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable && onProgress) onProgress(e.loaded / e.total);
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          resolve(JSON.parse(xhr.responseText));
+        } catch {
+          reject(new Error("Érvénytelen válasz a szervertől"));
+        }
+      } else {
+        try {
+          reject(new Error(JSON.parse(xhr.responseText).error ?? "Feltöltés sikertelen"));
+        } catch {
+          reject(new Error("Feltöltés sikertelen"));
+        }
+      }
+    };
+    xhr.onerror = () => reject(new Error("Hálózati hiba a feltöltés közben"));
+    xhr.send(formData);
+  });
+}
+
 export async function getSocialMediaSenderAccount(token: string): Promise<number | null> {
   const res = await authFetch(token, "/admin/social-media/config");
   const data = await res.json();

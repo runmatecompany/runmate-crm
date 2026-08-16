@@ -2022,6 +2022,13 @@ button:hover {
   color: var(--text-muted);
 }
 
+.sm-drive-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  flex-shrink: 0;
+}
+
 .sm-drive-create {
   position: relative;
   flex-shrink: 0;
@@ -2081,9 +2088,16 @@ button:hover {
   gap: 0.3em;
 }
 
+.sm-drive-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.3em;
+}
+
 .sm-drive-item {
   display: block;
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   text-align: left;
   background-color: var(--surface-alt);
   border: 1px solid var(--border);
@@ -2094,6 +2108,20 @@ button:hover {
 
 .sm-drive-item-folder {
   font-weight: 600;
+}
+
+.sm-drive-row-menu {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.sm-drive-row-menu-toggle {
+  height: 100%;
+  padding: 0 0.7em;
+  background-color: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-muted);
 }
 
 .sm-drive-preview {

@@ -1,9 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useAuth } from "../../lib/auth";
 import {
   DRIVE_CREATE_KIND_LABELS,
   browseDrive,
   createDriveItem,
+  deleteDriveItem,
+  renameDriveItem,
+  uploadDriveFiles,
   type DriveBrowseResult,
   type DriveCreateKind,
   type DriveItem,
@@ -52,8 +55,12 @@ export default function DriveView() {
   const [error, setError] = useState<string | null>(null);
   const [openItem, setOpenItem] = useState<DriveItem | null>(null);
   const [creating, setCreating] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const [createMenuOpen, setCreateMenuOpen] = useState(false);
+  const [openRowMenuId, setOpenRowMenuId] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const createMenuRef = useRef<HTMLDivElement>(null);
+  const rowMenuRef = useRef<HTMLDivElement>(null);
+  const uploadInputRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(() => {
     if (!token) return;
@@ -70,16 +77,25 @@ export default function DriveView() {
   }, [load]);
 
   useEffect(() => {
-    if (!menuOpen) return;
+    if (!createMenuOpen) return;
     function handleClickOutside(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+      if (createMenuRef.current && !createMenuRef.current.contains(e.target as Node)) setCreateMenuOpen(false);
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [menuOpen]);
+  }, [createMenuOpen]);
+
+  useEffect(() => {
+    if (!openRowMenuId) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (rowMenuRef.current && !rowMenuRef.current.contains(e.target as Node)) setOpenRowMenuId(null);
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [openRowMenuId]);
 
   async function handleCreate(kind: DriveCreateKind) {
-    setMenuOpen(false);
+    setCreateMenuOpen(false);
     if (!token || !data) return;
     const name = prompt(`${DRIVE_CREATE_KIND_LABELS[kind]} neve:`);
     if (!name?.trim()) return;
@@ -94,6 +110,78 @@ export default function DriveView() {
     } finally {
       setCreating(false);
     }
+  }
+
+  async function handleRename(item: DriveItem) {
+    setOpenRowMenuId(null);
+    if (!token) return;
+    const name = prompt("Új név:", item.name);
+    if (!name?.trim() || name.trim() === item.name) return;
+    setError(null);
+    try {
+      await renameDriveItem(token, item.id, name.trim());
+      load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Nem sikerült átnevezni");
+    }
+  }
+
+  async function handleDelete(item: DriveItem) {
+    setOpenRowMenuId(null);
+    if (!token) return;
+    if (!confirm(`Biztosan kukába dobod: "${item.name}"?`)) return;
+    setError(null);
+    try {
+      await deleteDriveItem(token, item.id);
+      load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Nem sikerült törölni");
+    }
+  }
+
+  async function handleFilesSelected(e: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.currentTarget.files ?? []);
+    e.currentTarget.value = "";
+    if (!token || !data || files.length === 0) return;
+    setUploadProgress(0);
+    setError(null);
+    try {
+      await uploadDriveFiles(token, data.folderId, files, setUploadProgress);
+      load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Nem sikerült feltölteni a fájlokat");
+    } finally {
+      setUploadProgress(null);
+    }
+  }
+
+  function renderRowMenu(item: DriveItem) {
+    const isOpen = openRowMenuId === item.id;
+    return (
+      <div className="sm-drive-row-menu" ref={isOpen ? rowMenuRef : undefined}>
+        <button
+          type="button"
+          className="sm-drive-row-menu-toggle"
+          onClick={() => setOpenRowMenuId(isOpen ? null : item.id)}
+        >
+          ⋮
+        </button>
+        {isOpen && (
+          <ul className="sm-drive-create-menu">
+            <li>
+              <button type="button" onClick={() => handleRename(item)}>
+                Átnevezés
+              </button>
+            </li>
+            <li>
+              <button type="button" onClick={() => handleDelete(item)}>
+                Törlés
+              </button>
+            </li>
+          </ul>
+        )}
+      </div>
+    );
   }
 
   if (openItem) {
@@ -118,6 +206,7 @@ export default function DriveView() {
 
   return (
     <div className="sm-drive-view">
+      <input ref={uploadInputRef} type="file" multiple hidden onChange={handleFilesSelected} />
       <div className="sm-drive-toolbar">
         {data && (
           <div className="sm-drive-breadcrumb">
@@ -137,21 +226,26 @@ export default function DriveView() {
           </div>
         )}
         {data && (
-          <div className="sm-drive-create" ref={menuRef}>
-            <button type="button" disabled={creating} onClick={() => setMenuOpen((v) => !v)}>
-              {creating ? "Létrehozás..." : "+ Új..."}
+          <div className="sm-drive-toolbar-actions">
+            <button type="button" disabled={uploadProgress != null} onClick={() => uploadInputRef.current?.click()}>
+              {uploadProgress != null ? `Feltöltés... ${Math.round(uploadProgress * 100)}%` : "Fájlok feltöltése"}
             </button>
-            {menuOpen && (
-              <ul className="sm-drive-create-menu">
-                {CREATE_KINDS.map((kind) => (
-                  <li key={kind}>
-                    <button type="button" onClick={() => handleCreate(kind)}>
-                      {DRIVE_CREATE_KIND_LABELS[kind]}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
+            <div className="sm-drive-create" ref={createMenuRef}>
+              <button type="button" disabled={creating} onClick={() => setCreateMenuOpen((v) => !v)}>
+                {creating ? "Létrehozás..." : "+ Új..."}
+              </button>
+              {createMenuOpen && (
+                <ul className="sm-drive-create-menu">
+                  {CREATE_KINDS.map((kind) => (
+                    <li key={kind}>
+                      <button type="button" onClick={() => handleCreate(kind)}>
+                        {DRIVE_CREATE_KIND_LABELS[kind]}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -162,17 +256,23 @@ export default function DriveView() {
       {!loading && !error && data && (
         <ul className="sm-drive-list">
           {data.folders.map((folder) => (
-            <li key={folder.id}>
-              <button type="button" className="sm-drive-item sm-drive-item-folder" onClick={() => setFolderId(folder.id)}>
+            <li key={folder.id} className="sm-drive-row">
+              <button
+                type="button"
+                className="sm-drive-item sm-drive-item-folder"
+                onClick={() => setFolderId(folder.id)}
+              >
                 📁 {folder.name}
               </button>
+              {renderRowMenu(folder)}
             </li>
           ))}
           {data.files.map((file) => (
-            <li key={file.id}>
+            <li key={file.id} className="sm-drive-row">
               <button type="button" className="sm-drive-item" onClick={() => setOpenItem(file)}>
                 📄 {file.name}
               </button>
+              {renderRowMenu(file)}
             </li>
           ))}
           {data.folders.length === 0 && data.files.length === 0 && (
