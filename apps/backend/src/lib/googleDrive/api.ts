@@ -114,15 +114,26 @@ export function isDriveFolder(item: Pick<DriveItem, "mimeType">): boolean {
   return item.mimeType === FOLDER_MIME_TYPE;
 }
 
-const GOOGLE_DOC_MIME_TYPE = "application/vnd.google-apps.document";
+// A beépített Drive-böngésző "+ Új..." menüjéhez — a Drive saját "Új" menüje
+// mintájára, ugyanazokkal a fájltípusokkal.
+export const CREATABLE_MIME_TYPES = {
+  document: "application/vnd.google-apps.document",
+  spreadsheet: "application/vnd.google-apps.spreadsheet",
+  presentation: "application/vnd.google-apps.presentation",
+} as const;
 
-// A beépített Drive-böngésző "+ Új dokumentum" gombjához — üres Google
-// Dokumentumot hoz létre a megadott mappában.
-export async function createGoogleDoc(client: OAuth2Client, parentId: string, name: string): Promise<DriveItem> {
+export type CreatableKind = keyof typeof CREATABLE_MIME_TYPES;
+
+export async function createGoogleFile(
+  client: OAuth2Client,
+  parentId: string,
+  name: string,
+  kind: CreatableKind
+): Promise<DriveItem> {
   return driveFetch<DriveItem>(client, `${DRIVE_FILES_URL}?fields=id,name,mimeType`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, mimeType: GOOGLE_DOC_MIME_TYPE, parents: [parentId] }),
+    body: JSON.stringify({ name, mimeType: CREATABLE_MIME_TYPES[kind], parents: [parentId] }),
   });
 }
 

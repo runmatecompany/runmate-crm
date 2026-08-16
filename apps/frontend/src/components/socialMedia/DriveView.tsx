@@ -1,6 +1,15 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "../../lib/auth";
-import { browseDrive, createDriveDoc, type DriveBrowseResult, type DriveItem } from "../../lib/socialMedia";
+import {
+  DRIVE_CREATE_KIND_LABELS,
+  browseDrive,
+  createDriveItem,
+  type DriveBrowseResult,
+  type DriveCreateKind,
+  type DriveItem,
+} from "../../lib/socialMedia";
+
+const CREATE_KINDS: DriveCreateKind[] = ["folder", "document", "spreadsheet", "presentation"];
 
 // Az appon belüli előnézet mindig az olvasható /preview beágyazást
 // használja — a docs.google.com/.../edit szerkesztőt a Tauri webview nem
@@ -43,6 +52,8 @@ export default function DriveView() {
   const [error, setError] = useState<string | null>(null);
   const [openItem, setOpenItem] = useState<DriveItem | null>(null);
   const [creating, setCreating] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(() => {
     if (!token) return;
@@ -58,18 +69,28 @@ export default function DriveView() {
     load();
   }, [load]);
 
-  async function handleCreateDoc() {
+  useEffect(() => {
+    if (!menuOpen) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [menuOpen]);
+
+  async function handleCreate(kind: DriveCreateKind) {
+    setMenuOpen(false);
     if (!token || !data) return;
-    const name = prompt("A dokumentum neve:");
+    const name = prompt(`${DRIVE_CREATE_KIND_LABELS[kind]} neve:`);
     if (!name?.trim()) return;
     setCreating(true);
     setError(null);
     try {
-      const file = await createDriveDoc(token, data.folderId, name.trim());
+      const file = await createDriveItem(token, data.folderId, name.trim(), kind);
       load();
-      setOpenItem(file);
+      if (kind !== "folder") setOpenItem(file);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Nem sikerült létrehozni a dokumentumot");
+      setError(err instanceof Error ? err.message : "Nem sikerült létrehozni");
     } finally {
       setCreating(false);
     }
@@ -116,9 +137,22 @@ export default function DriveView() {
           </div>
         )}
         {data && (
-          <button type="button" disabled={creating} onClick={handleCreateDoc}>
-            {creating ? "Létrehozás..." : "+ Új Google Dokumentum"}
-          </button>
+          <div className="sm-drive-create" ref={menuRef}>
+            <button type="button" disabled={creating} onClick={() => setMenuOpen((v) => !v)}>
+              {creating ? "Létrehozás..." : "+ Új..."}
+            </button>
+            {menuOpen && (
+              <ul className="sm-drive-create-menu">
+                {CREATE_KINDS.map((kind) => (
+                  <li key={kind}>
+                    <button type="button" onClick={() => handleCreate(kind)}>
+                      {DRIVE_CREATE_KIND_LABELS[kind]}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         )}
       </div>
 

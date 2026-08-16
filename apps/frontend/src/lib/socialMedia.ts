@@ -316,11 +316,25 @@ export async function browseDrive(token: string, folderId?: string): Promise<Dri
   return res.json();
 }
 
-export async function createDriveDoc(token: string, folderId: string, name: string): Promise<DriveItem> {
-  const res = await authFetch(token, "/social-media/drive/create-doc", {
+export type DriveCreateKind = "folder" | "document" | "spreadsheet" | "presentation";
+
+export const DRIVE_CREATE_KIND_LABELS: Record<DriveCreateKind, string> = {
+  folder: "Új mappa",
+  document: "Google Dokumentum",
+  spreadsheet: "Google Táblázat",
+  presentation: "Google Prezentáció",
+};
+
+export async function createDriveItem(
+  token: string,
+  folderId: string,
+  name: string,
+  kind: DriveCreateKind
+): Promise<DriveItem> {
+  const res = await authFetch(token, "/social-media/drive/create-item", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ folderId, name }),
+    body: JSON.stringify({ folderId, name, kind }),
   });
   const data = await res.json();
   return data.file;
