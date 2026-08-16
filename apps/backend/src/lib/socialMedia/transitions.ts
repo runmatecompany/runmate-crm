@@ -7,6 +7,7 @@ import {
 import { getNextApprovalVersion, getPendingApproval, markApprovalDecided, type ApprovalType } from "../../db/contentApprovals.js";
 import { approvalTokenExpiry, generateApprovalToken } from "./token.js";
 import { sendApprovalRequestEmail } from "./notify.js";
+import { ensureContentItemVideoSubfolder } from "../googleDrive/onboarding.js";
 
 export type TransitionAction =
   | "send_script_for_approval"
@@ -128,8 +129,15 @@ export async function transitionContentItem(
     case "send_script_for_approval":
       return sendForApproval(item, "script", "script_review", item.script_content ?? "");
 
-    case "approve_script":
-      return decideApproval(item, "script", "shoot_done", "approved", decidedByName ?? "Ismeretlen", undefined);
+    case "approve_script": {
+      const updated = await decideApproval(item, "script", "shoot_done", "approved", decidedByName ?? "Ismeretlen", undefined);
+      try {
+        await ensureContentItemVideoSubfolder(updated.client_id, updated.shoot_date, "raw");
+      } catch {
+        // Best-effort — a "Nyersek" mappa a feltöltéskor úgyis pótlódik.
+      }
+      return updated;
+    }
 
     case "reject_script":
       return decideApproval(item, "script", "script_writing", "rejected", decidedByName ?? "Ismeretlen", payload.feedback);
@@ -140,7 +148,13 @@ export async function transitionContentItem(
         itemId,
         payload.rawMediaUrl.trim(),
       ]);
-      return (await getContentItemById(itemId))!;
+      const updated = (await getContentItemById(itemId))!;
+      try {
+        await ensureContentItemVideoSubfolder(updated.client_id, updated.shoot_date, "edited");
+      } catch {
+        // Best-effort — a "Megvágva" mappa a feltöltéskor úgyis pótlódik.
+      }
+      return updated;
     }
 
     case "send_edit_for_approval":
