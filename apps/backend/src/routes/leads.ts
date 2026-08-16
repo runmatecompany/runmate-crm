@@ -134,7 +134,7 @@ export default async function leadsRoutes(fastify: FastifyInstance) {
         return { fields };
       } catch (err) {
         fastify.log.error(err, "Lead extraction failed");
-        return reply.code(502).send({ error: "Nem sikerült feldolgozni a képeket" });
+        return reply.code(502).send({ error: err instanceof Error ? err.message : "Nem sikerült feldolgozni a képeket" });
       }
     }
   );

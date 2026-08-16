@@ -1,5 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import { config } from "../config.js";
+import { assertAiQuotaAvailable } from "../db/aiUsage.js";
 import type { ClientAiProfileRow } from "../db/clientAiProfiles.js";
 import type { DraftType } from "../db/contentDrafts.js";
 
@@ -71,6 +72,7 @@ export interface GenerateContentDraftInput {
 }
 
 export async function generateContentDraft(input: GenerateContentDraftInput): Promise<string> {
+  await assertAiQuotaAvailable();
   const ai = getClient();
   const response = await ai.interactions.create({
     model: "gemini-flash-latest",

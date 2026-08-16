@@ -1,5 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import { config } from "../../config.js";
+import { assertAiQuotaAvailable } from "../../db/aiUsage.js";
 
 export interface SynthesizeInput {
   companyName: string;
@@ -82,6 +83,7 @@ function buildPrompt(input: SynthesizeInput): string {
 }
 
 export async function synthesizeCallMaterials(input: SynthesizeInput): Promise<SynthesizeResult> {
+  await assertAiQuotaAvailable();
   const ai = getClient();
   const response = await ai.interactions.create({
     model: "gemini-flash-latest",

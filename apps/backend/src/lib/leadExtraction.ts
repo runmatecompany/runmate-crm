@@ -1,5 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import { config } from "../config.js";
+import { assertAiQuotaAvailable } from "../db/aiUsage.js";
 
 export interface LeadImageInput {
   mediaType: "image/png" | "image/jpeg" | "image/webp" | "image/gif";
@@ -55,6 +56,7 @@ function getClient(): GoogleGenAI {
 // felhasználóknak — a jelenlegi felület az Interactions API
 // (ai.interactions.create), élőben tesztelve és ellenőrizve.
 export async function extractLeadFromImages(images: LeadImageInput[]): Promise<ExtractedLeadFields> {
+  await assertAiQuotaAvailable();
   const ai = getClient();
 
   const response = await ai.interactions.create({
