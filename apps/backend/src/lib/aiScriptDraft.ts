@@ -1,20 +1,23 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { GoogleGenAI } from "@google/genai";
 import { config } from "../config.js";
 import type { ClientAiProfileRow } from "../db/clientAiProfiles.js";
 import type { DraftType } from "../db/contentDrafts.js";
 
-let client: Anthropic | undefined;
+// Ugyanaz a Gemini-kulcs/kliens-minta, mint a lead-fotó AI-kitöltésnél
+// (lib/leadExtraction.ts) — nincs külön (fizetős) Claude/Anthropic API-kulcs,
+// a Gemini Flash ingyenes szintje bőven elég ehhez a használati mennyiséghez.
+let client: GoogleGenAI | undefined;
 
 export function isAiScriptDraftEnabled(): boolean {
-  return Boolean(config.anthropicApiKey);
+  return Boolean(config.geminiApiKey);
 }
 
-function getClient(): Anthropic {
-  if (!config.anthropicApiKey) {
-    throw new Error("ANTHROPIC_API_KEY nincs beállítva a szerveren");
+function getClient(): GoogleGenAI {
+  if (!config.geminiApiKey) {
+    throw new Error("GEMINI_API_KEY nincs beállítva a szerveren");
   }
   if (!client) {
-    client = new Anthropic({ apiKey: config.anthropicApiKey });
+    client = new GoogleGenAI({ apiKey: config.geminiApiKey });
   }
   return client;
 }
@@ -33,10 +36,11 @@ const TYPE_INSTRUCTIONS: Record<DraftType, string> = {
     "soronként a dia szövegével és egy rövid vizuális jegyzettel.",
 };
 
-function buildSystemPrompt(
+function buildPrompt(
   clientName: string,
   platform: string,
   type: DraftType,
+  topic: string,
   profile: ClientAiProfileRow | undefined
 ): string {
   const lines = [`Te a(z) "${clientName}" social media tartalomkészítője vagy. A platform: ${platform}.`];
@@ -50,6 +54,7 @@ function buildSystemPrompt(
   lines.push(
     `${TYPE_INSTRUCTIONS[type]} Ne írj bevezetőt vagy magyarázatot a tartalom előtt/után, csak magát a tartalmat add vissza.`
   );
+  lines.push(`Téma/cél: ${topic}`);
   return lines.join("\n");
 }
 
@@ -63,18 +68,16 @@ export interface GenerateContentDraftInput {
 
 export async function generateContentDraft(input: GenerateContentDraftInput): Promise<string> {
   const ai = getClient();
-  const message = await ai.messages.create({
-    model: "claude-sonnet-5",
-    max_tokens: 1536,
-    system: buildSystemPrompt(input.clientName, input.platform, input.type, input.profile),
-    messages: [{ role: "user", content: `Téma/cél: ${input.topic}` }],
+  const response = await ai.interactions.create({
+    model: "gemini-flash-latest",
+    input: [{ type: "text", text: buildPrompt(input.clientName, input.platform, input.type, input.topic, input.profile) }],
   });
 
-  const textBlock = message.content.find((block) => block.type === "text");
-  if (!textBlock) {
+  const text = response.output_text;
+  if (!text) {
     throw new Error("Az AI nem adott vissza szöveges választ");
   }
-  return textBlock.text;
+  return text;
 }
 
 // Visszamenőleg kompatibilis wrapper a meglévő Social Media "Scriptre vár"

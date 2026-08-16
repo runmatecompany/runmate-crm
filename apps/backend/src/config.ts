@@ -26,7 +26,4 @@ export const config = {
   // integrációhoz. Hiányában a naptár-összekötés funkció ki van kapcsolva.
   googleClientId: process.env.GOOGLE_CLIENT_ID || undefined,
   googleClientSecret: process.env.GOOGLE_CLIENT_SECRET || undefined,
-  // Opcionális: hiányában az AI-vázlat generálása (Social Media > script
-  // írása) funkció ki van kapcsolva.
-  anthropicApiKey: process.env.ANTHROPIC_API_KEY || undefined,
 };
