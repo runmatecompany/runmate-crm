@@ -24,7 +24,7 @@ import { approvalTokenExpiry, generateApprovalToken } from "../lib/socialMedia/t
 import { getAuthorizedClient } from "../lib/googleCalendar/oauth.js";
 import { driveFolderLink } from "../lib/googleDrive/api.js";
 import { ensureVideoSubfolder, uploadStreamToFolder } from "../lib/googleDrive/upload.js";
-import { provisionClientDriveFolders } from "../lib/googleDrive/onboarding.js";
+import { ensureContentItemMonthFolder, provisionClientDriveFolders } from "../lib/googleDrive/onboarding.js";
 
 const PLATFORM_VALUES = ["instagram", "tiktok", "youtube", "facebook"] as const;
 const TRANSITION_ACTIONS = [
@@ -132,6 +132,11 @@ export default async function contentItemsRoutes(fastify: FastifyInstance) {
         return reply.code(403).send({ error: "Nincs hozzáférésed a Social Media modulhoz" });
       }
       const item = await createContentItem(request.body);
+      try {
+        await ensureContentItemMonthFolder(item.client_id, item.shoot_date);
+      } catch (err) {
+        request.log.error(err, "Drive month folder provisioning failed on content item create");
+      }
       return reply.code(201).send({ item });
     }
   );

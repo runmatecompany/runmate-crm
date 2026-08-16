@@ -2,6 +2,7 @@ import { getAuthorizedClient } from "./oauth.js";
 import { getConnection, hasProcessedEvent, recordProcessedEvent, updateSyncToken } from "../../db/googleCalendar.js";
 import { listAllClients, updateClientNextShootDate, type ClientRow } from "../../db/clients.js";
 import { createContentItem } from "../../db/contentItems.js";
+import { ensureContentItemMonthFolder } from "../googleDrive/onboarding.js";
 import { sendShootDateConfirmedEmail } from "./notify.js";
 
 const EVENTS_URL = "https://www.googleapis.com/calendar/v3/calendars/primary/events";
@@ -50,12 +51,20 @@ async function processMatchedEvent(event: GoogleCalendarEvent, client: ClientRow
   // tartalom "Scriptre vár" állapotban, a forgatás dátumával előtöltve.
   // A cím/platform csak ésszerű alapérték, azonnal szerkeszthető.
   const dateLabel = start.toLocaleDateString("hu-HU", { year: "numeric", month: "long", day: "numeric" });
-  await createContentItem({
+  const item = await createContentItem({
     clientId: client.id,
     title: `Forgatás – ${dateLabel}`,
     platform: "instagram",
     shootDate: start,
   });
+
+  try {
+    await ensureContentItemMonthFolder(client.id, item.shoot_date);
+  } catch {
+    // Ugyanaz az elv, mint az emailküldésnél lejjebb: a tartalom már
+    // létrejött, a Drive-mappa később (napi provisioning vagy feltöltéskor)
+    // pótolható, ha itt hibázna.
+  }
 
   await recordProcessedEvent({ googleEventId: event.id, clientId: client.id, eventStart: start });
 
