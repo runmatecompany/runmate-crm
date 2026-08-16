@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "../../lib/auth";
 import type { Lead } from "../../lib/leads";
-import { listLeadResearch, startLeadResearch, type LeadResearch } from "../../lib/leadResearch";
+import { listLeadResearch, startLeadResearch, submitManualNotes, type LeadResearch } from "../../lib/leadResearch";
 
 interface LeadDetailProps {
   lead: Lead;
@@ -21,9 +21,6 @@ function formatDateTime(value: string): string {
   return new Date(value).toLocaleString("hu-HU", { dateStyle: "medium", timeStyle: "short" });
 }
 
-// B fázis: a kutatás egyelőre csak a weboldal-elérhetőséget ellenőrzi és
-// 'awaiting_input'-ig jut — a kézi social-form és az AI hook/script/audit
-// generálás (a 'done' állapot) a D fázisban kerül ide.
 export default function LeadDetail({ lead, onBack }: LeadDetailProps) {
   const { auth } = useAuth();
   const token = auth?.token ?? null;
@@ -32,6 +29,8 @@ export default function LeadDetail({ lead, onBack }: LeadDetailProps) {
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [manualNotes, setManualNotes] = useState("");
+  const [submittingNotes, setSubmittingNotes] = useState(false);
   const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const refresh = useCallback(() => {
@@ -70,6 +69,21 @@ export default function LeadDetail({ lead, onBack }: LeadDetailProps) {
       setError(err instanceof Error ? err.message : "Nem sikerült elindítani a kutatást");
     } finally {
       setStarting(false);
+    }
+  }
+
+  async function handleSubmitNotes(researchId: number) {
+    if (!token) return;
+    setSubmittingNotes(true);
+    setError(null);
+    try {
+      await submitManualNotes(token, researchId, manualNotes);
+      setManualNotes("");
+      refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Nem sikerült elküldeni a jegyzeteket");
+    } finally {
+      setSubmittingNotes(false);
     }
   }
 
@@ -114,10 +128,54 @@ export default function LeadDetail({ lead, onBack }: LeadDetailProps) {
               Indítva: {formatDateTime(r.created_at)}
               {r.requested_by_name && ` · ${r.requested_by_name}`}
             </div>
-            {r.status === "awaiting_input" && r.website_analysis && (
-              <pre className="chat-empty-hint">{r.website_analysis}</pre>
-            )}
+            {r.website_analysis && <pre className="chat-empty-hint">{r.website_analysis}</pre>}
             {r.status === "error" && r.error_message && <p className="login-error">{r.error_message}</p>}
+
+            {r.status === "awaiting_input" && r.id === latest?.id && (
+              <div className="sm-detail-action">
+                <label htmlFor={`manual-notes-${r.id}`}>
+                  Kézi kutatási jegyzetek (social media, versenytárs-infó, bármi, amit magad találtál):
+                </label>
+                <textarea
+                  id={`manual-notes-${r.id}`}
+                  rows={4}
+                  value={manualNotes}
+                  onChange={(e) => setManualNotes(e.currentTarget.value)}
+                  placeholder="Pl. Instagram: aktív, hetente posztol, kb. 800 követő. Facebook: nincs. ..."
+                />
+                <button type="button" disabled={submittingNotes} onClick={() => handleSubmitNotes(r.id)}>
+                  {submittingNotes ? "Küldés..." : "Hívás-anyagok generálása"}
+                </button>
+              </div>
+            )}
+
+            {r.status === "done" && (
+              <>
+                {r.social_manual_notes && (
+                  <p className="sm-detail-field">
+                    <strong>Kézi jegyzetek:</strong> {r.social_manual_notes}
+                  </p>
+                )}
+                {r.call_hook && (
+                  <div className="sm-detail-field">
+                    <strong>Hívás-hook</strong>
+                    <p>{r.call_hook}</p>
+                  </div>
+                )}
+                {r.call_script && (
+                  <div className="sm-detail-field">
+                    <strong>Hideghívás-script</strong>
+                    <pre className="chat-empty-hint">{r.call_script}</pre>
+                  </div>
+                )}
+                {r.full_audit && (
+                  <div className="sm-detail-field">
+                    <strong>Teljes audit</strong>
+                    <pre className="chat-empty-hint">{r.full_audit}</pre>
+                  </div>
+                )}
+              </>
+            )}
           </li>
         ))}
       </ul>

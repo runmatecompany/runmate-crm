@@ -1,7 +1,20 @@
 import type { FastifyInstance } from "fastify";
-import { createLeadResearch, getLeadResearchById, listLeadResearch } from "../db/leadResearch.js";
+import {
+  createLeadResearch,
+  getLeadResearchById,
+  listLeadResearch,
+  submitManualNotesAndRequeue,
+} from "../db/leadResearch.js";
 import { getLeadById } from "../db/leads.js";
 import { canAccessLeadsModule } from "./leads.js";
+
+const manualNotesBodySchema = {
+  type: "object",
+  required: ["socialManualNotes"],
+  properties: {
+    socialManualNotes: { type: "string" },
+  },
+} as const;
 
 // A lead-kutatás ugyanahhoz a modul-hozzáféréshez kötött, mint maga a Leadek
 // modul (leads_access) — nincs külön jogosultsági szint rá.
@@ -53,6 +66,28 @@ export default async function leadResearchRoutes(fastify: FastifyInstance) {
       }
       const research = await getLeadResearchById(Number(request.params.researchId));
       if (!research) return reply.code(404).send({ error: "Research not found" });
+      return { research };
+    }
+  );
+
+  // A kolléga saját kézi kutatási jegyzeteinek beküldése — ez teszi vissza a
+  // sort 'pending'-re, hogy a háttér-ciklus lefuttassa rajta a hook/script/
+  // audit szintézist. Csak 'awaiting_input' állapotból hívható.
+  fastify.put<{ Params: { researchId: string }; Body: { socialManualNotes: string } }>(
+    "/leads/research/:researchId/manual-notes",
+    { onRequest: [fastify.authenticate], schema: { body: manualNotesBodySchema } },
+    async (request, reply) => {
+      const { sub: userId, role } = request.user;
+      if (!(await canAccessLeadsModule(userId, role))) {
+        return reply.code(403).send({ error: "Nincs hozzáférésed a Leadek modulhoz" });
+      }
+      const research = await submitManualNotesAndRequeue(
+        Number(request.params.researchId),
+        request.body.socialManualNotes
+      );
+      if (!research) {
+        return reply.code(409).send({ error: "A kutatás nincs olyan állapotban, hogy jegyzetet lehessen hozzáadni" });
+      }
       return { research };
     }
   );

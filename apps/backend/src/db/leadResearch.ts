@@ -79,6 +79,36 @@ export async function setLeadResearchError(id: number, errorMessage: string): Pr
   );
 }
 
-// A kézi social-form feldolgozása és a hook/script/audit generálás (status
-// 'done'-ra állítása) a D fázisban kerül ide — egyelőre a folyamat itt,
-// 'awaiting_input'-nál megáll.
+// A kézi jegyzet mentése után visszateszi a sort 'pending'-re, hogy a
+// háttér-ciklus felvegye és lefusson rajta a hook/script/audit szintézis —
+// ugyanaz a claim/process minta, mint az induló kutatásnál. Nincs külön
+// állapot-érték erre: a process.ts a social_manual_notes mező kitöltöttsége
+// alapján tudja megkülönböztetni "friss kutatás" és "szintézisre vár"
+// eseteket, így nem kellett új migrationt futtatni a status CHECK-en.
+// Csak 'awaiting_input' állapotból engedjük — ha a sor épp fut/már kész,
+// nem nyúlunk hozzá.
+export async function submitManualNotesAndRequeue(
+  id: number,
+  socialManualNotes: string
+): Promise<LeadResearchRow | undefined> {
+  const { rows } = await pool.query<{ id: number }>(
+    `UPDATE lead_research SET social_manual_notes = $2, status = 'pending'
+     WHERE id = $1 AND status = 'awaiting_input'
+     RETURNING id`,
+    [id, socialManualNotes]
+  );
+  if (!rows[0]) return undefined;
+  return getLeadResearchById(rows[0].id);
+}
+
+export async function setLeadResearchDone(
+  id: number,
+  input: { callHook: string; callScript: string; fullAudit: string }
+): Promise<void> {
+  await pool.query(
+    `UPDATE lead_research
+     SET status = 'done', call_hook = $2, call_script = $3, full_audit = $4, completed_at = now()
+     WHERE id = $1`,
+    [id, input.callHook, input.callScript, input.fullAudit]
+  );
+}

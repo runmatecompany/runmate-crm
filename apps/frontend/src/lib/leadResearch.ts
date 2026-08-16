@@ -38,3 +38,13 @@ export async function getLeadResearch(token: string, researchId: number): Promis
   const data = await res.json();
   return data.research;
 }
+
+export async function submitManualNotes(token: string, researchId: number, socialManualNotes: string): Promise<LeadResearch> {
+  const res = await authFetch(token, `/leads/research/${researchId}/manual-notes`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ socialManualNotes }),
+  });
+  const data = await res.json();
+  return data.research;
+}
