@@ -24,6 +24,7 @@ const leadDetailsSchema = {
   email: { type: "string" },
   address: { type: "string" },
   notes: { type: "string" },
+  websiteUrl: { type: "string" },
 };
 
 const createLeadBodySchema = {
@@ -67,11 +68,13 @@ interface LeadDetailsBody {
   email?: string;
   address?: string;
   notes?: string;
+  websiteUrl?: string;
 }
 
 // Modul-szintű hozzáférés: admin mindig, más csak akkor, ha az admin
-// felvette a leads_access listára.
-async function canAccessLeadsModule(userId: number, role: "admin" | "user"): Promise<boolean> {
+// felvette a leads_access listára. Exportálva, mert a routes/leadResearch.ts
+// is ugyanezt a hozzáférés-ellenőrzést használja.
+export async function canAccessLeadsModule(userId: number, role: "admin" | "user"): Promise<boolean> {
   return role === "admin" || (await hasLeadsAccess(userId));
 }
 

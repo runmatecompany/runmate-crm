@@ -10,6 +10,7 @@ export interface LeadRow {
   email: string | null;
   address: string | null;
   notes: string | null;
+  website_url: string | null;
   status: LeadStatus;
   created_by: number | null;
   created_by_name: string | null;
@@ -19,7 +20,7 @@ export interface LeadRow {
 
 const LEAD_SELECT = `
   SELECT
-    l.id, l.company_name, l.contact_name, l.phone, l.email, l.address, l.notes,
+    l.id, l.company_name, l.contact_name, l.phone, l.email, l.address, l.notes, l.website_url,
     l.status, l.created_by, cu.name AS created_by_name,
     l.created_at, l.updated_at
   FROM leads l
@@ -43,13 +44,14 @@ export interface CreateLeadInput {
   email?: string;
   address?: string;
   notes?: string;
+  websiteUrl?: string;
   createdBy: number;
 }
 
 export async function createLead(input: CreateLeadInput): Promise<LeadRow> {
   const { rows } = await pool.query<{ id: number }>(
-    `INSERT INTO leads (company_name, contact_name, phone, email, address, notes, created_by)
-     VALUES ($1,$2,$3,$4,$5,$6,$7)
+    `INSERT INTO leads (company_name, contact_name, phone, email, address, notes, website_url, created_by)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
      RETURNING id`,
     [
       input.companyName,
@@ -58,6 +60,7 @@ export async function createLead(input: CreateLeadInput): Promise<LeadRow> {
       input.email ?? null,
       input.address ?? null,
       input.notes ?? null,
+      input.websiteUrl ?? null,
       input.createdBy,
     ]
   );
@@ -72,12 +75,13 @@ export interface UpdateLeadDetailsInput {
   email?: string;
   address?: string;
   notes?: string;
+  websiteUrl?: string;
 }
 
 export async function updateLeadDetails(id: number, input: UpdateLeadDetailsInput): Promise<LeadRow | undefined> {
   const { rowCount } = await pool.query(
     `UPDATE leads SET
-       company_name = $2, contact_name = $3, phone = $4, email = $5, address = $6, notes = $7,
+       company_name = $2, contact_name = $3, phone = $4, email = $5, address = $6, notes = $7, website_url = $8,
        updated_at = now()
      WHERE id = $1`,
     [
@@ -88,6 +92,7 @@ export async function updateLeadDetails(id: number, input: UpdateLeadDetailsInpu
       input.email ?? null,
       input.address ?? null,
       input.notes ?? null,
+      input.websiteUrl ?? null,
     ]
   );
   if (!rowCount) return undefined;

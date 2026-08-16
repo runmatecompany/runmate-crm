@@ -14,6 +14,7 @@ import {
   type LeadStatus,
 } from "../lib/leads";
 import LeadFormModal from "../components/leads/LeadFormModal";
+import LeadDetail from "../components/leads/LeadDetail";
 
 export default function LeadsPage() {
   const { auth } = useAuth();
@@ -25,6 +26,7 @@ export default function LeadsPage() {
   const [hasAccess, setHasAccess] = useState(true);
   const [statusFilter, setStatusFilter] = useState<LeadStatus | "all">("all");
   const [editingLead, setEditingLead] = useState<Lead | "new" | null>(null);
+  const [openLeadId, setOpenLeadId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(() => {
@@ -90,6 +92,15 @@ export default function LeadsPage() {
         <p className="chat-empty-hint">
           Nincs hozzáférésed a Leadek modulhoz. Kérj hozzáférést egy adminisztrátortól.
         </p>
+      </main>
+    );
+  }
+
+  const openLead = openLeadId != null ? leads.find((l) => l.id === openLeadId) : undefined;
+  if (openLead) {
+    return (
+      <main className="leads-page sm-page">
+        <LeadDetail lead={openLead} onBack={() => setOpenLeadId(null)} />
       </main>
     );
   }
@@ -162,6 +173,9 @@ export default function LeadsPage() {
                 </td>
                 <td>
                   <div className="leads-row-actions">
+                    <button type="button" onClick={() => setOpenLeadId(lead.id)}>
+                      Kutatás
+                    </button>
                     <button type="button" onClick={() => setEditingLead(lead)}>
                       Szerkesztés
                     </button>

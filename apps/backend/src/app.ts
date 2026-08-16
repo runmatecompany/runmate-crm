@@ -12,6 +12,7 @@ import meRoutes from "./routes/me.js";
 import emailAccountsRoutes from "./routes/emailAccounts.js";
 import adminEmailAccountsRoutes from "./routes/admin/emailAccounts.js";
 import leadsRoutes from "./routes/leads.js";
+import leadResearchRoutes from "./routes/leadResearch.js";
 import clientsRoutes from "./routes/clients.js";
 import contentItemsRoutes from "./routes/contentItems.js";
 import contentDraftsRoutes from "./routes/contentDrafts.js";
@@ -51,6 +52,7 @@ export function buildApp() {
   app.register(emailAccountsRoutes);
   app.register(adminEmailAccountsRoutes);
   app.register(leadsRoutes);
+  app.register(leadResearchRoutes);
   app.register(clientsRoutes);
   app.register(contentItemsRoutes);
   app.register(contentDraftsRoutes);

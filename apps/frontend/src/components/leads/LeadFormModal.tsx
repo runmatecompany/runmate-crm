@@ -33,6 +33,7 @@ export default function LeadFormModal({ lead, token, onClose, onSave }: LeadForm
   const [phone, setPhone] = useState(lead?.phone ?? "");
   const [email, setEmail] = useState(lead?.email ?? "");
   const [address, setAddress] = useState(lead?.address ?? "");
+  const [websiteUrl, setWebsiteUrl] = useState(lead?.website_url ?? "");
   const [notes, setNotes] = useState(lead?.notes ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -194,6 +195,7 @@ export default function LeadFormModal({ lead, token, onClose, onSave }: LeadForm
         phone: phone.trim() || undefined,
         email: email.trim() || undefined,
         address: address.trim() || undefined,
+        websiteUrl: websiteUrl.trim() || undefined,
         notes: notes.trim() || undefined,
       });
     } catch (err) {
@@ -284,6 +286,14 @@ export default function LeadFormModal({ lead, token, onClose, onSave }: LeadForm
 
         <label htmlFor="lead-address">Cím</label>
         <input id="lead-address" value={address} onChange={(e) => setAddress(e.currentTarget.value)} />
+
+        <label htmlFor="lead-website">Weboldal</label>
+        <input
+          id="lead-website"
+          value={websiteUrl}
+          onChange={(e) => setWebsiteUrl(e.currentTarget.value)}
+          placeholder="https://..."
+        />
 
         <label htmlFor="lead-notes">Jegyzet</label>
         <textarea id="lead-notes" rows={3} value={notes} onChange={(e) => setNotes(e.currentTarget.value)} />

@@ -18,6 +18,7 @@ export interface Lead {
   email: string | null;
   address: string | null;
   notes: string | null;
+  website_url: string | null;
   status: LeadStatus;
   created_by: number | null;
   created_by_name: string | null;
@@ -32,6 +33,7 @@ export interface LeadFormInput {
   email?: string;
   address?: string;
   notes?: string;
+  websiteUrl?: string;
 }
 
 export interface ExtractedLeadFields {
