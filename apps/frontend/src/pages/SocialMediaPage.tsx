@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "../lib/auth";
 import { listClients, type Client } from "../lib/clients";
-import { listColleagues, type Colleague } from "../lib/chat";
 import { createContentItem, listContentItems, type ContentItem } from "../lib/socialMedia";
 import KanbanBoard from "../components/socialMedia/KanbanBoard";
 import ContentItemDetail from "../components/socialMedia/ContentItemDetail";
@@ -32,7 +31,6 @@ export default function SocialMediaPage({ tab }: SocialMediaPageProps) {
   const [items, setItems] = useState<ContentItem[]>([]);
   const [hasAccess, setHasAccess] = useState(true);
   const [clients, setClients] = useState<Client[]>([]);
-  const [colleagues, setColleagues] = useState<Colleague[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [openItemId, setOpenItemId] = useState<number | null>(null);
@@ -61,7 +59,6 @@ export default function SocialMediaPage({ tab }: SocialMediaPageProps) {
   useEffect(() => {
     if (!token) return;
     listClients(token).then((result) => setClients(result.clients));
-    listColleagues(token).then(setColleagues);
   }, [token]);
 
   async function handleCreate(input: { clientId: number; title: string; platform: ContentItem["platform"]; assignedTo?: number }) {
@@ -112,12 +109,7 @@ export default function SocialMediaPage({ tab }: SocialMediaPageProps) {
       {!loading && tab === "drive" && <DriveView />}
 
       {showCreate && (
-        <ContentItemFormModal
-          clients={clients}
-          colleagues={colleagues}
-          onClose={() => setShowCreate(false)}
-          onSave={handleCreate}
-        />
+        <ContentItemFormModal clients={clients} onClose={() => setShowCreate(false)} onSave={handleCreate} />
       )}
     </main>
   );

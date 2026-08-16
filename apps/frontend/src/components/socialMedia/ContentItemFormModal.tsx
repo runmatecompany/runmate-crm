@@ -1,24 +1,25 @@
 import { useEffect, useState, type FormEvent } from "react";
 import type { Client } from "../../lib/clients";
-import type { Colleague } from "../../lib/chat";
-import { PLATFORM_LABELS, type Platform } from "../../lib/socialMedia";
+import type { Platform } from "../../lib/socialMedia";
 import { useEscapeToClose } from "../../lib/useEscapeToClose";
 
 interface ContentItemFormModalProps {
   clients: Client[];
-  colleagues: Colleague[];
   onClose: () => void;
   onSave: (input: { clientId: number; title: string; platform: Platform; assignedTo?: number }) => Promise<void>;
 }
 
-const PLATFORM_OPTIONS: Platform[] = ["instagram", "tiktok", "youtube", "facebook"];
+// A cím ("Munkacím – {mai dátum}") csak egy ésszerű alapérték, hogy a
+// backend title-mezője kitöltve legyen — a részletes nézetben utólag
+// szabadon átírható, ahogy a script/forgatás dátum is.
+function defaultTitle(): string {
+  const dateLabel = new Date().toLocaleDateString("hu-HU", { year: "numeric", month: "long", day: "numeric" });
+  return `Tartalom – ${dateLabel}`;
+}
 
-export default function ContentItemFormModal({ clients, colleagues, onClose, onSave }: ContentItemFormModalProps) {
+export default function ContentItemFormModal({ clients, onClose, onSave }: ContentItemFormModalProps) {
   useEscapeToClose(onClose);
   const [clientId, setClientId] = useState<number | "">(clients[0]?.id ?? "");
-  const [title, setTitle] = useState("");
-  const [platform, setPlatform] = useState<Platform>("instagram");
-  const [assignedTo, setAssignedTo] = useState<number | "">("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -28,15 +29,14 @@ export default function ContentItemFormModal({ clients, colleagues, onClose, onS
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!title.trim() || clientId === "") return;
+    if (clientId === "") return;
     setSaving(true);
     setError(null);
     try {
       await onSave({
         clientId,
-        title: title.trim(),
-        platform,
-        assignedTo: assignedTo === "" ? undefined : assignedTo,
+        title: defaultTitle(),
+        platform: "instagram",
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Nem sikerült létrehozni a tartalmat");
@@ -54,44 +54,13 @@ export default function ContentItemFormModal({ clients, colleagues, onClose, onS
         ) : (
           <>
             <label htmlFor="ci-client">Ügyfél</label>
-            <select id="ci-client" value={clientId} onChange={(e) => setClientId(Number(e.currentTarget.value))}>
+            <select id="ci-client" value={clientId} onChange={(e) => setClientId(Number(e.currentTarget.value))} autoFocus>
               {clients.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.company_name}
                 </option>
               ))}
             </select>
-
-            <label htmlFor="ci-title">Munkacím</label>
-            <input id="ci-title" value={title} onChange={(e) => setTitle(e.currentTarget.value)} required autoFocus />
-
-            <div className="lead-form-row">
-              <div>
-                <label htmlFor="ci-platform">Platform</label>
-                <select id="ci-platform" value={platform} onChange={(e) => setPlatform(e.currentTarget.value as Platform)}>
-                  {PLATFORM_OPTIONS.map((p) => (
-                    <option key={p} value={p}>
-                      {PLATFORM_LABELS[p]}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label htmlFor="ci-assignee">Felelős</label>
-                <select
-                  id="ci-assignee"
-                  value={assignedTo}
-                  onChange={(e) => setAssignedTo(e.currentTarget.value === "" ? "" : Number(e.currentTarget.value))}
-                >
-                  <option value="">Nincs kijelölve</option>
-                  {colleagues.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
           </>
         )}
 
