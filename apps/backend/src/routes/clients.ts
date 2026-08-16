@@ -7,6 +7,8 @@ import {
   listAllClients,
   updateClientDetails,
 } from "../db/clients.js";
+import { getClientAiProfile, upsertClientAiProfile } from "../db/clientAiProfiles.js";
+import { hasSocialMediaAccess } from "../db/contentItems.js";
 import { provisionClientDriveFolders } from "../lib/googleDrive/onboarding.js";
 
 const clientDetailsSchema = {
@@ -37,6 +39,29 @@ interface ClientDetailsBody {
   email?: string;
   address?: string;
   notes?: string;
+}
+
+const aiProfileBodySchema = {
+  type: "object",
+  properties: {
+    brandVoice: { type: "string" },
+    targetAudience: { type: "string" },
+    visualDirection: { type: "string" },
+    forbiddenTopics: { type: "string" },
+    ctaStyle: { type: "string" },
+    platformNotes: { type: "string" },
+    referenceLinks: { type: "string" },
+  },
+} as const;
+
+interface AiProfileBody {
+  brandVoice?: string;
+  targetAudience?: string;
+  visualDirection?: string;
+  forbiddenTopics?: string;
+  ctaStyle?: string;
+  platformNotes?: string;
+  referenceLinks?: string;
 }
 
 // Modul-szintű hozzáférés: admin mindig, más csak akkor, ha az admin
@@ -110,4 +135,38 @@ export default async function clientsRoutes(fastify: FastifyInstance) {
     if (!deleted) return reply.code(404).send({ error: "Client not found" });
     return { ok: true };
   });
+
+  // Az AI-profilt az Ügyfelek modul VAGY a Social Media modul hozzáférésével
+  // rendelkezők olvashatják (a script-írás nézet emlékeztető panelje is ezt
+  // hívja) — a szerkesztés (PUT) viszont márka-kritikus adat, admin-only.
+  fastify.get<{ Params: { id: string } }>(
+    "/clients/:id/ai-profile",
+    { onRequest: [fastify.authenticate] },
+    async (request, reply) => {
+      const { sub: userId, role } = request.user;
+      const access =
+        role === "admin" || (await hasClientsAccess(userId)) || (await hasSocialMediaAccess(userId));
+      if (!access) {
+        return reply.code(403).send({ error: "Nincs hozzáférésed ehhez" });
+      }
+      const clientId = Number(request.params.id);
+      if (!(await getClientById(clientId))) return reply.code(404).send({ error: "Client not found" });
+      const profile = (await getClientAiProfile(clientId)) ?? null;
+      return { profile };
+    }
+  );
+
+  fastify.put<{ Params: { id: string }; Body: AiProfileBody }>(
+    "/clients/:id/ai-profile",
+    { onRequest: [fastify.authenticate], schema: { body: aiProfileBodySchema } },
+    async (request, reply) => {
+      if (request.user.role !== "admin") {
+        return reply.code(403).send({ error: "Csak admin szerkesztheti az AI-profilt" });
+      }
+      const clientId = Number(request.params.id);
+      if (!(await getClientById(clientId))) return reply.code(404).send({ error: "Client not found" });
+      const profile = await upsertClientAiProfile(clientId, request.body);
+      return { profile };
+    }
+  );
 }

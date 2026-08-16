@@ -18,6 +18,8 @@ import {
 import { getUserById } from "../db/users.js";
 import { pool } from "../db/pool.js";
 import { getClientById } from "../db/clients.js";
+import { getClientAiProfile } from "../db/clientAiProfiles.js";
+import { generateScriptDraft, isAiScriptDraftEnabled } from "../lib/aiScriptDraft.js";
 import { transitionContentItem, TransitionError, type TransitionAction, type TransitionPayload } from "../lib/socialMedia/transitions.js";
 import { sendApprovalReminderEmail, NotifyError } from "../lib/socialMedia/notify.js";
 import { approvalTokenExpiry, generateApprovalToken } from "../lib/socialMedia/token.js";
@@ -75,6 +77,14 @@ const transitionBodySchema = {
         feedback: { type: "string" },
       },
     },
+  },
+} as const;
+
+const generateScriptBodySchema = {
+  type: "object",
+  required: ["topic"],
+  properties: {
+    topic: { type: "string", minLength: 1 },
   },
 } as const;
 
@@ -167,6 +177,45 @@ export default async function contentItemsRoutes(fastify: FastifyInstance) {
     const item = await updateContentItemDetails(existing.id, request.body);
     return { item };
   });
+
+  // "AI-vázlat generálása" gomb a script-írás szakaszban — csak visszaadja a
+  // draftot, nem menti el; a felhasználó a meglévő "Script mentése" gombbal
+  // menti, ha jónak találja (esetleg szerkesztve).
+  fastify.post<{ Params: { id: string }; Body: { topic: string } }>(
+    "/content-items/:id/generate-script",
+    { onRequest: [fastify.authenticate], schema: { body: generateScriptBodySchema } },
+    async (request, reply) => {
+      const { sub: userId, role } = request.user;
+      if (!(await canAccessSocialMediaModule(userId, role))) {
+        return reply.code(403).send({ error: "Nincs hozzáférésed a Social Media modulhoz" });
+      }
+      const existing = await getContentItemById(Number(request.params.id));
+      if (!existing) return reply.code(404).send({ error: "Content item not found" });
+      if (!canAccessItem(existing, userId, role)) {
+        return reply.code(403).send({ error: "Nincs hozzárendelve hozzád ez a tartalom" });
+      }
+      if (!isAiScriptDraftEnabled()) {
+        return reply.code(503).send({ error: "Az AI-vázlat generálása nincs beállítva a szerveren" });
+      }
+
+      const client = await getClientById(existing.client_id);
+      if (!client) return reply.code(404).send({ error: "Client not found" });
+      const profile = await getClientAiProfile(existing.client_id);
+
+      try {
+        const script = await generateScriptDraft({
+          clientName: client.company_name,
+          platform: existing.platform,
+          topic: request.body.topic,
+          profile,
+        });
+        return { script };
+      } catch (err) {
+        request.log.error(err, "AI script draft generation failed");
+        return reply.code(502).send({ error: err instanceof Error ? err.message : "Nem sikerült generálni a vázlatot" });
+      }
+    }
+  );
 
   fastify.delete<{ Params: { id: string } }>("/content-items/:id", { onRequest: [fastify.authenticate] }, async (
     request,

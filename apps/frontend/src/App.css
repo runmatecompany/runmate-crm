@@ -2274,6 +2274,23 @@ button:hover {
   align-self: flex-start;
 }
 
+.sm-ai-panel {
+  background-color: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.8em;
+}
+
+.sm-ai-profile-summary {
+  font-size: 0.85em;
+  color: var(--text-muted);
+  margin-bottom: 0.4em;
+}
+
+.sm-ai-profile-summary p {
+  margin: 0.2em 0;
+}
+
 .sm-detail-dates {
   display: flex;
   gap: 1.2em;

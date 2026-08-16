@@ -209,6 +209,16 @@ export async function deleteContentItem(token: string, id: number): Promise<void
   await authFetch(token, `/content-items/${id}`, { method: "DELETE" });
 }
 
+export async function generateScriptDraft(token: string, itemId: number, topic: string): Promise<string> {
+  const res = await authFetch(token, `/content-items/${itemId}/generate-script`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ topic }),
+  });
+  const data = await res.json();
+  return data.script;
+}
+
 export async function transitionContentItem(
   token: string,
   id: number,

@@ -9,6 +9,7 @@ import {
   type ClientFormInput,
 } from "../lib/clients";
 import ClientFormModal from "../components/clients/ClientFormModal";
+import ClientAiProfileModal from "../components/clients/ClientAiProfileModal";
 
 export default function ClientsPage() {
   const { auth } = useAuth();
@@ -18,6 +19,7 @@ export default function ClientsPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [hasAccess, setHasAccess] = useState(true);
   const [editingClient, setEditingClient] = useState<Client | "new" | null>(null);
+  const [aiProfileClient, setAiProfileClient] = useState<Client | null>(null);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(() => {
@@ -114,6 +116,11 @@ export default function ClientsPage() {
                       Szerkesztés
                     </button>
                     {isAdmin && (
+                      <button type="button" onClick={() => setAiProfileClient(client)}>
+                        AI-profil
+                      </button>
+                    )}
+                    {isAdmin && (
                       <button type="button" onClick={() => handleDelete(client)}>
                         Törlés
                       </button>
@@ -131,6 +138,14 @@ export default function ClientsPage() {
           client={editingClient === "new" ? null : editingClient}
           onClose={() => setEditingClient(null)}
           onSave={handleSave}
+        />
+      )}
+
+      {aiProfileClient && token && (
+        <ClientAiProfileModal
+          clientId={aiProfileClient.id}
+          clientName={aiProfileClient.company_name}
+          onClose={() => setAiProfileClient(null)}
         />
       )}
     </main>

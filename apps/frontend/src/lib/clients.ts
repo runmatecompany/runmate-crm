@@ -60,3 +60,45 @@ export async function updateClient(token: string, id: number, input: ClientFormI
 export async function deleteClient(token: string, id: number): Promise<void> {
   await authFetch(token, `/clients/${id}`, { method: "DELETE" });
 }
+
+export interface ClientAiProfile {
+  client_id: number;
+  brand_voice: string | null;
+  target_audience: string | null;
+  visual_direction: string | null;
+  forbidden_topics: string | null;
+  cta_style: string | null;
+  platform_notes: string | null;
+  reference_links: string | null;
+  updated_at: string;
+}
+
+export interface ClientAiProfileInput {
+  brandVoice?: string;
+  targetAudience?: string;
+  visualDirection?: string;
+  forbiddenTopics?: string;
+  ctaStyle?: string;
+  platformNotes?: string;
+  referenceLinks?: string;
+}
+
+export async function getClientAiProfile(token: string, clientId: number): Promise<ClientAiProfile | null> {
+  const res = await authFetch(token, `/clients/${clientId}/ai-profile`);
+  const data = await res.json();
+  return data.profile;
+}
+
+export async function updateClientAiProfile(
+  token: string,
+  clientId: number,
+  input: ClientAiProfileInput
+): Promise<ClientAiProfile> {
+  const res = await authFetch(token, `/clients/${clientId}/ai-profile`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  const data = await res.json();
+  return data.profile;
+}

@@ -1,0 +1,58 @@
+import { pool } from "./pool.js";
+
+export interface ClientAiProfileRow {
+  client_id: number;
+  brand_voice: string | null;
+  target_audience: string | null;
+  visual_direction: string | null;
+  forbidden_topics: string | null;
+  cta_style: string | null;
+  platform_notes: string | null;
+  reference_links: string | null;
+  updated_at: string;
+}
+
+export async function getClientAiProfile(clientId: number): Promise<ClientAiProfileRow | undefined> {
+  const { rows } = await pool.query<ClientAiProfileRow>(
+    `SELECT client_id, brand_voice, target_audience, visual_direction, forbidden_topics,
+            cta_style, platform_notes, reference_links, updated_at
+     FROM client_ai_profiles WHERE client_id = $1`,
+    [clientId]
+  );
+  return rows[0];
+}
+
+export interface UpsertClientAiProfileInput {
+  brandVoice?: string;
+  targetAudience?: string;
+  visualDirection?: string;
+  forbiddenTopics?: string;
+  ctaStyle?: string;
+  platformNotes?: string;
+  referenceLinks?: string;
+}
+
+export async function upsertClientAiProfile(
+  clientId: number,
+  input: UpsertClientAiProfileInput
+): Promise<ClientAiProfileRow> {
+  await pool.query(
+    `INSERT INTO client_ai_profiles
+       (client_id, brand_voice, target_audience, visual_direction, forbidden_topics, cta_style, platform_notes, reference_links)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+     ON CONFLICT (client_id) DO UPDATE SET
+       brand_voice = $2, target_audience = $3, visual_direction = $4, forbidden_topics = $5,
+       cta_style = $6, platform_notes = $7, reference_links = $8, updated_at = now()`,
+    [
+      clientId,
+      input.brandVoice ?? null,
+      input.targetAudience ?? null,
+      input.visualDirection ?? null,
+      input.forbiddenTopics ?? null,
+      input.ctaStyle ?? null,
+      input.platformNotes ?? null,
+      input.referenceLinks ?? null,
+    ]
+  );
+  return (await getClientAiProfile(clientId))!;
+}

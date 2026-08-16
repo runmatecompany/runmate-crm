@@ -3,6 +3,7 @@ import { useAuth } from "../../lib/auth";
 import {
   CONTENT_STATUS_LABELS,
   PLATFORM_LABELS,
+  generateScriptDraft,
   getCardAction,
   getContentItem,
   listApprovals,
@@ -15,6 +16,7 @@ import {
   type Approval,
   type ContentItem,
 } from "../../lib/socialMedia";
+import { getClientAiProfile, type ClientAiProfile } from "../../lib/clients";
 
 interface ContentItemDetailProps {
   itemId: number;
@@ -42,6 +44,9 @@ export default function ContentItemDetail({ itemId, onBack, onChanged }: Content
   const [error, setError] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [editedUploadProgress, setEditedUploadProgress] = useState<number | null>(null);
+  const [aiProfile, setAiProfile] = useState<ClientAiProfile | null>(null);
+  const [topicInput, setTopicInput] = useState("");
+  const [generatingDraft, setGeneratingDraft] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editedFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -58,6 +63,27 @@ export default function ContentItemDetail({ itemId, onBack, onChanged }: Content
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  // Az AI-profilt csak akkor kérdezzük le, ha még script-írás alatt van a
+  // tartalom — utána már nem releváns az emlékeztető panel.
+  useEffect(() => {
+    if (!token || !item || item.status !== "script_writing") return;
+    getClientAiProfile(token, item.client_id).then(setAiProfile);
+  }, [token, item?.client_id, item?.status]);
+
+  async function handleGenerateDraft() {
+    if (!token || !item || !topicInput.trim()) return;
+    setGeneratingDraft(true);
+    setError(null);
+    try {
+      const script = await generateScriptDraft(token, item.id, topicInput.trim());
+      setScriptDraft(script);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Nem sikerült generálni a vázlatot");
+    } finally {
+      setGeneratingDraft(false);
+    }
+  }
 
   async function saveScript() {
     if (!token || !item) return;
@@ -240,6 +266,30 @@ export default function ContentItemDetail({ itemId, onBack, onChanged }: Content
           {savingField ? "Mentés..." : "Dátum mentése"}
         </button>
       </div>
+
+      {item.status === "script_writing" && (
+        <div className="sm-detail-field sm-ai-panel">
+          {aiProfile &&
+            (aiProfile.brand_voice || aiProfile.target_audience || aiProfile.visual_direction) && (
+              <div className="sm-ai-profile-summary">
+                <strong>Ügyfél AI-profil:</strong>
+                {aiProfile.brand_voice && <p>Hangvétel: {aiProfile.brand_voice}</p>}
+                {aiProfile.target_audience && <p>Célközönség: {aiProfile.target_audience}</p>}
+                {aiProfile.visual_direction && <p>Vizuális irány: {aiProfile.visual_direction}</p>}
+              </div>
+            )}
+          <label htmlFor="sm-ai-topic">Miről szóljon?</label>
+          <input
+            id="sm-ai-topic"
+            value={topicInput}
+            onChange={(e) => setTopicInput(e.currentTarget.value)}
+            placeholder="Pl. Új termék bemutatása"
+          />
+          <button type="button" disabled={generatingDraft || !topicInput.trim()} onClick={handleGenerateDraft}>
+            {generatingDraft ? "Generálás..." : "AI-vázlat generálása"}
+          </button>
+        </div>
+      )}
 
       {(item.status === "script_writing" || item.script_content) && (
         <div className="sm-detail-field">
