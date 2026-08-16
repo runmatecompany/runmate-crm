@@ -14,6 +14,7 @@ import adminEmailAccountsRoutes from "./routes/admin/emailAccounts.js";
 import leadsRoutes from "./routes/leads.js";
 import clientsRoutes from "./routes/clients.js";
 import contentItemsRoutes from "./routes/contentItems.js";
+import contentDraftsRoutes from "./routes/contentDrafts.js";
 import socialMediaApprovalRoutes from "./routes/socialMediaApproval.js";
 import adminSocialMediaConfigRoutes from "./routes/admin/socialMediaConfig.js";
 import googleCalendarOauthRoutes from "./routes/googleCalendarOauth.js";
@@ -52,6 +53,7 @@ export function buildApp() {
   app.register(leadsRoutes);
   app.register(clientsRoutes);
   app.register(contentItemsRoutes);
+  app.register(contentDraftsRoutes);
   app.register(socialMediaApprovalRoutes);
   app.register(adminSocialMediaConfigRoutes);
   app.register(googleCalendarOauthRoutes);

@@ -90,6 +90,10 @@ export function driveFolderLink(folderId: string): string {
   return `https://drive.google.com/drive/folders/${folderId}`;
 }
 
+export function driveFileLink(fileId: string): string {
+  return `https://drive.google.com/file/d/${fileId}/view`;
+}
+
 const FOLDER_MIME_TYPE = "application/vnd.google-apps.folder";
 
 export interface DriveItem {
@@ -135,6 +139,45 @@ export async function createGoogleFile(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name, mimeType: CREATABLE_MIME_TYPES[kind], parents: [parentId] }),
   });
+}
+
+// A Tervező "Mentés Drive-ra" gombjához — a createGoogleFile-lal ellentétben
+// ez nem üres dokumentumot hoz létre, hanem a megadott sima szöveget rögtön
+// beletölti (a Drive multipart-feltöltéskor automatikusan konvertálja natív
+// Google Dokumentummá, ha a cél mimeType application/vnd.google-apps.document).
+export async function createGoogleDocFromText(
+  client: OAuth2Client,
+  parentId: string,
+  name: string,
+  textContent: string
+): Promise<DriveItem> {
+  const { token: accessToken } = await client.getAccessToken();
+  if (!accessToken) throw new Error("Nincs érvényes Google access token");
+
+  const boundary = `runmate-${Math.random().toString(36).slice(2)}`;
+  const metadata = JSON.stringify({ name, mimeType: CREATABLE_MIME_TYPES.document, parents: [parentId] });
+  const body =
+    `--${boundary}\r\n` +
+    `Content-Type: application/json; charset=UTF-8\r\n\r\n` +
+    `${metadata}\r\n` +
+    `--${boundary}\r\n` +
+    `Content-Type: text/plain; charset=UTF-8\r\n\r\n` +
+    `${textContent}\r\n` +
+    `--${boundary}--`;
+
+  const res = await fetch(`${DRIVE_UPLOAD_URL}?uploadType=multipart&fields=id,name,mimeType`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": `multipart/related; boundary=${boundary}`,
+    },
+    body,
+  });
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => "");
+    throw new Error(`Nem sikerült létrehozni a Google Dokumentumot (${res.status}): ${errBody.slice(0, 300)}`);
+  }
+  return res.json();
 }
 
 export async function renameItem(client: OAuth2Client, itemId: string, name: string): Promise<DriveItem> {

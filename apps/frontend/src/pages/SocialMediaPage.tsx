@@ -9,10 +9,12 @@ import PostQueueView from "../components/socialMedia/PostQueueView";
 import ShootCalendar from "../components/socialMedia/ShootCalendar";
 import ContentCalendar from "../components/socialMedia/ContentCalendar";
 import DriveView from "../components/socialMedia/DriveView";
+import PlannerView from "../components/socialMedia/PlannerView";
 
-export type SocialMediaTab = "kanban" | "post-queue" | "shoot-calendar" | "content-calendar" | "drive";
+export type SocialMediaTab = "planner" | "kanban" | "post-queue" | "shoot-calendar" | "content-calendar" | "drive";
 
 const TAB_LABELS: Record<SocialMediaTab, string> = {
+  planner: "Tervező",
   kanban: "Content",
   "post-queue": "Posztolni valók",
   "shoot-calendar": "Forgatási naptár",
@@ -95,13 +97,16 @@ export default function SocialMediaPage({ tab }: SocialMediaPageProps) {
     <main className="leads-page sm-page">
       <div className="leads-header">
         <h1>Social Media — {TAB_LABELS[tab]}</h1>
-        <button type="button" onClick={() => setShowCreate(true)}>
-          + Új tartalom
-        </button>
+        {tab !== "planner" && tab !== "drive" && (
+          <button type="button" onClick={() => setShowCreate(true)}>
+            + Új tartalom
+          </button>
+        )}
       </div>
 
       {loading && <p className="chat-empty-hint">Betöltés...</p>}
 
+      {tab === "planner" && <PlannerView clients={clients} />}
       {!loading && tab === "kanban" && <KanbanBoard items={items} onOpen={setOpenItemId} onChanged={refresh} />}
       {!loading && tab === "post-queue" && <PostQueueView items={items} onOpen={setOpenItemId} onChanged={refresh} />}
       {!loading && tab === "shoot-calendar" && <ShootCalendar items={items} onOpen={setOpenItemId} />}

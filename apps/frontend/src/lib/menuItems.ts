@@ -15,6 +15,7 @@ export const MENU_ITEMS: MenuItem[] = [
     id: "social",
     label: "Social Media",
     children: [
+      { id: "social-planner", label: "Tervező" },
       { id: "social-kanban", label: "Content" },
       { id: "social-post-queue", label: "Posztolni valók" },
       { id: "social-shoot-calendar", label: "Forgatási naptár" },

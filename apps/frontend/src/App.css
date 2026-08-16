@@ -2005,6 +2005,25 @@ button:hover {
   color: #3ecf8e;
 }
 
+.sm-planner {
+  max-width: 640px;
+}
+
+.sm-planner-toolbar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1em;
+  margin-bottom: 0.8em;
+}
+
+.sm-planner-toolbar label {
+  display: block;
+  font-size: 0.82em;
+  color: var(--text-muted);
+  margin-bottom: 0.2em;
+}
+
 .sm-drive-view {
   max-width: 640px;
   position: relative;
