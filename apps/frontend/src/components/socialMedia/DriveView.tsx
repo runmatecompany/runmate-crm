@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type ChangeEvent, type DragEvent } from "react";
 import { useAuth } from "../../lib/auth";
 import {
   DRIVE_CREATE_KIND_LABELS,
@@ -58,6 +58,7 @@ export default function DriveView() {
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
   const [openRowMenuId, setOpenRowMenuId] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
   const createMenuRef = useRef<HTMLDivElement>(null);
   const rowMenuRef = useRef<HTMLDivElement>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
@@ -139,9 +140,7 @@ export default function DriveView() {
     }
   }
 
-  async function handleFilesSelected(e: ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.currentTarget.files ?? []);
-    e.currentTarget.value = "";
+  async function uploadFiles(files: File[]) {
     if (!token || !data || files.length === 0) return;
     setUploadProgress(0);
     setError(null);
@@ -153,6 +152,35 @@ export default function DriveView() {
     } finally {
       setUploadProgress(null);
     }
+  }
+
+  function handleFilesSelected(e: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.currentTarget.files ?? []);
+    e.currentTarget.value = "";
+    void uploadFiles(files);
+  }
+
+  // A drag&drop csak akkor éri el ezeket a DOM-eseményeket, ha a Tauri
+  // ablak dragDropEnabled beállítása false — enélkül a natív ablak-réteg
+  // elkapja a fájl-dobást, mielőtt a webview HTML5 drag/drop eseményei
+  // egyáltalán lefutnának.
+  function handleDragOver(e: DragEvent) {
+    e.preventDefault();
+    setIsDraggingOver(true);
+  }
+
+  function handleDragLeave(e: DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    // A gyerekelemek fölötti mozgás is drag-leave/enter párokat vált ki —
+    // csak akkor kapcsoljuk ki a jelzést, ha ténylegesen elhagyta a teljes
+    // konténert, nem csak egy belső elemre lépett át.
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsDraggingOver(false);
+  }
+
+  function handleDrop(e: DragEvent) {
+    e.preventDefault();
+    setIsDraggingOver(false);
+    void uploadFiles(Array.from(e.dataTransfer.files));
   }
 
   function renderRowMenu(item: DriveItem) {
@@ -205,8 +233,14 @@ export default function DriveView() {
   }
 
   return (
-    <div className="sm-drive-view">
+    <div
+      className={`sm-drive-view${isDraggingOver ? " sm-drive-view-dragover" : ""}`}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
       <input ref={uploadInputRef} type="file" multiple hidden onChange={handleFilesSelected} />
+      {isDraggingOver && <div className="sm-drive-dropzone-hint">Engedd el a fájlokat a feltöltéshez</div>}
       <div className="sm-drive-toolbar">
         {data && (
           <div className="sm-drive-breadcrumb">

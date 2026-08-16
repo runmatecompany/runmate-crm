@@ -2007,6 +2007,30 @@ button:hover {
 
 .sm-drive-view {
   max-width: 640px;
+  position: relative;
+  border: 2px dashed transparent;
+  border-radius: 10px;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+
+.sm-drive-view-dragover {
+  border-color: var(--accent);
+  background-color: rgba(47, 127, 224, 0.08);
+}
+
+.sm-drive-dropzone-hint {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  background-color: rgba(0, 0, 0, 0.35);
+  border-radius: 8px;
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 1.1em;
 }
 
 .sm-drive-toolbar {
