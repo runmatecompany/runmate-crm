@@ -13,6 +13,7 @@ import SettingsPage from "./SettingsPage";
 const SOCIAL_MEDIA_TABS: Record<string, SocialMediaTab> = {
   "social-kanban": "kanban",
   "social-queue": "queue",
+  "social-post-queue": "post-queue",
   "social-shoot-calendar": "shoot-calendar",
   "social-content-calendar": "content-calendar",
 };

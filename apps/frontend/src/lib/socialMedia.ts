@@ -32,12 +32,14 @@ export interface KanbanColumn {
   statuses: ContentStatus[];
 }
 
+// A "scheduling" (vágás jóváhagyva, posztolásra kész) és a "published"
+// (kiposztolva) állapotok nem jelennek meg kanban-oszlopként — a "scheduling"
+// elemek a külön "Posztolni valók" nézetben vannak (lásd PostQueueView), a
+// "published" elemeknek pedig nincs dedikált listanézete.
 export const KANBAN_COLUMNS: KanbanColumn[] = [
   { key: "script", label: "Scriptre vár", statuses: ["script_writing", "script_review"] },
   { key: "shoot", label: "Forgatásra vár", statuses: ["shoot_done"] },
   { key: "editing", label: "Vágásra vár", statuses: ["editing", "edit_review"] },
-  { key: "scheduling", label: "Időzítésre vár", statuses: ["scheduling"] },
-  { key: "published", label: "Közzétéve", statuses: ["published"] },
 ];
 
 export type StageBadge = "not_started" | "in_progress" | "sent";
