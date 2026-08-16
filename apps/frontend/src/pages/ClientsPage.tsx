@@ -84,7 +84,6 @@ export default function ClientsPage() {
               <th>Kapcsolattartó</th>
               <th>Telefon</th>
               <th>Email</th>
-              <th>Következő forgatás</th>
               <th>Drive</th>
               <th></th>
             </tr>
@@ -96,11 +95,6 @@ export default function ClientsPage() {
                 <td>{client.contact_name}</td>
                 <td>{client.phone}</td>
                 <td>{client.email}</td>
-                <td>
-                  {client.next_shoot_date
-                    ? new Date(client.next_shoot_date).toLocaleString("hu-HU", { dateStyle: "medium", timeStyle: "short" })
-                    : "—"}
-                </td>
                 <td>
                   {client.drive_folder_id ? (
                     <a
