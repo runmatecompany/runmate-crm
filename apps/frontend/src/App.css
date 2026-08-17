@@ -327,8 +327,22 @@ button:hover {
   white-space: nowrap;
 }
 
+/* A <form> maga is flex-elem az .ob-modal oszlopában — enélkül a
+   tartalmához méretezné magát (block-elem alapértelmezés szerint), az
+   .ob-body overflow-y:auto pedig sosem lépne életbe, mert sosem futna ki
+   a saját doboza méretéből. A min-height:0 kell ahhoz, hogy a flex-elemek
+   ténylegesen összenyomódhassanak a tartalmuk alá (a flexbox
+   alapértelmezett min-height:auto ezt megakadályozná). */
+.ob-form {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
 .ob-body {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 1.4em 1.6em;
   display: flex;

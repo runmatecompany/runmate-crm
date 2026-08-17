@@ -204,7 +204,7 @@ export default function ClientOnboardingModal({ clientId, clientName, onClose }:
           </div>
         )}
 
-        <form onSubmit={handleSubmit}>
+        <form className="ob-form" onSubmit={handleSubmit}>
           <div className="ob-body">
             {loading ? (
               <p className="chat-empty-hint">Betöltés...</p>
