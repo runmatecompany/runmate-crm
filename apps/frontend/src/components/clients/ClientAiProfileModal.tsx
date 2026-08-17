@@ -260,10 +260,23 @@ export default function ClientAiProfileModal({ clientId, clientName, onClose }: 
             </div>
 
             {existingLinks.length > 0 && (
-              <p className="chat-empty-hint">
-                Meglévő közösségi jelenlét (a lead-kutatásból):{" "}
-                {existingLinks.map((l) => `${l.label}: ${l.url}`).join(" · ")}
-              </p>
+              <div className="ai-profile-existing-links">
+                <span className="chat-empty-hint">Meglévő közösségi jelenlét (a lead-kutatásból):</span>
+                <ul>
+                  {existingLinks.map((l) => (
+                    <li key={l.label}>
+                      <strong>{l.label}:</strong>{" "}
+                      {l.url === "-" ? (
+                        "nincs"
+                      ) : (
+                        <a href={l.url} target="_blank" rel="noreferrer">
+                          {l.url}
+                        </a>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
 
             <label htmlFor="ai-monthly-video-target">Havi videó mennyiség</label>

@@ -203,6 +203,31 @@ button:hover {
   border-color: var(--accent);
 }
 
+.ai-profile-existing-links {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.7em 0.9em;
+  margin: 0 0 1em;
+}
+
+.ai-profile-existing-links ul {
+  list-style: none;
+  margin: 0.4em 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3em;
+}
+
+.ai-profile-existing-links li {
+  word-break: break-all;
+}
+
+.ai-profile-existing-links a {
+  color: var(--accent-hover);
+}
+
 .login-error {
   color: var(--danger);
   font-size: 0.9em;
@@ -2015,6 +2040,70 @@ button:hover {
 
 .sm-page {
   overflow-x: auto;
+}
+
+.sm-status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1em;
+}
+
+.sm-status-card {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1em;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6em;
+}
+
+.sm-status-card-header {
+  font-weight: 700;
+  font-size: 1.05em;
+}
+
+.sm-status-card-targets {
+  display: flex;
+  gap: 1em;
+  flex-wrap: wrap;
+  color: var(--text-muted);
+  font-size: 0.9em;
+}
+
+.sm-status-card-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3em;
+}
+
+.sm-status-card-item-btn {
+  width: 100%;
+  text-align: left;
+  background: var(--surface-alt);
+  border: 1px solid transparent;
+  box-shadow: none;
+  border-radius: 6px;
+  padding: 0.5em 0.7em;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15em;
+}
+
+.sm-status-card-item-btn:hover {
+  border-color: var(--accent);
+}
+
+.sm-status-card-item-title {
+  font-weight: 600;
+}
+
+.sm-status-card-item-meta {
+  color: var(--text-muted);
+  font-size: 0.82em;
 }
 
 .sm-kanban {
