@@ -1,3 +1,4 @@
+import { useState } from "react";
 import logo from "../assets/logo.png";
 import { useUpdater } from "../lib/updater";
 import { MENU_ITEMS } from "../lib/menuItems";
@@ -14,6 +15,19 @@ interface SidebarProps {
 export default function Sidebar({ activeId, onSelect, userId, userName, onLogout }: SidebarProps) {
   const { status, installAndRestart } = useUpdater();
   const updateAvailable = status === "available" || status === "installing";
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+
+  function toggleGroup(id: string) {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }
 
   return (
     <aside className="sidebar">
@@ -25,15 +39,28 @@ export default function Sidebar({ activeId, onSelect, userId, userName, onLogout
       <nav className="sidebar-nav">
         {MENU_ITEMS.map((item) => {
           const isParentActive = item.id === activeId || (item.children?.some((c) => c.id === activeId) ?? false);
+          const isCollapsed = collapsedGroups.has(item.id);
           return (
             <div key={item.id} className="sidebar-group">
-              <button
-                className={isParentActive ? "sidebar-link active" : "sidebar-link"}
-                onClick={() => onSelect(item.children ? item.children[0].id : item.id)}
-              >
-                {item.label}
-              </button>
-              {item.children && (
+              <div className="sidebar-group-header">
+                <button
+                  className={isParentActive ? "sidebar-link active" : "sidebar-link"}
+                  onClick={() => onSelect(item.children ? item.children[0].id : item.id)}
+                >
+                  {item.label}
+                </button>
+                {item.children && (
+                  <button
+                    type="button"
+                    className="sidebar-collapse-toggle"
+                    aria-label={isCollapsed ? "Almenü megnyitása" : "Almenü becsukása"}
+                    onClick={() => toggleGroup(item.id)}
+                  >
+                    {isCollapsed ? "▸" : "▾"}
+                  </button>
+                )}
+              </div>
+              {item.children && !isCollapsed && (
                 <div className="sidebar-submenu">
                   {item.children.map((child) => (
                     <button

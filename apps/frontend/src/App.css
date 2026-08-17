@@ -305,6 +305,29 @@ button:hover {
   gap: 0.15em;
 }
 
+.sidebar-group-header {
+  display: flex;
+  align-items: center;
+  gap: 0.2em;
+}
+
+.sidebar-group-header .sidebar-link {
+  flex: 1;
+}
+
+.sidebar-collapse-toggle {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  color: var(--text-muted);
+  padding: 0.2em 0.5em;
+  flex-shrink: 0;
+}
+
+.sidebar-collapse-toggle:hover {
+  color: var(--text);
+}
+
 .sidebar-submenu {
   display: flex;
   flex-direction: column;
