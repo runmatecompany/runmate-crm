@@ -100,7 +100,7 @@ export default function LeadsPage() {
   if (openLead) {
     return (
       <main className="leads-page sm-page">
-        <LeadDetail lead={openLead} onBack={() => setOpenLeadId(null)} />
+        <LeadDetail lead={openLead} onBack={() => setOpenLeadId(null)} onChanged={refresh} />
       </main>
     );
   }

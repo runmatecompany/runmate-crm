@@ -19,6 +19,10 @@ export interface Lead {
   address: string | null;
   notes: string | null;
   website_url: string | null;
+  facebook_url: string | null;
+  instagram_url: string | null;
+  tiktok_url: string | null;
+  youtube_url: string | null;
   status: LeadStatus;
   created_by: number | null;
   created_by_name: string | null;
@@ -34,6 +38,10 @@ export interface LeadFormInput {
   address?: string;
   notes?: string;
   websiteUrl?: string;
+  facebookUrl?: string;
+  instagramUrl?: string;
+  tiktokUrl?: string;
+  youtubeUrl?: string;
 }
 
 export interface ExtractedLeadFields {

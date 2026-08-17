@@ -25,6 +25,10 @@ const leadDetailsSchema = {
   address: { type: "string" },
   notes: { type: "string" },
   websiteUrl: { type: "string" },
+  facebookUrl: { type: "string" },
+  instagramUrl: { type: "string" },
+  tiktokUrl: { type: "string" },
+  youtubeUrl: { type: "string" },
 };
 
 const createLeadBodySchema = {
@@ -69,6 +73,10 @@ interface LeadDetailsBody {
   address?: string;
   notes?: string;
   websiteUrl?: string;
+  facebookUrl?: string;
+  instagramUrl?: string;
+  tiktokUrl?: string;
+  youtubeUrl?: string;
 }
 
 // Modul-szintű hozzáférés: admin mindig, más csak akkor, ha az admin

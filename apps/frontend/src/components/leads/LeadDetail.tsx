@@ -1,18 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "../../lib/auth";
-import type { Lead } from "../../lib/leads";
-import { listLeadResearch, startLeadResearch, submitManualNotes, type LeadResearch } from "../../lib/leadResearch";
+import { updateLead, type Lead } from "../../lib/leads";
+import { listLeadResearch, startLeadResearch, type LeadResearch } from "../../lib/leadResearch";
 
 interface LeadDetailProps {
   lead: Lead;
   onBack: () => void;
+  onChanged: () => void;
 }
 
 const POLL_INTERVAL_MS = 3000;
 const STATUS_LABELS: Record<LeadResearch["status"], string> = {
   pending: "Várakozik",
   running: "Folyamatban...",
-  awaiting_input: "Kész — kézi adatokra vár",
+  awaiting_input: "Kész",
   done: "Kész",
   error: "Hiba történt",
 };
@@ -21,16 +22,24 @@ function formatDateTime(value: string): string {
   return new Date(value).toLocaleString("hu-HU", { dateStyle: "medium", timeStyle: "short" });
 }
 
-export default function LeadDetail({ lead, onBack }: LeadDetailProps) {
+// A kutatási kérdőív (weboldal + social linkek) bármikor kitölthető,
+// nincs a "Kutatás indítása" gombhoz kötve — az utóbbi csak egy opcionális,
+// automatikus weboldal-elérhetőségi ellenőrzés.
+export default function LeadDetail({ lead, onBack, onChanged }: LeadDetailProps) {
   const { auth } = useAuth();
   const token = auth?.token ?? null;
+
+  const [websiteUrl, setWebsiteUrl] = useState(lead.website_url ?? "");
+  const [facebookUrl, setFacebookUrl] = useState(lead.facebook_url ?? "");
+  const [instagramUrl, setInstagramUrl] = useState(lead.instagram_url ?? "");
+  const [tiktokUrl, setTiktokUrl] = useState(lead.tiktok_url ?? "");
+  const [youtubeUrl, setYoutubeUrl] = useState(lead.youtube_url ?? "");
+  const [savingQuestionnaire, setSavingQuestionnaire] = useState(false);
 
   const [researchList, setResearchList] = useState<LeadResearch[]>([]);
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [manualNotes, setManualNotes] = useState("");
-  const [submittingNotes, setSubmittingNotes] = useState(false);
   const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const refresh = useCallback(() => {
@@ -58,6 +67,32 @@ export default function LeadDetail({ lead, onBack }: LeadDetailProps) {
     };
   }, [isActive, researchList, refresh]);
 
+  async function handleSaveQuestionnaire() {
+    if (!token) return;
+    setSavingQuestionnaire(true);
+    setError(null);
+    try {
+      await updateLead(token, lead.id, {
+        companyName: lead.company_name,
+        contactName: lead.contact_name ?? undefined,
+        phone: lead.phone ?? undefined,
+        email: lead.email ?? undefined,
+        address: lead.address ?? undefined,
+        notes: lead.notes ?? undefined,
+        websiteUrl: websiteUrl.trim() || undefined,
+        facebookUrl: facebookUrl.trim() || undefined,
+        instagramUrl: instagramUrl.trim() || undefined,
+        tiktokUrl: tiktokUrl.trim() || undefined,
+        youtubeUrl: youtubeUrl.trim() || undefined,
+      });
+      onChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Nem sikerült menteni a kérdőívet");
+    } finally {
+      setSavingQuestionnaire(false);
+    }
+  }
+
   async function handleStart() {
     if (!token) return;
     setStarting(true);
@@ -72,21 +107,6 @@ export default function LeadDetail({ lead, onBack }: LeadDetailProps) {
     }
   }
 
-  async function handleSubmitNotes(researchId: number) {
-    if (!token) return;
-    setSubmittingNotes(true);
-    setError(null);
-    try {
-      await submitManualNotes(token, researchId, manualNotes);
-      setManualNotes("");
-      refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Nem sikerült elküldeni a jegyzeteket");
-    } finally {
-      setSubmittingNotes(false);
-    }
-  }
-
   return (
     <div className="sm-detail">
       <button type="button" className="sm-detail-back" onClick={onBack}>
@@ -97,88 +117,83 @@ export default function LeadDetail({ lead, onBack }: LeadDetailProps) {
       <p className="sm-detail-sub">
         {lead.contact_name ?? "Nincs kapcsolattartó"} · {lead.phone ?? "—"} · {lead.email ?? "—"}
       </p>
-      {lead.website_url ? (
-        <p className="sm-detail-field">
-          <a href={lead.website_url} target="_blank" rel="noreferrer">
-            {lead.website_url}
-          </a>
-        </p>
-      ) : (
-        <p className="chat-empty-hint">Nincs megadva weboldal-cím — add meg a Szerkesztésnél a kutatás előtt.</p>
-      )}
+
+      <h2>Kutatási kérdőív</h2>
+      <p className="chat-empty-hint">Add meg a linkeket, amiket találtál — ha egy platformon nincs jelenlét, írj "-"-t.</p>
+
+      <label htmlFor="lead-research-website">Weboldal</label>
+      <input
+        id="lead-research-website"
+        value={websiteUrl}
+        onChange={(e) => setWebsiteUrl(e.currentTarget.value)}
+        placeholder="https://... vagy -"
+      />
+
+      <label htmlFor="lead-research-facebook">Facebook</label>
+      <input
+        id="lead-research-facebook"
+        value={facebookUrl}
+        onChange={(e) => setFacebookUrl(e.currentTarget.value)}
+        placeholder="https://... vagy -"
+      />
+
+      <label htmlFor="lead-research-instagram">Instagram</label>
+      <input
+        id="lead-research-instagram"
+        value={instagramUrl}
+        onChange={(e) => setInstagramUrl(e.currentTarget.value)}
+        placeholder="https://... vagy -"
+      />
+
+      <label htmlFor="lead-research-tiktok">TikTok</label>
+      <input
+        id="lead-research-tiktok"
+        value={tiktokUrl}
+        onChange={(e) => setTiktokUrl(e.currentTarget.value)}
+        placeholder="https://... vagy -"
+      />
+
+      <label htmlFor="lead-research-youtube">YouTube</label>
+      <input
+        id="lead-research-youtube"
+        value={youtubeUrl}
+        onChange={(e) => setYoutubeUrl(e.currentTarget.value)}
+        placeholder="https://... vagy -"
+      />
 
       {error && <p className="login-error">{error}</p>}
 
       <div className="sm-detail-action">
-        <button type="button" disabled={starting || Boolean(isActive)} onClick={handleStart}>
-          {starting ? "Indítás..." : isActive ? "Kutatás folyamatban..." : "Kutatás indítása"}
+        <button type="button" disabled={savingQuestionnaire} onClick={handleSaveQuestionnaire}>
+          {savingQuestionnaire ? "Mentés..." : "Kérdőív mentése"}
         </button>
       </div>
 
-      <h2>Kutatási előzmények</h2>
+      <h2>Weboldal-ellenőrzés (opcionális)</h2>
+      <div className="sm-detail-action">
+        <button type="button" disabled={starting || Boolean(isActive)} onClick={handleStart}>
+          {starting ? "Indítás..." : isActive ? "Folyamatban..." : "Weboldal ellenőrzése"}
+        </button>
+      </div>
+
       {loading && <p className="chat-empty-hint">Betöltés...</p>}
-      {!loading && researchList.length === 0 && <p className="chat-empty-hint">Még nem volt kutatás.</p>}
-      <ul className="sm-approval-history">
-        {researchList.map((r) => (
-          <li key={r.id} className="sm-approval-history-item">
-            <div>
-              <strong>{STATUS_LABELS[r.status]}</strong>
-            </div>
-            <div className="sm-approval-history-meta">
-              Indítva: {formatDateTime(r.created_at)}
-              {r.requested_by_name && ` · ${r.requested_by_name}`}
-            </div>
-            {r.website_analysis && <pre className="chat-empty-hint">{r.website_analysis}</pre>}
-            {r.status === "error" && r.error_message && <p className="login-error">{r.error_message}</p>}
-
-            {r.status === "awaiting_input" && r.id === latest?.id && (
-              <div className="sm-detail-action">
-                <label htmlFor={`manual-notes-${r.id}`}>
-                  Kézi kutatási jegyzetek (social media, versenytárs-infó, bármi, amit magad találtál):
-                </label>
-                <textarea
-                  id={`manual-notes-${r.id}`}
-                  rows={4}
-                  value={manualNotes}
-                  onChange={(e) => setManualNotes(e.currentTarget.value)}
-                  placeholder="Pl. Instagram: aktív, hetente posztol, kb. 800 követő. Facebook: nincs. ..."
-                />
-                <button type="button" disabled={submittingNotes} onClick={() => handleSubmitNotes(r.id)}>
-                  {submittingNotes ? "Küldés..." : "Hívás-anyagok generálása"}
-                </button>
+      {!loading && researchList.length > 0 && (
+        <ul className="sm-approval-history">
+          {researchList.map((r) => (
+            <li key={r.id} className="sm-approval-history-item">
+              <div>
+                <strong>{STATUS_LABELS[r.status]}</strong>
               </div>
-            )}
-
-            {r.status === "done" && (
-              <>
-                {r.social_manual_notes && (
-                  <p className="sm-detail-field">
-                    <strong>Kézi jegyzetek:</strong> {r.social_manual_notes}
-                  </p>
-                )}
-                {r.call_hook && (
-                  <div className="sm-detail-field">
-                    <strong>Hívás-hook</strong>
-                    <p>{r.call_hook}</p>
-                  </div>
-                )}
-                {r.call_script && (
-                  <div className="sm-detail-field">
-                    <strong>Hideghívás-script</strong>
-                    <pre className="chat-empty-hint">{r.call_script}</pre>
-                  </div>
-                )}
-                {r.full_audit && (
-                  <div className="sm-detail-field">
-                    <strong>Teljes audit</strong>
-                    <pre className="chat-empty-hint">{r.full_audit}</pre>
-                  </div>
-                )}
-              </>
-            )}
-          </li>
-        ))}
-      </ul>
+              <div className="sm-approval-history-meta">
+                Indítva: {formatDateTime(r.created_at)}
+                {r.requested_by_name && ` · ${r.requested_by_name}`}
+              </div>
+              {r.website_analysis && <pre className="chat-empty-hint">{r.website_analysis}</pre>}
+              {r.status === "error" && r.error_message && <p className="login-error">{r.error_message}</p>}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
