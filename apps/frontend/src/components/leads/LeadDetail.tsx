@@ -67,8 +67,18 @@ export default function LeadDetail({ lead, onBack, onChanged }: LeadDetailProps)
     };
   }, [isActive, researchList, refresh]);
 
-  async function handleSaveQuestionnaire() {
-    if (!token) return;
+  function isQuestionnaireDirty(): boolean {
+    return (
+      websiteUrl !== (lead.website_url ?? "") ||
+      facebookUrl !== (lead.facebook_url ?? "") ||
+      instagramUrl !== (lead.instagram_url ?? "") ||
+      tiktokUrl !== (lead.tiktok_url ?? "") ||
+      youtubeUrl !== (lead.youtube_url ?? "")
+    );
+  }
+
+  async function saveQuestionnaire(): Promise<boolean> {
+    if (!token) return false;
     setSavingQuestionnaire(true);
     setError(null);
     try {
@@ -86,11 +96,25 @@ export default function LeadDetail({ lead, onBack, onChanged }: LeadDetailProps)
         youtubeUrl: youtubeUrl.trim() || undefined,
       });
       onChanged();
+      return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Nem sikerült menteni a kérdőívet");
+      return false;
     } finally {
       setSavingQuestionnaire(false);
     }
+  }
+
+  // Ha kimentetlen módosítás van a kérdőíven, "Vissza" kattintáskor
+  // automatikusan elmentjük, hogy ne vesszen el semmi — csak akkor
+  // navigálunk vissza, ha a mentés sikerült (hiba esetén az oldalon marad,
+  // hogy lássa a hibaüzenetet és újrapróbálhassa).
+  async function handleBack() {
+    if (isQuestionnaireDirty()) {
+      const saved = await saveQuestionnaire();
+      if (!saved) return;
+    }
+    onBack();
   }
 
   async function handleStart() {
@@ -109,8 +133,8 @@ export default function LeadDetail({ lead, onBack, onChanged }: LeadDetailProps)
 
   return (
     <div className="sm-detail">
-      <button type="button" className="sm-detail-back" onClick={onBack}>
-        ← Vissza
+      <button type="button" className="sm-detail-back" onClick={handleBack} disabled={savingQuestionnaire}>
+        {savingQuestionnaire ? "Mentés..." : "← Vissza"}
       </button>
 
       <h1>{lead.company_name}</h1>
@@ -174,7 +198,7 @@ export default function LeadDetail({ lead, onBack, onChanged }: LeadDetailProps)
 
         {error && <p className="login-error">{error}</p>}
 
-        <button type="button" disabled={savingQuestionnaire} onClick={handleSaveQuestionnaire}>
+        <button type="button" disabled={savingQuestionnaire} onClick={saveQuestionnaire}>
           {savingQuestionnaire ? "Mentés..." : "Kérdőív mentése"}
         </button>
       </div>

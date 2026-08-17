@@ -15,6 +15,7 @@ import {
 } from "../lib/leads";
 import LeadFormModal from "../components/leads/LeadFormModal";
 import LeadDetail from "../components/leads/LeadDetail";
+import LeadInterestedNoteModal from "../components/leads/LeadInterestedNoteModal";
 
 export default function LeadsPage() {
   const { auth } = useAuth();
@@ -28,6 +29,7 @@ export default function LeadsPage() {
   const [editingLead, setEditingLead] = useState<Lead | "new" | null>(null);
   const [openLeadId, setOpenLeadId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const [interestedNoteLead, setInterestedNoteLead] = useState<Lead | null>(null);
 
   const refresh = useCallback(() => {
     if (!token) return;
@@ -46,13 +48,18 @@ export default function LeadsPage() {
 
   async function handleStatusChange(lead: Lead, status: LeadStatus) {
     if (!token) return;
-    let note: string | undefined;
     if (status === "interested") {
-      const entered = prompt("Miért érdekli? (kötelező jegyzet)");
-      if (!entered?.trim()) return;
-      note = entered.trim();
+      setInterestedNoteLead(lead);
+      return;
     }
-    await updateLeadStatus(token, lead.id, status, note);
+    await updateLeadStatus(token, lead.id, status);
+    refresh();
+  }
+
+  async function handleSaveInterestedNote(note: string) {
+    if (!token || !interestedNoteLead) return;
+    await updateLeadStatus(token, interestedNoteLead.id, "interested", note);
+    setInterestedNoteLead(null);
     refresh();
   }
 
@@ -206,6 +213,14 @@ export default function LeadsPage() {
           token={token}
           onClose={() => setEditingLead(null)}
           onSave={handleSave}
+        />
+      )}
+
+      {interestedNoteLead && (
+        <LeadInterestedNoteModal
+          companyName={interestedNoteLead.company_name}
+          onClose={() => setInterestedNoteLead(null)}
+          onSave={handleSaveInterestedNote}
         />
       )}
     </main>
