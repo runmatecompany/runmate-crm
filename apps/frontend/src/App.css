@@ -2463,6 +2463,336 @@ button:hover {
   color: var(--danger);
 }
 
+/* ---- Feladatok — kézi feladattábla ---- */
+
+.mt-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.8em;
+  margin-bottom: 1.2em;
+}
+
+.mt-stat {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--border);
+  border-radius: 10px;
+  padding: 0.7em 1em;
+  animation: mt-fade-in 0.25s ease-out;
+}
+
+.mt-stat--accent {
+  border-left-color: var(--accent);
+}
+
+.mt-stat--warning {
+  border-left-color: #f5a623;
+}
+
+.mt-stat--danger {
+  border-left-color: var(--danger);
+}
+
+.mt-stat--success {
+  border-left-color: #3ecf8e;
+}
+
+.mt-stat-value {
+  font-size: 1.6em;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.mt-stat-label {
+  color: var(--text-muted);
+  font-size: 0.8em;
+  margin-top: 0.2em;
+}
+
+.mt-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  flex-wrap: wrap;
+  margin-bottom: 1em;
+}
+
+.mt-search {
+  flex: 1;
+  min-width: 180px;
+}
+
+.mt-toolbar select {
+  width: auto;
+  min-width: 160px;
+}
+
+.mt-only-mine {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+  font-size: 0.85em;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.mt-only-mine input {
+  width: auto;
+  padding: 0;
+  box-shadow: none;
+}
+
+.mt-col-dot {
+  display: inline-block;
+  width: 0.55em;
+  height: 0.55em;
+  border-radius: 50%;
+  margin-right: 0.4em;
+  background-color: var(--text-muted);
+}
+
+.mt-col-dot--todo {
+  background-color: var(--text-muted);
+}
+
+.mt-col-dot--in_progress {
+  background-color: #f5a623;
+}
+
+.mt-col-dot--done {
+  background-color: #3ecf8e;
+}
+
+.mt-card {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  animation: mt-fade-in 0.25s ease-out;
+  border-left: 3px solid transparent;
+}
+
+.mt-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+.mt-card--overdue {
+  border-left-color: var(--danger);
+}
+
+.mt-card-body {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0.65em 0.75em 0.4em;
+  color: var(--text);
+}
+
+.mt-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35em;
+  margin-bottom: 0.35em;
+}
+
+.mt-client-pill {
+  display: inline-block;
+  padding: 0.1em 0.5em;
+  border-radius: 999px;
+  font-size: 0.68em;
+  font-weight: 600;
+  background-color: rgba(47, 127, 224, 0.15);
+  color: var(--accent-hover);
+}
+
+.mt-due-badge {
+  display: inline-block;
+  padding: 0.1em 0.5em;
+  border-radius: 999px;
+  font-size: 0.68em;
+  font-weight: 600;
+  background-color: var(--surface-alt);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+
+.mt-due-badge--soon {
+  background-color: rgba(245, 166, 35, 0.15);
+  color: #f5a623;
+  border-color: transparent;
+}
+
+.mt-due-badge--overdue {
+  background-color: rgba(255, 107, 107, 0.15);
+  color: var(--danger);
+  border-color: transparent;
+}
+
+.mt-card-title {
+  font-size: 0.92em;
+  font-weight: 600;
+  margin-bottom: 0.2em;
+}
+
+.mt-card-desc {
+  font-size: 0.78em;
+  color: var(--text-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-bottom: 0.4em;
+}
+
+.mt-card-footer {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+  font-size: 0.76em;
+  color: var(--text-muted);
+}
+
+.mt-avatar {
+  flex-shrink: 0;
+  width: 1.5em;
+  height: 1.5em;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72em;
+  font-weight: 700;
+  color: #fff;
+}
+
+.mt-avatar--empty {
+  background-color: transparent;
+  border: 1px dashed var(--border);
+  color: var(--text-muted);
+}
+
+.mt-card-actions {
+  display: flex;
+  border-top: 1px solid var(--border);
+}
+
+.mt-card-actions button {
+  flex: 1;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  font-size: 0.74em;
+  padding: 0.45em;
+  color: var(--text-muted);
+}
+
+.mt-card-actions button:not(:last-child) {
+  border-right: 1px solid var(--border);
+}
+
+.mt-card-actions button:hover {
+  color: var(--text);
+  background-color: var(--surface-alt);
+}
+
+.mt-card-actions button.mt-action-danger:hover {
+  color: var(--danger);
+}
+
+.mt-client-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1em;
+}
+
+.mt-client-card {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1em;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6em;
+  animation: mt-fade-in 0.25s ease-out;
+}
+
+.mt-client-card-header {
+  font-weight: 700;
+  font-size: 1.05em;
+}
+
+.mt-progress-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25em;
+}
+
+.mt-progress-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.78em;
+  color: var(--text-muted);
+}
+
+.mt-progress {
+  height: 6px;
+  border-radius: 999px;
+  background-color: var(--surface-alt);
+  overflow: hidden;
+}
+
+.mt-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background-color: var(--accent);
+  transition: width 0.4s ease;
+}
+
+.mt-progress-fill--done {
+  background-color: #3ecf8e;
+}
+
+.mt-client-card-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3em;
+}
+
+.mt-client-card-item {
+  background: var(--surface-alt);
+  border-radius: 6px;
+  padding: 0.5em 0.7em;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15em;
+}
+
+.mt-client-card-item-title {
+  font-weight: 600;
+  font-size: 0.88em;
+}
+
+.mt-client-card-item-meta {
+  color: var(--text-muted);
+  font-size: 0.8em;
+}
+
+@keyframes mt-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .sm-detail {
   max-width: 640px;
 }

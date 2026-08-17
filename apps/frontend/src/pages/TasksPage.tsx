@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "../lib/auth";
 import {
   deleteManualTask,
@@ -21,6 +21,58 @@ const STATUS_LABELS: Record<ManualTaskStatus, string> = {
   done: "Kész",
 };
 
+const AVATAR_PALETTE = ["#2f7fe0", "#17a2b8", "#8e6ff7", "#e05f9b", "#f5a623", "#3ecf8e"];
+
+function avatarColor(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) | 0;
+  return AVATAR_PALETTE[Math.abs(hash) % AVATAR_PALETTE.length];
+}
+
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  const chars = parts.length > 1 ? [parts[0][0], parts[parts.length - 1][0]] : [parts[0]?.[0] ?? "?"];
+  return chars.join("").toUpperCase();
+}
+
+function startOfToday(): Date {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function isOverdue(task: ManualTask): boolean {
+  if (!task.due_date || task.status === "done") return false;
+  return new Date(task.due_date) < startOfToday();
+}
+
+function isDueSoon(task: ManualTask): boolean {
+  if (!task.due_date || task.status === "done") return false;
+  const due = new Date(task.due_date);
+  const in2Days = new Date(startOfToday());
+  in2Days.setDate(in2Days.getDate() + 2);
+  return due >= startOfToday() && due <= in2Days;
+}
+
+function isDueToday(task: ManualTask): boolean {
+  if (!task.due_date) return false;
+  const due = new Date(task.due_date);
+  const today = startOfToday();
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  return due >= today && due < tomorrow;
+}
+
+function isThisWeek(value: string): boolean {
+  const d = new Date(value);
+  const now = new Date();
+  const startOfWeek = new Date(now);
+  const dayOffset = (now.getDay() + 6) % 7; // hétfő = hét eleje
+  startOfWeek.setDate(now.getDate() - dayOffset);
+  startOfWeek.setHours(0, 0, 0, 0);
+  return d >= startOfWeek;
+}
+
 function isThisMonth(value: string | null): boolean {
   if (!value) return false;
   const d = new Date(value);
@@ -28,13 +80,9 @@ function isThisMonth(value: string | null): boolean {
   return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
 }
 
-function progressLabel(done: number, target: number | null): string {
-  return target != null ? `${done}/${target} kész` : `${done} kész`;
-}
-
 function formatDueDate(value: string | null): string | null {
   if (!value) return null;
-  return new Date(value).toLocaleDateString("hu-HU", { year: "numeric", month: "short", day: "numeric" });
+  return new Date(value).toLocaleDateString("hu-HU", { month: "short", day: "numeric" });
 }
 
 export default function TasksPage() {
@@ -47,8 +95,11 @@ export default function TasksPage() {
   const [manualTasks, setManualTasks] = useState<ManualTask[]>([]);
   const [hasAccess, setHasAccess] = useState(true);
   const [loading, setLoading] = useState(true);
-  const [openClientId, setOpenClientId] = useState<number | null>(null);
   const [formTask, setFormTask] = useState<ManualTask | "new" | null>(null);
+
+  const [search, setSearch] = useState("");
+  const [onlyMine, setOnlyMine] = useState(false);
+  const [clientFilter, setClientFilter] = useState<number | "">("");
 
   const refresh = useCallback(() => {
     if (!token) return;
@@ -65,6 +116,26 @@ export default function TasksPage() {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  const stats = useMemo(() => {
+    const open = manualTasks.filter((t) => t.status !== "done").length;
+    const overdue = manualTasks.filter(isOverdue).length;
+    const dueToday = manualTasks.filter(isDueToday).length;
+    const doneThisWeek = manualTasks.filter((t) => t.status === "done" && isThisWeek(t.updated_at)).length;
+    return { open, overdue, dueToday, doneThisWeek };
+  }, [manualTasks]);
+
+  const filteredTasks = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    return manualTasks.filter((t) => {
+      if (onlyMine && t.assigned_to !== auth?.user.id) return false;
+      if (clientFilter !== "" && t.client_id !== clientFilter) return false;
+      if (term && !t.title.toLowerCase().includes(term) && !(t.description ?? "").toLowerCase().includes(term)) {
+        return false;
+      }
+      return true;
+    });
+  }, [manualTasks, onlyMine, clientFilter, search, auth?.user.id]);
 
   async function handleSaveTask(input: ManualTaskInput) {
     if (!token) return;
@@ -125,31 +196,98 @@ export default function TasksPage() {
 
       {!loading && (
         <>
-          <h2 className="sm-section-title">Kézi feladatok</h2>
+          <div className="mt-stats">
+            <div className="mt-stat mt-stat--accent">
+              <div className="mt-stat-value">{stats.open}</div>
+              <div className="mt-stat-label">Nyitott feladat</div>
+            </div>
+            <div className="mt-stat mt-stat--danger">
+              <div className="mt-stat-value">{stats.overdue}</div>
+              <div className="mt-stat-label">Lejárt határidejű</div>
+            </div>
+            <div className="mt-stat mt-stat--warning">
+              <div className="mt-stat-value">{stats.dueToday}</div>
+              <div className="mt-stat-label">Ma esedékes</div>
+            </div>
+            <div className="mt-stat mt-stat--success">
+              <div className="mt-stat-value">{stats.doneThisWeek}</div>
+              <div className="mt-stat-label">Kész ezen a héten</div>
+            </div>
+          </div>
+
+          <div className="mt-toolbar">
+            <input
+              type="text"
+              className="mt-search"
+              placeholder="Keresés a feladatok között..."
+              value={search}
+              onChange={(e) => setSearch(e.currentTarget.value)}
+            />
+            <select value={clientFilter} onChange={(e) => setClientFilter(e.currentTarget.value ? Number(e.currentTarget.value) : "")}>
+              <option value="">Összes ügyfél</option>
+              {clients.map((c) => (
+                <option key={c.client_id} value={c.client_id}>
+                  {c.client_name}
+                </option>
+              ))}
+            </select>
+            <label className="mt-only-mine">
+              <input type="checkbox" checked={onlyMine} onChange={(e) => setOnlyMine(e.currentTarget.checked)} />
+              Csak az enyém
+            </label>
+          </div>
+
           <div className="sm-kanban">
             {STATUS_ORDER.map((status) => {
-              const columnTasks = manualTasks.filter((t) => t.status === status);
+              const columnTasks = filteredTasks.filter((t) => t.status === status);
               return (
                 <div key={status} className="sm-kanban-col">
                   <div className="sm-kanban-col-header">
-                    {STATUS_LABELS[status]} <span className="sm-kanban-col-count">{columnTasks.length}</span>
+                    <span>
+                      <span className={`mt-col-dot mt-col-dot--${status}`} />
+                      {STATUS_LABELS[status]}
+                    </span>
+                    <span className="sm-kanban-col-count">{columnTasks.length}</span>
                   </div>
                   <div className="sm-kanban-col-body">
                     {columnTasks.map((task) => {
                       const dueLabel = formatDueDate(task.due_date);
+                      const overdue = isOverdue(task);
+                      const soon = !overdue && isDueSoon(task);
                       const canDelete = isAdmin || task.created_by === auth?.user.id;
+
                       return (
-                        <div key={task.id} className="sm-kanban-card">
-                          <button type="button" className="sm-kanban-card-main" onClick={() => setFormTask(task)}>
-                            {task.client_name && <div className="sm-kanban-card-client">{task.client_name}</div>}
-                            <div className="sm-kanban-card-title">{task.title}</div>
-                            <div className="sm-kanban-card-meta">
-                              {task.assigned_to_name ? `Felelős: ${task.assigned_to_name}` : "Nincs kiosztva"}
-                              {dueLabel && ` · Határidő: ${dueLabel}`}
-                              {task.last_actor_name && ` · utoljára: ${task.last_actor_name}`}
+                        <div key={task.id} className={`sm-kanban-card mt-card${overdue ? " mt-card--overdue" : ""}`}>
+                          <button type="button" className="mt-card-body" onClick={() => setFormTask(task)}>
+                            <div className="mt-card-tags">
+                              {task.client_name && <span className="mt-client-pill">{task.client_name}</span>}
+                              {dueLabel && (
+                                <span
+                                  className={`mt-due-badge${overdue ? " mt-due-badge--overdue" : soon ? " mt-due-badge--soon" : ""}`}
+                                >
+                                  {overdue ? `⚠ ${dueLabel}` : dueLabel}
+                                </span>
+                              )}
+                            </div>
+                            <div className="mt-card-title">{task.title}</div>
+                            {task.description && <div className="mt-card-desc">{task.description}</div>}
+                            <div className="mt-card-footer">
+                              {task.assigned_to_name ? (
+                                <span className="mt-avatar" style={{ backgroundColor: avatarColor(task.assigned_to_name) }}>
+                                  {initials(task.assigned_to_name)}
+                                </span>
+                              ) : (
+                                <span className="mt-avatar mt-avatar--empty">?</span>
+                              )}
+                              <span>
+                                {task.assigned_to_name ?? "Nincs kiosztva"}
+                                {task.last_actor_name && task.last_actor_name !== task.assigned_to_name
+                                  ? ` · utoljára: ${task.last_actor_name}`
+                                  : ""}
+                              </span>
                             </div>
                           </button>
-                          <div className="sm-kanban-card-review-actions">
+                          <div className="mt-card-actions">
                             {status !== "todo" && (
                               <button type="button" onClick={() => void handleStatusMove(task, -1)}>
                                 ◀ Vissza
@@ -161,7 +299,7 @@ export default function TasksPage() {
                               </button>
                             )}
                             {canDelete && (
-                              <button type="button" onClick={() => void handleDelete(task)}>
+                              <button type="button" className="mt-action-danger" onClick={() => void handleDelete(task)}>
                                 Törlés
                               </button>
                             )}
@@ -179,52 +317,72 @@ export default function TasksPage() {
           <h2 className="sm-section-title">Ügyfelenkénti tartalom-áttekintés</h2>
           {clients.length === 0 && <p className="chat-empty-hint">Nincs még felvett ügyfél.</p>}
 
-          {clients.map((client) => {
-            const clientItems = items.filter((i) => i.client_id === client.client_id);
-            const videoDone = clientItems.filter(
-              (i) => i.content_type === "video" && i.status === "published" && isThisMonth(i.published_at)
-            ).length;
-            const postDone = clientItems.filter(
-              (i) => i.content_type === "image_post" && i.status === "published" && isThisMonth(i.published_at)
-            ).length;
-            const inProgress = clientItems.filter((i) => i.status !== "published");
-            const isOpen = openClientId === client.client_id;
+          <div className="mt-client-grid">
+            {clients.map((client) => {
+              const clientItems = items.filter((i) => i.client_id === client.client_id);
+              const videoDone = clientItems.filter(
+                (i) => i.content_type === "video" && i.status === "published" && isThisMonth(i.published_at)
+              ).length;
+              const postDone = clientItems.filter(
+                (i) => i.content_type === "image_post" && i.status === "published" && isThisMonth(i.published_at)
+              ).length;
+              const inProgress = clientItems.filter((i) => i.status !== "published");
+              const videoTarget = client.monthly_video_target;
+              const postTarget = client.monthly_post_target;
 
-            return (
-              <div key={client.client_id} className="sm-detail" style={{ marginBottom: "1em" }}>
-                <button
-                  type="button"
-                  className="sm-detail-back"
-                  onClick={() => setOpenClientId(isOpen ? null : client.client_id)}
-                >
-                  {isOpen ? "▾" : "▸"} {client.client_name}
-                </button>
-                <p className="sm-detail-sub">
-                  Videó: {progressLabel(videoDone, client.monthly_video_target)} ebben a hónapban · Képes poszt:{" "}
-                  {progressLabel(postDone, client.monthly_post_target)} ebben a hónapban
-                </p>
+              return (
+                <div key={client.client_id} className="mt-client-card">
+                  <div className="mt-client-card-header">{client.client_name}</div>
 
-                {isOpen && (
-                  <>
-                    {inProgress.length === 0 && <p className="chat-empty-hint">Nincs folyamatban lévő tartalom.</p>}
-                    <ul className="sm-approval-history">
+                  {videoTarget != null && (
+                    <div className="mt-progress-row">
+                      <div className="mt-progress-label">
+                        <span>Videó</span>
+                        <span>{videoDone}/{videoTarget}</span>
+                      </div>
+                      <div className="mt-progress">
+                        <div
+                          className={`mt-progress-fill${videoDone >= videoTarget ? " mt-progress-fill--done" : ""}`}
+                          style={{ width: `${Math.min(100, (videoDone / Math.max(1, videoTarget)) * 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {postTarget != null && (
+                    <div className="mt-progress-row">
+                      <div className="mt-progress-label">
+                        <span>Képes poszt</span>
+                        <span>{postDone}/{postTarget}</span>
+                      </div>
+                      <div className="mt-progress">
+                        <div
+                          className={`mt-progress-fill${postDone >= postTarget ? " mt-progress-fill--done" : ""}`}
+                          style={{ width: `${Math.min(100, (postDone / Math.max(1, postTarget)) * 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {inProgress.length === 0 ? (
+                    <p className="chat-empty-hint">Nincs folyamatban lévő tartalom.</p>
+                  ) : (
+                    <ul className="mt-client-card-items">
                       {inProgress.map((item) => (
-                        <li key={item.id} className="sm-approval-history-item">
-                          <div>
-                            <strong>{item.title}</strong> — {CONTENT_STATUS_LABELS[item.status]}
-                          </div>
-                          <div className="sm-approval-history-meta">
-                            {item.content_type === "video" ? "Videó" : "Képes poszt"} · {PLATFORM_LABELS[item.platform]}
+                        <li key={item.id} className="mt-client-card-item">
+                          <span className="mt-client-card-item-title">{item.title}</span>
+                          <span className="mt-client-card-item-meta">
+                            {CONTENT_STATUS_LABELS[item.status]} · {PLATFORM_LABELS[item.platform]}
                             {item.last_actor_name && ` · utoljára: ${item.last_actor_name}`}
-                          </div>
+                          </span>
                         </li>
                       ))}
                     </ul>
-                  </>
-                )}
-              </div>
-            );
-          })}
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </>
       )}
 
