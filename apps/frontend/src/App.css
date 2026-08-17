@@ -2106,16 +2106,18 @@ button:hover {
   font-size: 0.82em;
 }
 
+/* Rács, nem vízszintesen görgethető sáv — az oszlopok automatikusan
+   igazodnak az ablak szélességéhez, keskenyebb ablaknál új sorba törnek. */
 .sm-kanban {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 0.8em;
-  align-items: flex-start;
-  overflow-x: auto;
+  align-items: start;
   padding-bottom: 1em;
 }
 
 .sm-kanban-col {
-  flex: 0 0 240px;
+  min-width: 0;
   background-color: var(--surface);
   border: 1px solid var(--border);
   border-radius: 10px;
