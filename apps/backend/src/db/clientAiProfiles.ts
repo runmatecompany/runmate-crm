@@ -21,7 +21,16 @@ export interface ClientAiProfileRow {
   platform_instagram: boolean;
   platform_tiktok: boolean;
   platform_youtube: boolean;
+  service_website_build: boolean;
+  service_landing_page: boolean;
   website_url: string | null;
+  // Meglévő jelenlét linkjei — a lead-kutatásból kerülnek át ügyféllé
+  // alakításkor (lásd db/leads.ts convertLeadToClient), a form nem
+  // szerkeszthetőként jeleníti meg, csak referenciaként.
+  facebook_url: string | null;
+  instagram_url: string | null;
+  tiktok_url: string | null;
+  youtube_url: string | null;
   onboarding_completed_at: string | null;
   updated_at: string;
 }
@@ -32,7 +41,9 @@ export async function getClientAiProfile(clientId: number): Promise<ClientAiProf
             cta_style, platform_notes, reference_links, has_social_presence, inspiration_brands,
             brand_mission, content_goals, publishing_cadence, approval_process_notes,
             monthly_video_target, monthly_post_target,
-            platform_facebook, platform_instagram, platform_tiktok, platform_youtube, website_url,
+            platform_facebook, platform_instagram, platform_tiktok, platform_youtube,
+            service_website_build, service_landing_page, website_url,
+            facebook_url, instagram_url, tiktok_url, youtube_url,
             onboarding_completed_at, updated_at
      FROM client_ai_profiles WHERE client_id = $1`,
     [clientId]
@@ -60,6 +71,8 @@ export interface UpsertClientAiProfileInput {
   platformInstagram?: boolean;
   platformTiktok?: boolean;
   platformYoutube?: boolean;
+  serviceWebsiteBuild?: boolean;
+  serviceLandingPage?: boolean;
   websiteUrl?: string;
 }
 
@@ -77,9 +90,10 @@ export async function upsertClientAiProfile(
         reference_links, has_social_presence, inspiration_brands, brand_mission,
         content_goals, publishing_cadence, approval_process_notes,
         monthly_video_target, monthly_post_target,
-        platform_facebook, platform_instagram, platform_tiktok, platform_youtube, website_url,
+        platform_facebook, platform_instagram, platform_tiktok, platform_youtube,
+        service_website_build, service_landing_page, website_url,
         onboarding_completed_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, now())
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, now())
      ON CONFLICT (client_id) DO UPDATE SET
        brand_voice = $2, target_audience = $3, visual_direction = $4, forbidden_topics = $5,
        cta_style = $6, platform_notes = $7, reference_links = $8, has_social_presence = $9,
@@ -87,7 +101,7 @@ export async function upsertClientAiProfile(
        content_goals = $12, publishing_cadence = $13, approval_process_notes = $14,
        monthly_video_target = $15, monthly_post_target = $16,
        platform_facebook = $17, platform_instagram = $18, platform_tiktok = $19, platform_youtube = $20,
-       website_url = $21,
+       service_website_build = $21, service_landing_page = $22, website_url = $23,
        onboarding_completed_at = COALESCE(client_ai_profiles.onboarding_completed_at, now()),
        updated_at = now()`,
     [
@@ -111,6 +125,8 @@ export async function upsertClientAiProfile(
       input.platformInstagram ?? false,
       input.platformTiktok ?? false,
       input.platformYoutube ?? false,
+      input.serviceWebsiteBuild ?? false,
+      input.serviceLandingPage ?? false,
       input.websiteUrl ?? null,
     ]
   );

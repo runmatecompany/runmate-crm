@@ -65,10 +65,20 @@ export default function LeadsPage() {
 
   async function handleConvert(lead: Lead) {
     if (!token) return;
-    if (!confirm(`"${lead.company_name}" átkerül az Ügyfelek közé, és a lead állapota "Ügyfél lett"-re vált. Folytatod?`)) {
+    if (
+      !confirm(
+        `"${lead.company_name}" átkerül az Ügyfelek közé (a kutatásnál megadott weboldal/social linkekkel együtt), és eltűnik a Leadek listából. Folytatod?`
+      )
+    ) {
       return;
     }
-    const clientId = await convertLeadToClient(token, lead.id);
+    let clientId: number;
+    try {
+      clientId = await convertLeadToClient(token, lead.id);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Nem sikerült ügyféllé alakítani a leadet");
+      return;
+    }
     refresh();
     // Az AI-profil (onboarding-kérdőív) kitöltése admin-only, ezért csak
     // adminnak nyitjuk meg automatikusan — máskülönben úgyis 403-at kapna

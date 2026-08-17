@@ -63,6 +63,8 @@ const aiProfileBodySchema = {
     platformInstagram: { type: "boolean" },
     platformTiktok: { type: "boolean" },
     platformYoutube: { type: "boolean" },
+    serviceWebsiteBuild: { type: "boolean" },
+    serviceLandingPage: { type: "boolean" },
     websiteUrl: { type: "string" },
   },
 } as const;
@@ -87,6 +89,8 @@ interface AiProfileBody {
   platformInstagram?: boolean;
   platformTiktok?: boolean;
   platformYoutube?: boolean;
+  serviceWebsiteBuild?: boolean;
+  serviceLandingPage?: boolean;
   websiteUrl?: string;
 }
 

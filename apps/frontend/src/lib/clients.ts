@@ -82,7 +82,13 @@ export interface ClientAiProfile {
   platform_instagram: boolean;
   platform_tiktok: boolean;
   platform_youtube: boolean;
+  service_website_build: boolean;
+  service_landing_page: boolean;
   website_url: string | null;
+  facebook_url: string | null;
+  instagram_url: string | null;
+  tiktok_url: string | null;
+  youtube_url: string | null;
   onboarding_completed_at: string | null;
   updated_at: string;
 }
@@ -107,6 +113,8 @@ export interface ClientAiProfileInput {
   platformInstagram?: boolean;
   platformTiktok?: boolean;
   platformYoutube?: boolean;
+  serviceWebsiteBuild?: boolean;
+  serviceLandingPage?: boolean;
   websiteUrl?: string;
 }
 

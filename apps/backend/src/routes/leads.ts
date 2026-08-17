@@ -3,6 +3,7 @@ import {
   convertLeadToClient,
   createLead,
   deleteLead,
+  DuplicateClientError,
   getLeadById,
   hasLeadsAccess,
   listAllLeads,
@@ -195,7 +196,15 @@ export default async function leadsRoutes(fastify: FastifyInstance) {
       const leadId = Number(request.params.id);
       const existing = await getLeadById(leadId);
       if (!existing) return reply.code(404).send({ error: "Lead not found" });
-      const clientId = await convertLeadToClient(leadId, userId);
+      let clientId: number;
+      try {
+        clientId = await convertLeadToClient(leadId, userId);
+      } catch (err) {
+        if (err instanceof DuplicateClientError) {
+          return reply.code(409).send({ error: err.message });
+        }
+        throw err;
+      }
 
       // Onboarding: Drive-mappastruktúra automatikus létrehozása, ugyanaz a
       // best-effort minta, mint a kézi ügyfél-létrehozásnál (routes/clients.ts).

@@ -143,28 +143,53 @@ export async function deleteLead(id: number): Promise<boolean> {
   return (rowCount ?? 0) > 0;
 }
 
-// Egy lead "ügyféllé alakítása": a lead became_customer-re vált, és
-// egyúttal létrejön a hozzá tartozó Ügyfelek-sor is (a lead adataival
-// előtöltve, lead_id-vel visszakötve) — egyetlen tranzakcióban, hogy a
-// két tábla sose fusson szét egymástól.
+export class DuplicateClientError extends Error {}
+
+// Egy lead "ügyféllé alakítása": létrejön a hozzá tartozó Ügyfelek-sor (a
+// lead adataival előtöltve, lead_id-vel visszakötve), a lead-kutatásnál
+// megadott weboldal/social linkek átkerülnek az AI-profilba, majd maga a
+// lead törlődik — egyetlen tranzakcióban, hogy a táblák sose fussanak szét.
+// Előtte ellenőrzi, hogy nincs-e már azonos nevű ügyfél, nehogy duplikátum
+// jöjjön létre.
 export async function convertLeadToClient(leadId: number, createdBy: number): Promise<number> {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    const { rows: updated } = await client.query<{ id: number }>(
-      `UPDATE leads SET status = 'became_customer', updated_at = now() WHERE id = $1 RETURNING id`,
-      [leadId]
-    );
-    if (!updated[0]) {
+    const { rows: leadRows } = await client.query<LeadRow>(`${LEAD_SELECT} WHERE l.id = $1`, [leadId]);
+    const lead = leadRows[0];
+    if (!lead) {
       throw new Error("Lead not found");
     }
+
+    const { rows: existing } = await client.query(
+      `SELECT id FROM clients WHERE LOWER(TRIM(company_name)) = LOWER(TRIM($1))`,
+      [lead.company_name]
+    );
+    if (existing[0]) {
+      throw new DuplicateClientError(`"${lead.company_name}" néven már létezik ügyfél az Ügyfelek listában.`);
+    }
+
     const { rows: created } = await client.query<{ id: number }>(
       `INSERT INTO clients (company_name, contact_name, phone, email, address, notes, lead_id, created_by)
-       SELECT company_name, contact_name, phone, email, address, notes, id, $2
-       FROM leads WHERE id = $1
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING id`,
-      [leadId, createdBy]
+      [lead.company_name, lead.contact_name, lead.phone, lead.email, lead.address, lead.notes, lead.id, createdBy]
     );
+
+    // A lead-kutatásnál már megadott weboldal/social linkek (vagy a "-"
+    // jelzés, hogy nincs) átkerülnek az AI-profilba, hogy az onboarding-
+    // kérdőívnél ne kelljen újra megkérdezni.
+    if (lead.website_url || lead.facebook_url || lead.instagram_url || lead.tiktok_url || lead.youtube_url) {
+      await client.query(
+        `INSERT INTO client_ai_profiles (client_id, website_url, facebook_url, instagram_url, tiktok_url, youtube_url)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         ON CONFLICT (client_id) DO NOTHING`,
+        [created[0].id, lead.website_url, lead.facebook_url, lead.instagram_url, lead.tiktok_url, lead.youtube_url]
+      );
+    }
+
+    await client.query(`DELETE FROM leads WHERE id = $1`, [leadId]);
+
     await client.query("COMMIT");
     return created[0].id;
   } catch (err) {

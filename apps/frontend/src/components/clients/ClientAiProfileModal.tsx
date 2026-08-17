@@ -42,7 +42,10 @@ export default function ClientAiProfileModal({ clientId, clientName, onClose }: 
   const [platformInstagram, setPlatformInstagram] = useState(false);
   const [platformTiktok, setPlatformTiktok] = useState(false);
   const [platformYoutube, setPlatformYoutube] = useState(false);
+  const [serviceWebsiteBuild, setServiceWebsiteBuild] = useState(false);
+  const [serviceLandingPage, setServiceLandingPage] = useState(false);
   const [websiteUrl, setWebsiteUrl] = useState("");
+  const [existingLinks, setExistingLinks] = useState<{ label: string; url: string }[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [exportText, setExportText] = useState<string | null>(null);
@@ -63,7 +66,17 @@ export default function ClientAiProfileModal({ clientId, clientName, onClose }: 
         setPlatformInstagram(profile.platform_instagram);
         setPlatformTiktok(profile.platform_tiktok);
         setPlatformYoutube(profile.platform_youtube);
+        setServiceWebsiteBuild(profile.service_website_build);
+        setServiceLandingPage(profile.service_landing_page);
         setWebsiteUrl(profile.website_url ?? "");
+        setExistingLinks(
+          [
+            profile.facebook_url && { label: "Facebook", url: profile.facebook_url },
+            profile.instagram_url && { label: "Instagram", url: profile.instagram_url },
+            profile.tiktok_url && { label: "TikTok", url: profile.tiktok_url },
+            profile.youtube_url && { label: "YouTube", url: profile.youtube_url },
+          ].filter((v): v is { label: string; url: string } => Boolean(v))
+        );
       })
       .finally(() => setLoading(false));
   }, [token, clientId]);
@@ -86,8 +99,8 @@ export default function ClientAiProfileModal({ clientId, clientName, onClose }: 
     if (!targetAudience.trim()) return "A célközönség mező kitöltése kötelező (írj '-'-t, ha nem releváns).";
     if (!monthlyVideoTarget.trim()) return "A havi videó mennyiség kitöltése kötelező.";
     if (!monthlyPostTarget.trim()) return "A havi poszt mennyiség kitöltése kötelező.";
-    if (!platformFacebook && !platformInstagram && !platformTiktok && !platformYoutube) {
-      return "Válassz legalább egy platformot.";
+    if (!platformFacebook && !platformInstagram && !platformTiktok && !platformYoutube && !serviceWebsiteBuild && !serviceLandingPage) {
+      return "Válassz legalább egy szolgáltatást.";
     }
     if (!websiteUrl.trim()) return "A weboldal mező kitöltése kötelező (írj '-'-t, ha nincs).";
     return null;
@@ -114,6 +127,8 @@ export default function ClientAiProfileModal({ clientId, clientName, onClose }: 
         platformInstagram,
         platformTiktok,
         platformYoutube,
+        serviceWebsiteBuild,
+        serviceLandingPage,
         websiteUrl: websiteUrl.trim(),
       });
       onClose();
@@ -131,14 +146,19 @@ export default function ClientAiProfileModal({ clientId, clientName, onClose }: 
     if (monthlyPostTarget.trim()) lines.push(`Havi poszt mennyiség: ${monthlyPostTarget.trim()}`, "");
     const filledColors = colors.filter((c) => c.trim());
     if (filledColors.length) lines.push(`Brand színek: ${filledColors.join(", ")}`, "");
-    const platforms = [
+    const services = [
+      serviceWebsiteBuild && "Weboldal készítés",
+      serviceLandingPage && "Landing oldal készítés",
       platformFacebook && "Facebook",
       platformInstagram && "Instagram",
       platformTiktok && "TikTok",
       platformYoutube && "YouTube",
     ].filter(Boolean);
-    if (platforms.length) lines.push(`Platformok: ${platforms.join(", ")}`, "");
+    if (services.length) lines.push(`Szolgáltatások: ${services.join(", ")}`, "");
     if (websiteUrl.trim()) lines.push(`Weboldal: ${websiteUrl.trim()}`, "");
+    if (existingLinks.length) {
+      lines.push(`Meglévő közösségi jelenlét: ${existingLinks.map((l) => `${l.label}: ${l.url}`).join(" · ")}`, "");
+    }
     return lines.join("\n").trim();
   }
 
@@ -189,12 +209,26 @@ export default function ClientAiProfileModal({ clientId, clientName, onClose }: 
 
             <h3>Social media</h3>
 
-            <label>Milyen platformokra készítünk tartalmat ennek az ügyfélnek?</label>
+            <label>Milyen szolgáltatásokat végzünk ennek az ügyfélnek?</label>
             <p className="chat-empty-hint">
               Ez a szolgáltatás terjedelme (mire vállalunk munkát), nem az, hogy az ügyfélnek hol van jelenleg
-              jelenléte — azt a lead-kutatásnál rögzítettük.
+              jelenléte — azt a lead-kutatásnál rögzítettük, alább látszik referenciaként.
             </p>
             <div className="ai-profile-platform-row">
+              <button
+                type="button"
+                className={serviceWebsiteBuild ? "ai-profile-platform-toggle active" : "ai-profile-platform-toggle"}
+                onClick={() => setServiceWebsiteBuild((v) => !v)}
+              >
+                Weboldal készítés
+              </button>
+              <button
+                type="button"
+                className={serviceLandingPage ? "ai-profile-platform-toggle active" : "ai-profile-platform-toggle"}
+                onClick={() => setServiceLandingPage((v) => !v)}
+              >
+                Landing oldal készítés
+              </button>
               <button
                 type="button"
                 className={platformFacebook ? "ai-profile-platform-toggle active" : "ai-profile-platform-toggle"}
@@ -224,6 +258,13 @@ export default function ClientAiProfileModal({ clientId, clientName, onClose }: 
                 YouTube
               </button>
             </div>
+
+            {existingLinks.length > 0 && (
+              <p className="chat-empty-hint">
+                Meglévő közösségi jelenlét (a lead-kutatásból):{" "}
+                {existingLinks.map((l) => `${l.label}: ${l.url}`).join(" · ")}
+              </p>
+            )}
 
             <label htmlFor="ai-monthly-video-target">Havi videó mennyiség</label>
             <input
