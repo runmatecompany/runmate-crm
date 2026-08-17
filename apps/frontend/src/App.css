@@ -308,7 +308,7 @@ button:hover {
 .sidebar-group-header {
   display: flex;
   align-items: center;
-  gap: 0.2em;
+  gap: 0;
 }
 
 .sidebar-group-has-children > .sidebar-group-header {
@@ -322,19 +322,22 @@ button:hover {
 
 .sidebar-group-header .sidebar-link {
   flex: 1;
+  padding-left: 0.1em;
 }
 
 .sidebar-collapse-toggle {
   background: transparent;
   border: none;
   box-shadow: none;
-  color: var(--text-muted);
-  padding: 0.2em 0.5em;
+  color: #3a7bd5;
+  font-size: 1.3em;
+  font-weight: 700;
+  padding: 0.2em 0 0.2em 0.5em;
   flex-shrink: 0;
 }
 
 .sidebar-collapse-toggle:hover {
-  color: var(--text);
+  color: #4a91e6;
 }
 
 .sidebar-submenu {
