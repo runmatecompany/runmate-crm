@@ -9,20 +9,18 @@ interface ClientAiProfileModalProps {
   onClose: () => void;
 }
 
+const ADDRESS_FORM_OPTIONS = ["Tegező", "Magázó"];
+
 const TONE_OPTIONS = [
+  "Professzionális/Szakmai",
   "Barátságos",
-  "Közvetlen/Tegező",
-  "Hivatalos/Magázódó",
   "Humoros",
   "Inspiráló",
   "Prémium/Elegáns",
   "Energikus/Fiatalos",
   "Nyugodt/Megbízható",
+  "Egyéb",
 ];
-
-function toggleInArray(arr: string[], value: string): string[] {
-  return arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value];
-}
 
 // Az ügyfél-onboarding kérdőíve — ezt tölti be minden AI-vázlat-generálás a
 // Social Media modulban. Minden mező kötelező (a "-" jelöli, hogy egy adott
@@ -34,7 +32,8 @@ export default function ClientAiProfileModal({ clientId, clientName, onClose }: 
   const token = auth?.token ?? null;
 
   const [loading, setLoading] = useState(true);
-  const [toneTags, setToneTags] = useState<string[]>([]);
+  const [addressForm, setAddressForm] = useState("");
+  const [toneStyle, setToneStyle] = useState("");
   const [targetAudience, setTargetAudience] = useState("");
   const [monthlyVideoTarget, setMonthlyVideoTarget] = useState("");
   const [monthlyPostTarget, setMonthlyPostTarget] = useState("");
@@ -53,7 +52,9 @@ export default function ClientAiProfileModal({ clientId, clientName, onClose }: 
     getClientAiProfile(token, clientId)
       .then((profile) => {
         if (!profile) return;
-        setToneTags(profile.brand_voice ? profile.brand_voice.split(",").map((v) => v.trim()).filter(Boolean) : []);
+        const brandVoiceParts = profile.brand_voice ? profile.brand_voice.split(",").map((v) => v.trim()) : [];
+        setAddressForm(brandVoiceParts.find((v) => ADDRESS_FORM_OPTIONS.includes(v)) ?? "");
+        setToneStyle(brandVoiceParts.find((v) => TONE_OPTIONS.includes(v)) ?? "");
         setTargetAudience(profile.target_audience ?? "");
         setMonthlyVideoTarget(profile.monthly_video_target != null ? String(profile.monthly_video_target) : "");
         setMonthlyPostTarget(profile.monthly_post_target != null ? String(profile.monthly_post_target) : "");
@@ -80,7 +81,8 @@ export default function ClientAiProfileModal({ clientId, clientName, onClose }: 
   }
 
   function validate(): string | null {
-    if (toneTags.length === 0) return "Válassz legalább egy hangvételt.";
+    if (!addressForm) return "Válaszd ki a megszólítás formáját.";
+    if (!toneStyle) return "Válassz hangvételt.";
     if (!targetAudience.trim()) return "A célközönség mező kitöltése kötelező (írj '-'-t, ha nem releváns).";
     if (!monthlyVideoTarget.trim()) return "A havi videó mennyiség kitöltése kötelező.";
     if (!monthlyPostTarget.trim()) return "A havi poszt mennyiség kitöltése kötelező.";
@@ -103,7 +105,7 @@ export default function ClientAiProfileModal({ clientId, clientName, onClose }: 
     setError(null);
     try {
       await updateClientAiProfile(token, clientId, {
-        brandVoice: toneTags.join(", "),
+        brandVoice: `${addressForm}, ${toneStyle}`,
         targetAudience: targetAudience.trim(),
         visualDirection: colors.filter((c) => c.trim()).join(", ") || undefined,
         monthlyVideoTarget: Number(monthlyVideoTarget),
@@ -123,7 +125,7 @@ export default function ClientAiProfileModal({ clientId, clientName, onClose }: 
 
   function buildExportText(): string {
     const lines = [`ÜGYFÉL: ${clientName}`, ""];
-    if (toneTags.length) lines.push(`Hangvétel: ${toneTags.join(", ")}`, "");
+    if (addressForm || toneStyle) lines.push(`Hangvétel: ${[addressForm, toneStyle].filter(Boolean).join(", ")}`, "");
     if (targetAudience.trim()) lines.push(`Célközönség: ${targetAudience.trim()}`, "");
     if (monthlyVideoTarget.trim()) lines.push(`Havi videó mennyiség: ${monthlyVideoTarget.trim()}`, "");
     if (monthlyPostTarget.trim()) lines.push(`Havi poszt mennyiség: ${monthlyPostTarget.trim()}`, "");
@@ -157,24 +159,29 @@ export default function ClientAiProfileModal({ clientId, clientName, onClose }: 
           <>
             <h3>Megszólítás</h3>
 
-            <label>Hangvétel</label>
-            <div className="chat-member-picker">
-              {TONE_OPTIONS.map((tone) => (
-                <label key={tone} className="chat-colleague-pick email-account-access-option">
-                  <input
-                    type="checkbox"
-                    checked={toneTags.includes(tone)}
-                    onChange={() => setToneTags((prev) => toggleInArray(prev, tone))}
-                  />
-                  {tone}
-                </label>
+            <label htmlFor="ai-address-form">Megszólítás formája</label>
+            <select id="ai-address-form" value={addressForm} onChange={(e) => setAddressForm(e.currentTarget.value)}>
+              <option value="">Válassz...</option>
+              {ADDRESS_FORM_OPTIONS.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
               ))}
-            </div>
+            </select>
+
+            <label htmlFor="ai-tone-style">Hangvétel</label>
+            <select id="ai-tone-style" value={toneStyle} onChange={(e) => setToneStyle(e.currentTarget.value)}>
+              <option value="">Válassz...</option>
+              {TONE_OPTIONS.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
 
             <label htmlFor="ai-target-audience">Célközönség (kikhez akarunk szólni)</label>
-            <textarea
+            <input
               id="ai-target-audience"
-              rows={2}
               value={targetAudience}
               onChange={(e) => setTargetAudience(e.currentTarget.value)}
               placeholder="Pl. kisvállalkozók, akik most kezdenek social media-zni — vagy '-'"
