@@ -23,6 +23,7 @@ export default function ClientsPage() {
   const [editingClient, setEditingClient] = useState<Client | "new" | null>(null);
   const [aiProfileClient, setAiProfileClient] = useState<Client | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(() => {
     if (!token) return;
@@ -51,9 +52,14 @@ export default function ClientsPage() {
 
   async function handleDelete(client: Client) {
     if (!token) return;
-    if (!confirm(`Biztosan törlöd a(z) "${client.company_name}" ügyfelet?`)) return;
-    await deleteClient(token, client.id);
-    refresh();
+    if (!confirm(`Biztosan törlöd a(z) "${client.company_name}" ügyfelet? Ez a hozzá tartozó tartalmakat is törli.`)) return;
+    setError(null);
+    try {
+      await deleteClient(token, client.id);
+      refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Nem sikerült törölni az ügyfelet");
+    }
   }
 
   async function handleSave(input: ClientFormInput) {
@@ -84,6 +90,7 @@ export default function ClientsPage() {
         <h1>Ügyfelek</h1>
       </div>
 
+      {error && <p className="login-error">{error}</p>}
       {loading && <p className="chat-empty-hint">Betöltés...</p>}
       {!loading && clients.length === 0 && <p className="chat-empty-hint">Nincs még felvett ügyfél.</p>}
 
