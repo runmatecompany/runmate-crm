@@ -19,6 +19,7 @@ import {
   listPendingApprovals,
   type ApprovalType,
 } from "../db/contentApprovals.js";
+import { listContentItemEvents } from "../db/contentItemEvents.js";
 import { getUserById } from "../db/users.js";
 import { pool } from "../db/pool.js";
 import { getClientById } from "../db/clients.js";
@@ -268,7 +269,8 @@ export default async function contentItemsRoutes(fastify: FastifyInstance) {
           existing.id,
           request.body.action,
           request.body.payload ?? {},
-          actor?.name
+          actor?.name,
+          actor ? { id: actor.id, name: actor.name } : undefined
         );
         return { item };
       } catch (err) {
@@ -300,8 +302,31 @@ export default async function contentItemsRoutes(fastify: FastifyInstance) {
       if (existing.content_type !== "image_post") {
         return reply.code(400).send({ error: "Videónál a normál átmenet-végpontot kell használni" });
       }
-      const item = await updateContentItemStatus(existing.id, request.body.status);
+      const actor = await getUserById(userId);
+      const item = await updateContentItemStatus(
+        existing.id,
+        request.body.status,
+        actor ? { id: actor.id, name: actor.name } : undefined
+      );
       return { item };
+    }
+  );
+
+  // Munkatörténet — melyik kolléga vitte tovább a feladatot melyik
+  // fázisból a következőbe. Statisztikához (ki mennyit dolgozott) is ez a
+  // forrás.
+  fastify.get<{ Params: { id: string } }>(
+    "/content-items/:id/activity",
+    { onRequest: [fastify.authenticate] },
+    async (request, reply) => {
+      const { sub: userId, role } = request.user;
+      if (!(await canAccessSocialMediaModule(userId, role))) {
+        return reply.code(403).send({ error: "Nincs hozzáférésed a Social Media modulhoz" });
+      }
+      const item = await getContentItemById(Number(request.params.id));
+      if (!item) return reply.code(404).send({ error: "Content item not found" });
+      const events = await listContentItemEvents(item.id);
+      return { events };
     }
   );
 

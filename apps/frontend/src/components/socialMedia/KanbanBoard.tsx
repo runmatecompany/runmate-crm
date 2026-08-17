@@ -133,6 +133,7 @@ export default function KanbanBoard({ items, onOpen, onChanged }: KanbanBoardPro
                       <div className="sm-kanban-card-meta">
                         {PLATFORM_LABELS[item.platform]}
                         {item.assigned_to_name ? ` · ${item.assigned_to_name}` : ""}
+                        {item.last_actor_name ? ` · utoljára: ${item.last_actor_name}` : ""}
                       </div>
                       {stageBadge && (
                         <span className={`sm-kanban-card-badge sm-kanban-card-badge-${stageBadge}`}>
@@ -194,7 +195,10 @@ export default function KanbanBoard({ items, onOpen, onChanged }: KanbanBoardPro
                         <button type="button" className="sm-kanban-card-main" onClick={() => onOpen(item.id)}>
                           <div className="sm-kanban-card-client">{item.client_name}</div>
                           <div className="sm-kanban-card-title">{item.title}</div>
-                          <div className="sm-kanban-card-meta">{PLATFORM_LABELS[item.platform]}</div>
+                          <div className="sm-kanban-card-meta">
+                            {PLATFORM_LABELS[item.platform]}
+                            {item.last_actor_name ? ` · utoljára: ${item.last_actor_name}` : ""}
+                          </div>
                         </button>
                         {next && (
                           <button type="button" className="sm-kanban-card-action" onClick={() => void handleAdvanceImagePost(item)}>

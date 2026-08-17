@@ -7,6 +7,7 @@ import {
   getCardAction,
   getContentItem,
   listApprovals,
+  listContentItemEvents,
   sendReminder,
   toDatetimeLocalValue,
   transitionContentItem,
@@ -15,6 +16,7 @@ import {
   uploadRawFiles,
   type Approval,
   type ContentItem,
+  type ContentItemEvent,
 } from "../../lib/socialMedia";
 import { getClientAiProfile, type ClientAiProfile } from "../../lib/clients";
 
@@ -36,6 +38,7 @@ export default function ContentItemDetail({ itemId, onBack, onChanged }: Content
 
   const [item, setItem] = useState<ContentItem | null>(null);
   const [approvals, setApprovals] = useState<Approval[]>([]);
+  const [events, setEvents] = useState<ContentItemEvent[]>([]);
   const [scriptDraft, setScriptDraft] = useState("");
   const [shootDateDraft, setShootDateDraft] = useState("");
   const [savingField, setSavingField] = useState(false);
@@ -52,12 +55,15 @@ export default function ContentItemDetail({ itemId, onBack, onChanged }: Content
 
   const refresh = useCallback(() => {
     if (!token) return;
-    Promise.all([getContentItem(token, itemId), listApprovals(token, itemId)]).then(([loadedItem, loadedApprovals]) => {
-      setItem(loadedItem);
-      setApprovals(loadedApprovals);
-      setScriptDraft(loadedItem.script_content ?? "");
-      setShootDateDraft(loadedItem.shoot_date ? toDatetimeLocalValue(loadedItem.shoot_date) : "");
-    });
+    Promise.all([getContentItem(token, itemId), listApprovals(token, itemId), listContentItemEvents(token, itemId)]).then(
+      ([loadedItem, loadedApprovals, loadedEvents]) => {
+        setItem(loadedItem);
+        setApprovals(loadedApprovals);
+        setEvents(loadedEvents);
+        setScriptDraft(loadedItem.script_content ?? "");
+        setShootDateDraft(loadedItem.shoot_date ? toDatetimeLocalValue(loadedItem.shoot_date) : "");
+      }
+    );
   }, [token, itemId]);
 
   useEffect(() => {
@@ -362,6 +368,23 @@ export default function ContentItemDetail({ itemId, onBack, onChanged }: Content
                 Emlékeztető küldése
               </button>
             )}
+          </li>
+        ))}
+      </ul>
+
+      <h2>Munkatörténet</h2>
+      {events.length === 0 && <p className="chat-empty-hint">Még nincs rögzített lépés.</p>}
+      <ul className="sm-approval-history">
+        {events.map((e) => (
+          <li key={e.id} className="sm-approval-history-item">
+            <div>
+              {e.from_status ? CONTENT_STATUS_LABELS[e.from_status] : "Létrehozva"} →{" "}
+              <strong>{CONTENT_STATUS_LABELS[e.to_status]}</strong>
+            </div>
+            <div className="sm-approval-history-meta">
+              {formatDateTime(e.created_at)}
+              {e.user_name && ` · ${e.user_name}`}
+            </div>
           </li>
         ))}
       </ul>

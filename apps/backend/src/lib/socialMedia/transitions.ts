@@ -5,6 +5,7 @@ import {
   type ContentStatus,
 } from "../../db/contentItems.js";
 import { getNextApprovalVersion, getPendingApproval, markApprovalDecided, type ApprovalType } from "../../db/contentApprovals.js";
+import { logContentItemEvent } from "../../db/contentItemEvents.js";
 import { approvalTokenExpiry, generateApprovalToken } from "./token.js";
 import { sendApprovalRequestEmail } from "./notify.js";
 import { ensureContentItemVideoSubfolder } from "../googleDrive/onboarding.js";
@@ -117,14 +118,39 @@ export async function transitionContentItem(
   itemId: number,
   action: TransitionAction,
   payload: TransitionPayload,
-  decidedByName?: string
+  decidedByName?: string,
+  actor?: { id: number; name: string }
 ): Promise<ContentItemRow> {
   const item = await getContentItemById(itemId);
   if (!item) {
     throw new TransitionError("A tartalom nem található");
   }
   assertStatus(item, action);
+  const fromStatus = item.status;
 
+  const result = await runTransition(item, itemId, action, payload, decidedByName);
+
+  // A publikus (ügyfél által) jóváhagyott döntéseknél nincs belső userId —
+  // ilyenkor csak a decidedByName (az ügyfél által beírt név) kerül a
+  // munkatörténetbe, user_id nélkül.
+  await logContentItemEvent({
+    contentItemId: itemId,
+    userId: actor?.id ?? null,
+    userName: actor?.name ?? decidedByName ?? null,
+    fromStatus,
+    toStatus: result.status,
+  });
+
+  return result;
+}
+
+async function runTransition(
+  item: ContentItemRow,
+  itemId: number,
+  action: TransitionAction,
+  payload: TransitionPayload,
+  decidedByName?: string
+): Promise<ContentItemRow> {
   switch (action) {
     case "send_script_for_approval":
       return sendForApproval(item, "script", "script_review", item.script_content ?? "");

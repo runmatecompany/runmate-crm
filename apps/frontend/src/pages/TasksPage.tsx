@@ -92,6 +92,7 @@ export default function TasksPage() {
                         </div>
                         <div className="sm-approval-history-meta">
                           {item.content_type === "video" ? "Videó" : "Képes poszt"} · {PLATFORM_LABELS[item.platform]}
+                          {item.last_actor_name && ` · utoljára: ${item.last_actor_name}`}
                         </div>
                       </li>
                     ))}

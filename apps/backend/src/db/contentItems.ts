@@ -1,4 +1,5 @@
 import { pool } from "./pool.js";
+import { logContentItemEvent } from "./contentItemEvents.js";
 
 export type ContentStatus =
   | "script_writing"
@@ -48,10 +49,15 @@ export interface ContentItemRow {
   published_at: string | null;
   assigned_to: number | null;
   assigned_to_name: string | null;
+  last_actor_name: string | null;
+  last_actor_at: string | null;
   created_at: string;
   updated_at: string;
 }
 
+// A last_actor_* a content_item_events legutóbbi sorából jön (LATERAL) —
+// ki vitte tovább a feladatot utoljára, hogy egyben látszódjon a Feladatok
+// modulban/kanban kártyán, ne kelljen külön lekérdezni előzményenként.
 const CONTENT_ITEM_SELECT = `
   SELECT
     ci.id, ci.client_id, cl.company_name AS client_name,
@@ -61,10 +67,15 @@ const CONTENT_ITEM_SELECT = `
     ci.shoot_date, ci.script_content, ci.raw_media_url, ci.edited_media_url,
     ci.scheduled_publish_at, ci.published_at,
     ci.assigned_to, au.name AS assigned_to_name,
+    lastev.user_name AS last_actor_name, lastev.created_at AS last_actor_at,
     ci.created_at, ci.updated_at
   FROM content_items ci
   JOIN clients cl ON cl.id = ci.client_id
   LEFT JOIN users au ON au.id = ci.assigned_to
+  LEFT JOIN LATERAL (
+    SELECT user_name, created_at FROM content_item_events
+    WHERE content_item_id = ci.id ORDER BY created_at DESC LIMIT 1
+  ) lastev ON true
 `;
 
 export interface ListContentItemsFilter {
@@ -157,12 +168,25 @@ export async function updateContentItemDetails(
 // jóváhagyás/token, ellentétben a videó lib/socialMedia/transitions.ts
 // állapotgépével) — a hívó fél (routes/contentItems.ts) ellenőrzi, hogy csak
 // image_post típusú elemre és csak IMAGE_POST_STATUSES értékre hívható.
-export async function updateContentItemStatus(id: number, status: ContentStatus): Promise<ContentItemRow | undefined> {
+export async function updateContentItemStatus(
+  id: number,
+  status: ContentStatus,
+  actor?: { id: number; name: string }
+): Promise<ContentItemRow | undefined> {
+  const existing = await getContentItemById(id);
+  if (!existing) return undefined;
   const { rowCount } = await pool.query(`UPDATE content_items SET status = $2, updated_at = now() WHERE id = $1`, [
     id,
     status,
   ]);
   if (!rowCount) return undefined;
+  await logContentItemEvent({
+    contentItemId: id,
+    userId: actor?.id ?? null,
+    userName: actor?.name ?? null,
+    fromStatus: existing.status,
+    toStatus: status,
+  });
   return getContentItemById(id);
 }
 
