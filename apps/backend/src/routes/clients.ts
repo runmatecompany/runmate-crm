@@ -59,6 +59,11 @@ const aiProfileBodySchema = {
     approvalProcessNotes: { type: "string" },
     monthlyVideoTarget: { type: "integer" },
     monthlyPostTarget: { type: "integer" },
+    platformFacebook: { type: "boolean" },
+    platformInstagram: { type: "boolean" },
+    platformTiktok: { type: "boolean" },
+    platformYoutube: { type: "boolean" },
+    websiteUrl: { type: "string" },
   },
 } as const;
 
@@ -78,6 +83,11 @@ interface AiProfileBody {
   approvalProcessNotes?: string;
   monthlyVideoTarget?: number;
   monthlyPostTarget?: number;
+  platformFacebook?: boolean;
+  platformInstagram?: boolean;
+  platformTiktok?: boolean;
+  platformYoutube?: boolean;
+  websiteUrl?: string;
 }
 
 // Modul-szintű hozzáférés: admin mindig, más csak akkor, ha az admin

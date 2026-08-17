@@ -9,32 +9,41 @@ interface ClientAiProfileModalProps {
   onClose: () => void;
 }
 
-// Ezt a profilt tölti be minden AI-vázlat-generálás a Social Media modulban
-// (ContentItemDetail.tsx / Tervező "AI-vázlat generálása" gombjai) — csak
-// admin szerkesztheti, mert márka-kritikus adat. Ez egyben az ügyfél-
-// onboarding kérdőíve is: az első mentés jelöli az onboardingot késznek
-// (lásd db/clientAiProfiles.ts upsertClientAiProfile).
+const TONE_OPTIONS = [
+  "Barátságos",
+  "Közvetlen/Tegező",
+  "Hivatalos/Magázódó",
+  "Humoros",
+  "Inspiráló",
+  "Prémium/Elegáns",
+  "Energikus/Fiatalos",
+  "Nyugodt/Megbízható",
+];
+
+function toggleInArray(arr: string[], value: string): string[] {
+  return arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value];
+}
+
+// Az ügyfél-onboarding kérdőíve — ezt tölti be minden AI-vázlat-generálás a
+// Social Media modulban. Minden mező kötelező (a "-" jelöli, hogy egy adott
+// dolog explicit nincs), a vizuális irány (brand színek) kivétel: az
+// üresen hagyható.
 export default function ClientAiProfileModal({ clientId, clientName, onClose }: ClientAiProfileModalProps) {
   useEscapeToClose(onClose);
   const { auth } = useAuth();
   const token = auth?.token ?? null;
 
   const [loading, setLoading] = useState(true);
-  const [brandVoice, setBrandVoice] = useState("");
+  const [toneTags, setToneTags] = useState<string[]>([]);
   const [targetAudience, setTargetAudience] = useState("");
-  const [visualDirection, setVisualDirection] = useState("");
-  const [ctaStyle, setCtaStyle] = useState("");
-  const [platformNotes, setPlatformNotes] = useState("");
-  const [forbiddenTopics, setForbiddenTopics] = useState("");
-  const [referenceLinks, setReferenceLinks] = useState("");
-  const [hasSocialPresence, setHasSocialPresence] = useState(true);
-  const [inspirationBrands, setInspirationBrands] = useState("");
-  const [brandMission, setBrandMission] = useState("");
-  const [contentGoals, setContentGoals] = useState("");
-  const [publishingCadence, setPublishingCadence] = useState("");
-  const [approvalProcessNotes, setApprovalProcessNotes] = useState("");
   const [monthlyVideoTarget, setMonthlyVideoTarget] = useState("");
   const [monthlyPostTarget, setMonthlyPostTarget] = useState("");
+  const [colors, setColors] = useState<string[]>([]);
+  const [platformFacebook, setPlatformFacebook] = useState(false);
+  const [platformInstagram, setPlatformInstagram] = useState(false);
+  const [platformTiktok, setPlatformTiktok] = useState(false);
+  const [platformYoutube, setPlatformYoutube] = useState(false);
+  const [websiteUrl, setWebsiteUrl] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [exportText, setExportText] = useState<string | null>(null);
@@ -44,47 +53,66 @@ export default function ClientAiProfileModal({ clientId, clientName, onClose }: 
     getClientAiProfile(token, clientId)
       .then((profile) => {
         if (!profile) return;
-        setBrandVoice(profile.brand_voice ?? "");
+        setToneTags(profile.brand_voice ? profile.brand_voice.split(",").map((v) => v.trim()).filter(Boolean) : []);
         setTargetAudience(profile.target_audience ?? "");
-        setVisualDirection(profile.visual_direction ?? "");
-        setCtaStyle(profile.cta_style ?? "");
-        setPlatformNotes(profile.platform_notes ?? "");
-        setForbiddenTopics(profile.forbidden_topics ?? "");
-        setReferenceLinks(profile.reference_links ?? "");
-        setHasSocialPresence(profile.has_social_presence);
-        setInspirationBrands(profile.inspiration_brands ?? "");
-        setBrandMission(profile.brand_mission ?? "");
-        setContentGoals(profile.content_goals ?? "");
-        setPublishingCadence(profile.publishing_cadence ?? "");
-        setApprovalProcessNotes(profile.approval_process_notes ?? "");
         setMonthlyVideoTarget(profile.monthly_video_target != null ? String(profile.monthly_video_target) : "");
         setMonthlyPostTarget(profile.monthly_post_target != null ? String(profile.monthly_post_target) : "");
+        setColors(profile.visual_direction ? profile.visual_direction.split(",").map((v) => v.trim()).filter(Boolean) : []);
+        setPlatformFacebook(profile.platform_facebook);
+        setPlatformInstagram(profile.platform_instagram);
+        setPlatformTiktok(profile.platform_tiktok);
+        setPlatformYoutube(profile.platform_youtube);
+        setWebsiteUrl(profile.website_url ?? "");
       })
       .finally(() => setLoading(false));
   }, [token, clientId]);
 
+  function addColor() {
+    setColors((prev) => [...prev, ""]);
+  }
+
+  function updateColor(index: number, value: string) {
+    setColors((prev) => prev.map((c, i) => (i === index ? value : c)));
+  }
+
+  function removeColor(index: number) {
+    setColors((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function validate(): string | null {
+    if (toneTags.length === 0) return "Válassz legalább egy hangvételt.";
+    if (!targetAudience.trim()) return "A célközönség mező kitöltése kötelező (írj '-'-t, ha nem releváns).";
+    if (!monthlyVideoTarget.trim()) return "A havi videó mennyiség kitöltése kötelező.";
+    if (!monthlyPostTarget.trim()) return "A havi poszt mennyiség kitöltése kötelező.";
+    if (!platformFacebook && !platformInstagram && !platformTiktok && !platformYoutube) {
+      return "Válassz legalább egy platformot.";
+    }
+    if (!websiteUrl.trim()) return "A weboldal mező kitöltése kötelező (írj '-'-t, ha nincs).";
+    return null;
+  }
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!token) return;
+    const validationError = validate();
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
       await updateClientAiProfile(token, clientId, {
-        brandVoice: brandVoice.trim() || undefined,
-        targetAudience: targetAudience.trim() || undefined,
-        visualDirection: visualDirection.trim() || undefined,
-        ctaStyle: ctaStyle.trim() || undefined,
-        platformNotes: platformNotes.trim() || undefined,
-        forbiddenTopics: forbiddenTopics.trim() || undefined,
-        referenceLinks: referenceLinks.trim() || undefined,
-        hasSocialPresence,
-        inspirationBrands: inspirationBrands.trim() || undefined,
-        brandMission: brandMission.trim() || undefined,
-        contentGoals: contentGoals.trim() || undefined,
-        publishingCadence: publishingCadence.trim() || undefined,
-        approvalProcessNotes: approvalProcessNotes.trim() || undefined,
-        monthlyVideoTarget: monthlyVideoTarget.trim() ? Number(monthlyVideoTarget) : undefined,
-        monthlyPostTarget: monthlyPostTarget.trim() ? Number(monthlyPostTarget) : undefined,
+        brandVoice: toneTags.join(", "),
+        targetAudience: targetAudience.trim(),
+        visualDirection: colors.filter((c) => c.trim()).join(", ") || undefined,
+        monthlyVideoTarget: Number(monthlyVideoTarget),
+        monthlyPostTarget: Number(monthlyPostTarget),
+        platformFacebook,
+        platformInstagram,
+        platformTiktok,
+        platformYoutube,
+        websiteUrl: websiteUrl.trim(),
       });
       onClose();
     } catch (err) {
@@ -93,33 +121,22 @@ export default function ClientAiProfileModal({ clientId, clientName, onClose }: 
     }
   }
 
-  // Kimásolható szöveg egy külső AI-chatbe (pl. a felhasználó saját Claude/
-  // ChatGPT előfizetése) beillesztéshez — így nem kell API-kulcsot fizetni
-  // ahhoz, hogy valaki AI-segítséget kérjen a profil alapján. Az üres
-  // mezőket kihagyjuk, hogy tiszta maradjon a beillesztett szöveg.
   function buildExportText(): string {
     const lines = [`ÜGYFÉL: ${clientName}`, ""];
-    const field = (label: string, value: string) => {
-      if (value.trim()) lines.push(`${label}: ${value.trim()}`, "");
-    };
-    field("Hangvétel", brandVoice);
-    field("Célközönség", targetAudience);
-    field("Tartalmi cél és típusok", contentGoals);
-    field("Publikálási ritmus", publishingCadence);
-    field("Havi videó-cél", monthlyVideoTarget);
-    field("Havi képes poszt-cél", monthlyPostTarget);
-    field("Vizuális irány", visualDirection);
-    field("CTA-stílus", ctaStyle);
-    field("Platform-specifikus jegyzetek", platformNotes);
-    field("Jóváhagyási folyamat", approvalProcessNotes);
-    field("Kerülendő témák/szavak", forbiddenTopics);
-    lines.push(`Social media jelenlét: ${hasSocialPresence ? "van" : "nincs"}`, "");
-    if (hasSocialPresence) {
-      field("Korábbi jól teljesítő tartalmak", referenceLinks);
-    } else {
-      field("Inspirációs márkák/versenytársak", inspirationBrands);
-      field("Márka küldetése/fő üzenete", brandMission);
-    }
+    if (toneTags.length) lines.push(`Hangvétel: ${toneTags.join(", ")}`, "");
+    if (targetAudience.trim()) lines.push(`Célközönség: ${targetAudience.trim()}`, "");
+    if (monthlyVideoTarget.trim()) lines.push(`Havi videó mennyiség: ${monthlyVideoTarget.trim()}`, "");
+    if (monthlyPostTarget.trim()) lines.push(`Havi poszt mennyiség: ${monthlyPostTarget.trim()}`, "");
+    const filledColors = colors.filter((c) => c.trim());
+    if (filledColors.length) lines.push(`Brand színek: ${filledColors.join(", ")}`, "");
+    const platforms = [
+      platformFacebook && "Facebook",
+      platformInstagram && "Instagram",
+      platformTiktok && "TikTok",
+      platformYoutube && "YouTube",
+    ].filter(Boolean);
+    if (platforms.length) lines.push(`Platformok: ${platforms.join(", ")}`, "");
+    if (websiteUrl.trim()) lines.push(`Weboldal: ${websiteUrl.trim()}`, "");
     return lines.join("\n").trim();
   }
 
@@ -138,42 +155,54 @@ export default function ClientAiProfileModal({ clientId, clientName, onClose }: 
           <p className="chat-empty-hint">Betöltés...</p>
         ) : (
           <>
-            <label htmlFor="ai-brand-voice">Hangvétel</label>
-            <textarea
-              id="ai-brand-voice"
-              rows={2}
-              value={brandVoice}
-              onChange={(e) => setBrandVoice(e.currentTarget.value)}
-              placeholder="Pl. közvetlen, tegező, humoros"
-            />
+            <h3>Megszólítás</h3>
 
-            <label htmlFor="ai-target-audience">Célközönség</label>
+            <label>Hangvétel</label>
+            <div className="chat-member-picker">
+              {TONE_OPTIONS.map((tone) => (
+                <label key={tone} className="chat-colleague-pick email-account-access-option">
+                  <input
+                    type="checkbox"
+                    checked={toneTags.includes(tone)}
+                    onChange={() => setToneTags((prev) => toggleInArray(prev, tone))}
+                  />
+                  {tone}
+                </label>
+              ))}
+            </div>
+
+            <label htmlFor="ai-target-audience">Célközönség (kikhez akarunk szólni)</label>
             <textarea
               id="ai-target-audience"
               rows={2}
               value={targetAudience}
               onChange={(e) => setTargetAudience(e.currentTarget.value)}
+              placeholder="Pl. kisvállalkozók, akik most kezdenek social media-zni — vagy '-'"
             />
 
-            <label htmlFor="ai-content-goals">Tartalmi cél és típusok</label>
-            <textarea
-              id="ai-content-goals"
-              rows={2}
-              value={contentGoals}
-              onChange={(e) => setContentGoals(e.currentTarget.value)}
-              placeholder="Pl. havi 4 videó Instagramra és TikTokra, 8 poszt"
-            />
+            <h3>Social media</h3>
 
-            <label htmlFor="ai-publishing-cadence">Publikálási ritmus</label>
-            <textarea
-              id="ai-publishing-cadence"
-              rows={2}
-              value={publishingCadence}
-              onChange={(e) => setPublishingCadence(e.currentTarget.value)}
-              placeholder="Pl. hetente 2 poszt, mindig kedden és pénteken"
-            />
+            <label>Platform</label>
+            <div className="chat-member-picker">
+              <label className="chat-colleague-pick email-account-access-option">
+                <input type="checkbox" checked={platformFacebook} onChange={(e) => setPlatformFacebook(e.currentTarget.checked)} />
+                Facebook
+              </label>
+              <label className="chat-colleague-pick email-account-access-option">
+                <input type="checkbox" checked={platformInstagram} onChange={(e) => setPlatformInstagram(e.currentTarget.checked)} />
+                Instagram
+              </label>
+              <label className="chat-colleague-pick email-account-access-option">
+                <input type="checkbox" checked={platformTiktok} onChange={(e) => setPlatformTiktok(e.currentTarget.checked)} />
+                TikTok
+              </label>
+              <label className="chat-colleague-pick email-account-access-option">
+                <input type="checkbox" checked={platformYoutube} onChange={(e) => setPlatformYoutube(e.currentTarget.checked)} />
+                YouTube
+              </label>
+            </div>
 
-            <label htmlFor="ai-monthly-video-target">Havi videó-cél</label>
+            <label htmlFor="ai-monthly-video-target">Havi videó mennyiség</label>
             <input
               id="ai-monthly-video-target"
               type="number"
@@ -183,7 +212,7 @@ export default function ClientAiProfileModal({ clientId, clientName, onClose }: 
               placeholder="Pl. 8"
             />
 
-            <label htmlFor="ai-monthly-post-target">Havi képes poszt-cél</label>
+            <label htmlFor="ai-monthly-post-target">Havi poszt mennyiség</label>
             <input
               id="ai-monthly-post-target"
               type="number"
@@ -193,90 +222,35 @@ export default function ClientAiProfileModal({ clientId, clientName, onClose }: 
               placeholder="Pl. 8"
             />
 
-            <label htmlFor="ai-visual-direction">Vizuális irány</label>
-            <textarea
-              id="ai-visual-direction"
-              rows={2}
-              value={visualDirection}
-              onChange={(e) => setVisualDirection(e.currentTarget.value)}
-              placeholder="Színek, betűtípus, stílusreferenciák"
-            />
-
-            <label htmlFor="ai-cta-style">CTA-stílus</label>
-            <textarea id="ai-cta-style" rows={2} value={ctaStyle} onChange={(e) => setCtaStyle(e.currentTarget.value)} />
-
-            <label htmlFor="ai-platform-notes">Platform-specifikus jegyzetek</label>
-            <textarea
-              id="ai-platform-notes"
-              rows={3}
-              value={platformNotes}
-              onChange={(e) => setPlatformNotes(e.currentTarget.value)}
-              placeholder="Pl. TikTok: energikusabb hook; Instagram: rövidebb caption"
-            />
-
-            <label htmlFor="ai-approval-process">Jóváhagyási folyamat</label>
-            <textarea
-              id="ai-approval-process"
-              rows={2}
-              value={approvalProcessNotes}
-              onChange={(e) => setApprovalProcessNotes(e.currentTarget.value)}
-              placeholder="Pl. az ügyfél 48 órán belül visszajelez emailben"
-            />
-
-            <label htmlFor="ai-forbidden-topics">Kerülendő témák/szavak</label>
-            <textarea
-              id="ai-forbidden-topics"
-              rows={3}
-              value={forbiddenTopics}
-              onChange={(e) => setForbiddenTopics(e.currentTarget.value)}
-              placeholder="Soronként egy"
-            />
-
-            <label className="ai-profile-checkbox">
-              <input
-                type="checkbox"
-                checked={!hasSocialPresence}
-                onChange={(e) => setHasSocialPresence(!e.currentTarget.checked)}
-              />
-              Az ügyfélnek nincs meglévő social media jelenléte
-            </label>
-
-            {hasSocialPresence ? (
-              <>
-                <label htmlFor="ai-reference-links">Korábbi jól teljesítő tartalmak (linkek)</label>
-                <textarea
-                  id="ai-reference-links"
-                  rows={3}
-                  value={referenceLinks}
-                  onChange={(e) => setReferenceLinks(e.currentTarget.value)}
-                  placeholder="Soronként egy link"
+            <label>Vizuális irány — brand színek</label>
+            {colors.map((color, i) => (
+              <div key={i} className="ai-profile-color-row">
+                {color.trim() && <span className="ai-profile-color-swatch" style={{ background: color.trim() }} />}
+                <input
+                  value={color}
+                  onChange={(e) => updateColor(i, e.currentTarget.value)}
+                  placeholder="#FF5733"
                 />
-              </>
-            ) : (
-              <>
-                <label htmlFor="ai-inspiration-brands">Inspirációs márkák/versenytársak</label>
-                <textarea
-                  id="ai-inspiration-brands"
-                  rows={2}
-                  value={inspirationBrands}
-                  onChange={(e) => setInspirationBrands(e.currentTarget.value)}
-                  placeholder="Olyan márkák, amiknek a social media stílusát megközelítenénk"
-                />
+                <button type="button" onClick={() => removeColor(i)}>
+                  ×
+                </button>
+              </div>
+            ))}
+            <div className="sm-detail-action">
+              <button type="button" onClick={addColor}>
+                + Szín hozzáadása
+              </button>
+            </div>
 
-                <label htmlFor="ai-brand-mission">Márka küldetése / fő üzenete</label>
-                <textarea
-                  id="ai-brand-mission"
-                  rows={2}
-                  value={brandMission}
-                  onChange={(e) => setBrandMission(e.currentTarget.value)}
-                />
-              </>
-            )}
-          </>
-        )}
+            <h3>Weboldal</h3>
+            <label htmlFor="ai-website-url">Weboldal</label>
+            <input
+              id="ai-website-url"
+              value={websiteUrl}
+              onChange={(e) => setWebsiteUrl(e.currentTarget.value)}
+              placeholder="https://... vagy -"
+            />
 
-        {!loading && (
-          <>
             <div className="sm-detail-action">
               <button type="button" onClick={handleExport}>
                 Profil exportálása (vágólapra + külső AI-hoz)

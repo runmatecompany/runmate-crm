@@ -78,6 +78,11 @@ export interface ClientAiProfile {
   approval_process_notes: string | null;
   monthly_video_target: number | null;
   monthly_post_target: number | null;
+  platform_facebook: boolean;
+  platform_instagram: boolean;
+  platform_tiktok: boolean;
+  platform_youtube: boolean;
+  website_url: string | null;
   onboarding_completed_at: string | null;
   updated_at: string;
 }
@@ -98,6 +103,11 @@ export interface ClientAiProfileInput {
   approvalProcessNotes?: string;
   monthlyVideoTarget?: number;
   monthlyPostTarget?: number;
+  platformFacebook?: boolean;
+  platformInstagram?: boolean;
+  platformTiktok?: boolean;
+  platformYoutube?: boolean;
+  websiteUrl?: string;
 }
 
 export async function getClientAiProfile(token: string, clientId: number): Promise<ClientAiProfile | null> {
