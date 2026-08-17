@@ -177,6 +177,32 @@ button:hover {
   flex-shrink: 0;
 }
 
+.ai-profile-platform-row {
+  display: flex;
+  gap: 0.6em;
+  flex-wrap: wrap;
+  margin: 0.4em 0 1em;
+}
+
+.ai-profile-platform-toggle {
+  background: transparent;
+  border: 1px solid var(--border);
+  box-shadow: none;
+  color: var(--text-muted);
+  padding: 0.5em 1em;
+  border-radius: 999px;
+}
+
+.ai-profile-platform-toggle:hover {
+  color: var(--text);
+}
+
+.ai-profile-platform-toggle.active {
+  background-color: var(--accent);
+  color: #ffffff;
+  border-color: var(--accent);
+}
+
 .login-error {
   color: var(--danger);
   font-size: 0.9em;

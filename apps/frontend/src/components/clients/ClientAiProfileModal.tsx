@@ -189,30 +189,41 @@ export default function ClientAiProfileModal({ clientId, clientName, onClose }: 
 
             <h3>Social media</h3>
 
-            <label htmlFor="ai-platforms">Platform (Ctrl/Cmd+kattintással többet is kijelölhetsz)</label>
-            <select
-              id="ai-platforms"
-              multiple
-              size={4}
-              value={[
-                platformFacebook && "facebook",
-                platformInstagram && "instagram",
-                platformTiktok && "tiktok",
-                platformYoutube && "youtube",
-              ].filter((v): v is string => Boolean(v))}
-              onChange={(e) => {
-                const selected = new Set(Array.from(e.currentTarget.selectedOptions, (o) => o.value));
-                setPlatformFacebook(selected.has("facebook"));
-                setPlatformInstagram(selected.has("instagram"));
-                setPlatformTiktok(selected.has("tiktok"));
-                setPlatformYoutube(selected.has("youtube"));
-              }}
-            >
-              <option value="facebook">Facebook</option>
-              <option value="instagram">Instagram</option>
-              <option value="tiktok">TikTok</option>
-              <option value="youtube">YouTube</option>
-            </select>
+            <label>Milyen platformokra készítünk tartalmat ennek az ügyfélnek?</label>
+            <p className="chat-empty-hint">
+              Ez a szolgáltatás terjedelme (mire vállalunk munkát), nem az, hogy az ügyfélnek hol van jelenleg
+              jelenléte — azt a lead-kutatásnál rögzítettük.
+            </p>
+            <div className="ai-profile-platform-row">
+              <button
+                type="button"
+                className={platformFacebook ? "ai-profile-platform-toggle active" : "ai-profile-platform-toggle"}
+                onClick={() => setPlatformFacebook((v) => !v)}
+              >
+                Facebook
+              </button>
+              <button
+                type="button"
+                className={platformInstagram ? "ai-profile-platform-toggle active" : "ai-profile-platform-toggle"}
+                onClick={() => setPlatformInstagram((v) => !v)}
+              >
+                Instagram
+              </button>
+              <button
+                type="button"
+                className={platformTiktok ? "ai-profile-platform-toggle active" : "ai-profile-platform-toggle"}
+                onClick={() => setPlatformTiktok((v) => !v)}
+              >
+                TikTok
+              </button>
+              <button
+                type="button"
+                className={platformYoutube ? "ai-profile-platform-toggle active" : "ai-profile-platform-toggle"}
+                onClick={() => setPlatformYoutube((v) => !v)}
+              >
+                YouTube
+              </button>
+            </div>
 
             <label htmlFor="ai-monthly-video-target">Havi videó mennyiség</label>
             <input
