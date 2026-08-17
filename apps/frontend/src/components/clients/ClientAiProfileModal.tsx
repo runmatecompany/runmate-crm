@@ -37,7 +37,7 @@ export default function ClientAiProfileModal({ clientId, clientName, onClose }: 
   const [targetAudience, setTargetAudience] = useState("");
   const [monthlyVideoTarget, setMonthlyVideoTarget] = useState("");
   const [monthlyPostTarget, setMonthlyPostTarget] = useState("");
-  const [colors, setColors] = useState<string[]>([]);
+  const [colors, setColors] = useState<{ role: string; hex: string }[]>([]);
   const [platformFacebook, setPlatformFacebook] = useState(false);
   const [platformInstagram, setPlatformInstagram] = useState(false);
   const [platformTiktok, setPlatformTiktok] = useState(false);
@@ -63,7 +63,20 @@ export default function ClientAiProfileModal({ clientId, clientName, onClose }: 
         setTargetAudience(profile.target_audience ?? "");
         setMonthlyVideoTarget(profile.monthly_video_target != null ? String(profile.monthly_video_target) : "");
         setMonthlyPostTarget(profile.monthly_post_target != null ? String(profile.monthly_post_target) : "");
-        setColors(profile.visual_direction ? profile.visual_direction.split(",").map((v) => v.trim()).filter(Boolean) : []);
+        setColors(
+          profile.visual_direction
+            ? profile.visual_direction
+                .split("\n")
+                .map((line) => line.trim())
+                .filter(Boolean)
+                .map((line) => {
+                  const idx = line.indexOf(":");
+                  return idx === -1
+                    ? { role: "", hex: line.trim() }
+                    : { role: line.slice(0, idx).trim(), hex: line.slice(idx + 1).trim() };
+                })
+            : []
+        );
         setPlatformFacebook(profile.platform_facebook);
         setPlatformInstagram(profile.platform_instagram);
         setPlatformTiktok(profile.platform_tiktok);
@@ -86,11 +99,15 @@ export default function ClientAiProfileModal({ clientId, clientName, onClose }: 
   }, [token, clientId]);
 
   function addColor() {
-    setColors((prev) => [...prev, ""]);
+    setColors((prev) => [...prev, { role: "", hex: "" }]);
   }
 
-  function updateColor(index: number, value: string) {
-    setColors((prev) => prev.map((c, i) => (i === index ? value : c)));
+  function updateColorRole(index: number, role: string) {
+    setColors((prev) => prev.map((c, i) => (i === index ? { ...c, role } : c)));
+  }
+
+  function updateColorHex(index: number, hex: string) {
+    setColors((prev) => prev.map((c, i) => (i === index ? { ...c, hex } : c)));
   }
 
   function removeColor(index: number) {
@@ -135,7 +152,11 @@ export default function ClientAiProfileModal({ clientId, clientName, onClose }: 
       await updateClientAiProfile(token, clientId, {
         brandVoice: `${addressForm}, ${toneStyle}`,
         targetAudience: targetAudience.trim(),
-        visualDirection: colors.filter((c) => c.trim()).join(", ") || undefined,
+        visualDirection:
+          colors
+            .filter((c) => c.hex.trim())
+            .map((c) => `${c.role.trim() || "Szín"}: ${c.hex.trim()}`)
+            .join("\n") || undefined,
         monthlyVideoTarget: Number(monthlyVideoTarget),
         monthlyPostTarget: Number(monthlyPostTarget),
         platformFacebook,
@@ -161,8 +182,10 @@ export default function ClientAiProfileModal({ clientId, clientName, onClose }: 
     if (targetAudience.trim()) lines.push(`Célközönség: ${targetAudience.trim()}`, "");
     if (monthlyVideoTarget.trim()) lines.push(`Havi videó mennyiség: ${monthlyVideoTarget.trim()}`, "");
     if (monthlyPostTarget.trim()) lines.push(`Havi poszt mennyiség: ${monthlyPostTarget.trim()}`, "");
-    const filledColors = colors.filter((c) => c.trim());
-    if (filledColors.length) lines.push(`Brand színek: ${filledColors.join(", ")}`, "");
+    const filledColors = colors.filter((c) => c.hex.trim());
+    if (filledColors.length) {
+      lines.push("Brand színek:", ...filledColors.map((c) => `  ${c.role.trim() || "Szín"}: ${c.hex.trim()}`), "");
+    }
     const services = [
       serviceWebsiteBuild && "Weboldal készítés",
       serviceLandingPage && "Landing oldal készítés",
@@ -345,13 +368,24 @@ export default function ClientAiProfileModal({ clientId, clientName, onClose }: 
             />
 
             <label>Vizuális irány — brand színek</label>
+            <p className="chat-empty-hint">
+              Add meg, melyik szín mire való (pl. Fő háttér, Elsődleges brand szín, Gomb/link szín, Border) és a HEX
+              kódját.
+            </p>
             {colors.map((color, i) => (
               <div key={i} className="ai-profile-color-row">
-                {color.trim() && <span className="ai-profile-color-swatch" style={{ background: color.trim() }} />}
+                {color.hex.trim() && <span className="ai-profile-color-swatch" style={{ background: color.hex.trim() }} />}
                 <input
-                  value={color}
-                  onChange={(e) => updateColor(i, e.currentTarget.value)}
-                  placeholder="#FF5733"
+                  value={color.role}
+                  onChange={(e) => updateColorRole(i, e.currentTarget.value)}
+                  placeholder="Pl. Fő háttér"
+                  className="ai-profile-color-role"
+                />
+                <input
+                  value={color.hex}
+                  onChange={(e) => updateColorHex(i, e.currentTarget.value)}
+                  placeholder="#020D19"
+                  className="ai-profile-color-hex"
                 />
                 <button type="button" onClick={() => removeColor(i)}>
                   ×

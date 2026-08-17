@@ -168,6 +168,10 @@ button:hover {
   flex: 1;
 }
 
+.ai-profile-color-row input.ai-profile-color-hex {
+  flex: 0 0 8em;
+}
+
 .ai-profile-color-swatch {
   display: inline-block;
   width: 1.4em;
