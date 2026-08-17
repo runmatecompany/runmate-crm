@@ -58,7 +58,10 @@ export default function Sidebar({ activeId, onSelect, userId, userName, onLogout
                 )}
                 <button
                   className={isParentActive ? "sidebar-link active" : "sidebar-link"}
-                  onClick={() => onSelect(item.children ? item.children[0].id : item.id)}
+                  onClick={() => {
+                    if (item.children) toggleGroup(item.id);
+                    onSelect(item.children ? item.children[0].id : item.id);
+                  }}
                 >
                   {item.label}
                 </button>
