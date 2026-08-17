@@ -232,6 +232,215 @@ button:hover {
   color: var(--accent-hover);
 }
 
+/* ---- Onboarding — dedikált, széles, szekciózott modal (nem a szűk
+   .chat-modal-t használja, mert 18+ mezőt nem lehet abba kényelmesen
+   beszorítani) ---- */
+
+.ob-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  padding: 2em 1em;
+}
+
+.ob-modal {
+  display: flex;
+  flex-direction: column;
+  width: min(780px, calc(100vw - 2em));
+  max-height: min(88vh, 900px);
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+
+.ob-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1em;
+  padding: 1.4em 1.6em 1em;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.ob-modal-header h2 {
+  margin: 0 0 0.2em;
+  font-size: 1.25em;
+}
+
+.ob-modal-subtitle {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.85em;
+  max-width: 46em;
+}
+
+.ob-close-btn {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  color: var(--text-muted);
+  font-size: 1.3em;
+  line-height: 1;
+  padding: 0.1em 0.3em;
+  flex-shrink: 0;
+}
+
+.ob-close-btn:hover {
+  color: var(--text);
+  border-color: transparent;
+}
+
+.ob-progress {
+  display: flex;
+  align-items: center;
+  gap: 0.8em;
+  padding: 0.9em 1.6em;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.ob-progress-track {
+  flex: 1;
+  height: 6px;
+  border-radius: 999px;
+  background-color: var(--surface-alt);
+  overflow: hidden;
+}
+
+.ob-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background-color: var(--accent);
+  transition: width 0.3s ease;
+}
+
+.ob-progress-label {
+  font-size: 0.76em;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.ob-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.4em 1.6em;
+  display: flex;
+  flex-direction: column;
+  gap: 1.6em;
+}
+
+.ob-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9em;
+}
+
+.ob-section-header {
+  display: flex;
+  align-items: center;
+  gap: 0.7em;
+}
+
+.ob-section-badge {
+  flex-shrink: 0;
+  width: 1.8em;
+  height: 1.8em;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.82em;
+  font-weight: 700;
+  color: #fff;
+  background-color: var(--accent);
+}
+
+.ob-section--services .ob-section-badge {
+  background-color: #f5a623;
+}
+
+.ob-section--collab .ob-section-badge {
+  background-color: #3ecf8e;
+}
+
+.ob-section-title {
+  font-size: 1.02em;
+  font-weight: 700;
+}
+
+.ob-section-desc {
+  margin: 0.1em 0 0;
+  font-size: 0.8em;
+  color: var(--text-muted);
+}
+
+.ob-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.9em 1.2em;
+}
+
+.ob-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3em;
+  min-width: 0;
+}
+
+.ob-field-full {
+  grid-column: 1 / -1;
+}
+
+.ob-field label {
+  font-size: 0.82em;
+  color: var(--text-muted);
+}
+
+.ob-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1em;
+  padding: 1em 1.6em;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.ob-footer-error {
+  color: var(--danger);
+  font-size: 0.85em;
+  margin: 0;
+}
+
+.ob-footer-actions {
+  display: flex;
+  gap: 0.6em;
+  margin-left: auto;
+}
+
+.ob-submit-btn {
+  background-color: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.ob-submit-btn:hover {
+  background-color: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+.ob-submit-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 .login-error {
   color: var(--danger);
   font-size: 0.9em;
