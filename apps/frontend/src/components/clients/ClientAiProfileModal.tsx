@@ -189,25 +189,30 @@ export default function ClientAiProfileModal({ clientId, clientName, onClose }: 
 
             <h3>Social media</h3>
 
-            <label>Platform</label>
-            <div className="chat-member-picker">
-              <label className="chat-colleague-pick email-account-access-option">
-                <input type="checkbox" checked={platformFacebook} onChange={(e) => setPlatformFacebook(e.currentTarget.checked)} />
-                Facebook
-              </label>
-              <label className="chat-colleague-pick email-account-access-option">
-                <input type="checkbox" checked={platformInstagram} onChange={(e) => setPlatformInstagram(e.currentTarget.checked)} />
-                Instagram
-              </label>
-              <label className="chat-colleague-pick email-account-access-option">
-                <input type="checkbox" checked={platformTiktok} onChange={(e) => setPlatformTiktok(e.currentTarget.checked)} />
-                TikTok
-              </label>
-              <label className="chat-colleague-pick email-account-access-option">
-                <input type="checkbox" checked={platformYoutube} onChange={(e) => setPlatformYoutube(e.currentTarget.checked)} />
-                YouTube
-              </label>
-            </div>
+            <label htmlFor="ai-platforms">Platform (Ctrl/Cmd+kattintással többet is kijelölhetsz)</label>
+            <select
+              id="ai-platforms"
+              multiple
+              size={4}
+              value={[
+                platformFacebook && "facebook",
+                platformInstagram && "instagram",
+                platformTiktok && "tiktok",
+                platformYoutube && "youtube",
+              ].filter((v): v is string => Boolean(v))}
+              onChange={(e) => {
+                const selected = new Set(Array.from(e.currentTarget.selectedOptions, (o) => o.value));
+                setPlatformFacebook(selected.has("facebook"));
+                setPlatformInstagram(selected.has("instagram"));
+                setPlatformTiktok(selected.has("tiktok"));
+                setPlatformYoutube(selected.has("youtube"));
+              }}
+            >
+              <option value="facebook">Facebook</option>
+              <option value="instagram">Instagram</option>
+              <option value="tiktok">TikTok</option>
+              <option value="youtube">YouTube</option>
+            </select>
 
             <label htmlFor="ai-monthly-video-target">Havi videó mennyiség</label>
             <input
