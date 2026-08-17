@@ -34,6 +34,7 @@ export default function LeadDetail({ lead, onBack, onChanged }: LeadDetailProps)
   const [instagramUrl, setInstagramUrl] = useState(lead.instagram_url ?? "");
   const [tiktokUrl, setTiktokUrl] = useState(lead.tiktok_url ?? "");
   const [youtubeUrl, setYoutubeUrl] = useState(lead.youtube_url ?? "");
+  const [notes, setNotes] = useState(lead.notes ?? "");
   const [savingQuestionnaire, setSavingQuestionnaire] = useState(false);
 
   const [researchList, setResearchList] = useState<LeadResearch[]>([]);
@@ -73,7 +74,8 @@ export default function LeadDetail({ lead, onBack, onChanged }: LeadDetailProps)
       facebookUrl !== (lead.facebook_url ?? "") ||
       instagramUrl !== (lead.instagram_url ?? "") ||
       tiktokUrl !== (lead.tiktok_url ?? "") ||
-      youtubeUrl !== (lead.youtube_url ?? "")
+      youtubeUrl !== (lead.youtube_url ?? "") ||
+      notes !== (lead.notes ?? "")
     );
   }
 
@@ -88,7 +90,7 @@ export default function LeadDetail({ lead, onBack, onChanged }: LeadDetailProps)
         phone: lead.phone ?? undefined,
         email: lead.email ?? undefined,
         address: lead.address ?? undefined,
-        notes: lead.notes ?? undefined,
+        notes: notes.trim() || undefined,
         websiteUrl: websiteUrl.trim() || undefined,
         facebookUrl: facebookUrl.trim() || undefined,
         instagramUrl: instagramUrl.trim() || undefined,
@@ -144,6 +146,17 @@ export default function LeadDetail({ lead, onBack, onChanged }: LeadDetailProps)
 
       <h2>Kutatási kérdőív</h2>
       <div className="sm-detail-action">
+        <div className="sm-detail-field">
+          <label htmlFor="lead-research-notes">Jegyzet (hívás előkészítéshez)</label>
+          <textarea
+            id="lead-research-notes"
+            rows={4}
+            value={notes}
+            onChange={(e) => setNotes(e.currentTarget.value)}
+            placeholder="Amit érdemes tudni, mielőtt felhívod — pl. mit találtál, mire hivatkozz, kit keress"
+          />
+        </div>
+
         <p className="chat-empty-hint">Add meg a linkeket, amiket találtál — ha egy platformon nincs jelenlét, írj "-"-t.</p>
 
         <div className="sm-detail-field">
