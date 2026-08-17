@@ -147,7 +147,6 @@ export default function LeadsPage() {
               <th>Kapcsolattartó</th>
               <th>Telefon</th>
               <th>Email</th>
-              <th>Állapot</th>
               <th></th>
             </tr>
           </thead>
@@ -159,27 +158,25 @@ export default function LeadsPage() {
                 <td>{lead.phone}</td>
                 <td>{lead.email}</td>
                 <td>
-                  <select
-                    className={`leads-status-select leads-status-${lead.status}`}
-                    value={lead.status}
-                    onChange={(e) => handleStatusChange(lead, e.currentTarget.value as LeadStatus)}
-                  >
-                    {LEAD_STATUS_OPTIONS.map((o) => (
-                      <option key={o.value} value={o.value}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-                <td>
                   <div className="leads-row-actions">
                     <button type="button" onClick={() => setOpenLeadId(lead.id)}>
                       Kutatás
                     </button>
+                    <select
+                      className={`leads-status-select leads-status-${lead.status}`}
+                      value={lead.status}
+                      onChange={(e) => handleStatusChange(lead, e.currentTarget.value as LeadStatus)}
+                    >
+                      {LEAD_STATUS_OPTIONS.map((o) => (
+                        <option key={o.value} value={o.value}>
+                          {o.label}
+                        </option>
+                      ))}
+                    </select>
                     <button type="button" onClick={() => setEditingLead(lead)}>
                       Szerkesztés
                     </button>
-                    {lead.status !== "became_customer" && (
+                    {lead.status === "became_customer" && (
                       <button type="button" onClick={() => handleConvert(lead)}>
                         Ügyféllé alakítás
                       </button>

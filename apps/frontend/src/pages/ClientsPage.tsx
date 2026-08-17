@@ -82,9 +82,6 @@ export default function ClientsPage() {
     <main className="leads-page">
       <div className="leads-header">
         <h1>Ügyfelek</h1>
-        <button type="button" onClick={() => setEditingClient("new")}>
-          + Új ügyfél
-        </button>
       </div>
 
       {loading && <p className="chat-empty-hint">Betöltés...</p>}

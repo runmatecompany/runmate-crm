@@ -119,51 +119,61 @@ export default function LeadDetail({ lead, onBack, onChanged }: LeadDetailProps)
       </p>
 
       <h2>Kutatási kérdőív</h2>
-      <p className="chat-empty-hint">Add meg a linkeket, amiket találtál — ha egy platformon nincs jelenlét, írj "-"-t.</p>
-
-      <label htmlFor="lead-research-website">Weboldal</label>
-      <input
-        id="lead-research-website"
-        value={websiteUrl}
-        onChange={(e) => setWebsiteUrl(e.currentTarget.value)}
-        placeholder="https://... vagy -"
-      />
-
-      <label htmlFor="lead-research-facebook">Facebook</label>
-      <input
-        id="lead-research-facebook"
-        value={facebookUrl}
-        onChange={(e) => setFacebookUrl(e.currentTarget.value)}
-        placeholder="https://... vagy -"
-      />
-
-      <label htmlFor="lead-research-instagram">Instagram</label>
-      <input
-        id="lead-research-instagram"
-        value={instagramUrl}
-        onChange={(e) => setInstagramUrl(e.currentTarget.value)}
-        placeholder="https://... vagy -"
-      />
-
-      <label htmlFor="lead-research-tiktok">TikTok</label>
-      <input
-        id="lead-research-tiktok"
-        value={tiktokUrl}
-        onChange={(e) => setTiktokUrl(e.currentTarget.value)}
-        placeholder="https://... vagy -"
-      />
-
-      <label htmlFor="lead-research-youtube">YouTube</label>
-      <input
-        id="lead-research-youtube"
-        value={youtubeUrl}
-        onChange={(e) => setYoutubeUrl(e.currentTarget.value)}
-        placeholder="https://... vagy -"
-      />
-
-      {error && <p className="login-error">{error}</p>}
-
       <div className="sm-detail-action">
+        <p className="chat-empty-hint">Add meg a linkeket, amiket találtál — ha egy platformon nincs jelenlét, írj "-"-t.</p>
+
+        <div className="sm-detail-field">
+          <label htmlFor="lead-research-website">Weboldal</label>
+          <input
+            id="lead-research-website"
+            value={websiteUrl}
+            onChange={(e) => setWebsiteUrl(e.currentTarget.value)}
+            placeholder="https://... vagy -"
+          />
+        </div>
+
+        <div className="sm-detail-field">
+          <label htmlFor="lead-research-facebook">Facebook</label>
+          <input
+            id="lead-research-facebook"
+            value={facebookUrl}
+            onChange={(e) => setFacebookUrl(e.currentTarget.value)}
+            placeholder="https://... vagy -"
+          />
+        </div>
+
+        <div className="sm-detail-field">
+          <label htmlFor="lead-research-instagram">Instagram</label>
+          <input
+            id="lead-research-instagram"
+            value={instagramUrl}
+            onChange={(e) => setInstagramUrl(e.currentTarget.value)}
+            placeholder="https://... vagy -"
+          />
+        </div>
+
+        <div className="sm-detail-field">
+          <label htmlFor="lead-research-tiktok">TikTok</label>
+          <input
+            id="lead-research-tiktok"
+            value={tiktokUrl}
+            onChange={(e) => setTiktokUrl(e.currentTarget.value)}
+            placeholder="https://... vagy -"
+          />
+        </div>
+
+        <div className="sm-detail-field">
+          <label htmlFor="lead-research-youtube">YouTube</label>
+          <input
+            id="lead-research-youtube"
+            value={youtubeUrl}
+            onChange={(e) => setYoutubeUrl(e.currentTarget.value)}
+            placeholder="https://... vagy -"
+          />
+        </div>
+
+        {error && <p className="login-error">{error}</p>}
+
         <button type="button" disabled={savingQuestionnaire} onClick={handleSaveQuestionnaire}>
           {savingQuestionnaire ? "Mentés..." : "Kérdőív mentése"}
         </button>
@@ -174,26 +184,26 @@ export default function LeadDetail({ lead, onBack, onChanged }: LeadDetailProps)
         <button type="button" disabled={starting || Boolean(isActive)} onClick={handleStart}>
           {starting ? "Indítás..." : isActive ? "Folyamatban..." : "Weboldal ellenőrzése"}
         </button>
-      </div>
 
-      {loading && <p className="chat-empty-hint">Betöltés...</p>}
-      {!loading && researchList.length > 0 && (
-        <ul className="sm-approval-history">
-          {researchList.map((r) => (
-            <li key={r.id} className="sm-approval-history-item">
-              <div>
-                <strong>{STATUS_LABELS[r.status]}</strong>
-              </div>
-              <div className="sm-approval-history-meta">
-                Indítva: {formatDateTime(r.created_at)}
-                {r.requested_by_name && ` · ${r.requested_by_name}`}
-              </div>
-              {r.website_analysis && <pre className="chat-empty-hint">{r.website_analysis}</pre>}
-              {r.status === "error" && r.error_message && <p className="login-error">{r.error_message}</p>}
-            </li>
-          ))}
-        </ul>
-      )}
+        {loading && <p className="chat-empty-hint">Betöltés...</p>}
+        {!loading && researchList.length > 0 && (
+          <ul className="sm-approval-history">
+            {researchList.map((r) => (
+              <li key={r.id} className="sm-approval-history-item">
+                <div>
+                  <strong>{STATUS_LABELS[r.status]}</strong>
+                </div>
+                <div className="sm-approval-history-meta">
+                  Indítva: {formatDateTime(r.created_at)}
+                  {r.requested_by_name && ` · ${r.requested_by_name}`}
+                </div>
+                {r.website_analysis && <pre className="chat-empty-hint">{r.website_analysis}</pre>}
+                {r.status === "error" && r.error_message && <p className="login-error">{r.error_message}</p>}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }
