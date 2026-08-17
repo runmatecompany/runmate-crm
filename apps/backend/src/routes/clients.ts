@@ -10,7 +10,7 @@ import {
 import { getClientAiProfile, upsertClientAiProfile } from "../db/clientAiProfiles.js";
 import { getClientOnboarding, upsertClientOnboarding } from "../db/clientOnboarding.js";
 import { hasSocialMediaAccess } from "../db/contentItems.js";
-import { ensureCurrentMonthClippingBatch } from "../lib/clipping.js";
+import { confirmCurrentMonthClippingPayment, getClippingProgress } from "../lib/clipping.js";
 import { provisionClientDriveFolders } from "../lib/googleDrive/onboarding.js";
 
 const clientDetailsSchema = {
@@ -258,17 +258,43 @@ export default async function clientsRoutes(fastify: FastifyInstance) {
       const clientId = Number(request.params.id);
       if (!(await getClientById(clientId))) return reply.code(404).send({ error: "Client not found" });
       const profile = await upsertClientOnboarding(clientId, request.body);
-
-      // Ha Clippelés van beállítva, a folyó hónap "Vágásra vár" kötege
-      // egyből létrejön — nem kell megvárni a hónapváltás előtti 10 napos
-      // automatikát. Best-effort: ha hibázik, a mentés akkor is sikeres.
-      try {
-        await ensureCurrentMonthClippingBatch(clientId);
-      } catch (err) {
-        fastify.log.error(err, "Immediate clipping batch provisioning failed on onboarding save");
-      }
-
       return { profile };
+    }
+  );
+
+  // Clippelés-nél a kész klippek száma nem a rendszerben nyilvántartott
+  // tartalmakból jön, hanem élőben a havi kimeneti Drive-mappa
+  // fájlneveiből (lásd lib/clipping.ts) — ezért ez egy külön, lassabb
+  // (Drive API-t hívó) végpont, nem a sima ügyfél-listázás része.
+  fastify.get<{ Params: { id: string } }>(
+    "/clients/:id/clipping-progress",
+    { onRequest: [fastify.authenticate] },
+    async (request, reply) => {
+      const { sub: userId, role } = request.user;
+      const access =
+        role === "admin" || (await hasClientsAccess(userId)) || (await hasSocialMediaAccess(userId));
+      if (!access) {
+        return reply.code(403).send({ error: "Nincs hozzáférésed ehhez" });
+      }
+      const clientId = Number(request.params.id);
+      if (!(await getClientById(clientId))) return reply.code(404).send({ error: "Client not found" });
+      const progress = await getClippingProgress(clientId);
+      return { progress };
+    }
+  );
+
+  fastify.post<{ Params: { id: string } }>(
+    "/clients/:id/clipping-progress/confirm-payment",
+    { onRequest: [fastify.authenticate] },
+    async (request, reply) => {
+      if (request.user.role !== "admin") {
+        return reply.code(403).send({ error: "Csak admin hagyhatja jóvá a fizetést" });
+      }
+      const clientId = Number(request.params.id);
+      if (!(await getClientById(clientId))) return reply.code(404).send({ error: "Client not found" });
+      await confirmCurrentMonthClippingPayment(clientId);
+      const progress = await getClippingProgress(clientId);
+      return { progress };
     }
   );
 }

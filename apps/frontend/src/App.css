@@ -2290,11 +2290,44 @@ button:hover {
   display: flex;
   flex-direction: column;
   gap: 0.6em;
+  animation: mt-fade-in 0.25s ease-out;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.sm-status-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
 }
 
 .sm-status-card-header {
   font-weight: 700;
   font-size: 1.05em;
+}
+
+.sm-status-locked {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+  background-color: rgba(255, 107, 107, 0.1);
+  color: var(--danger);
+  border-radius: 8px;
+  padding: 0.45em 0.6em;
+  font-size: 0.82em;
+  font-weight: 600;
+}
+
+.sm-status-confirm-btn {
+  align-self: flex-start;
+  background-color: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-size: 0.8em;
+  padding: 0.4em 0.8em;
+}
+
+.sm-status-confirm-btn:hover {
+  background-color: var(--accent-hover);
+  border-color: var(--accent-hover);
 }
 
 .sm-status-card-targets {

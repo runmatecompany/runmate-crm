@@ -16,6 +16,7 @@ export interface Client {
   onboarding_completed_at: string | null;
   monthly_video_target: number | null;
   monthly_post_target: number | null;
+  service_clipping: boolean;
   created_at: string;
   updated_at: string;
 }

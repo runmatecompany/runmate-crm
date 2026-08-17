@@ -69,7 +69,6 @@ export default function SocialMediaPage({ tab }: SocialMediaPageProps) {
     contentType: ContentType;
     platform: ContentItem["platform"];
     assignedTo?: number;
-    startAsClip?: boolean;
   }) {
     if (!token) return;
     await createContentItem(token, input);

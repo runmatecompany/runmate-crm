@@ -1,7 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import {
   confirmContentItemPayment,
-  createClipContentItem,
   createContentItem,
   deleteContentItem,
   getContentItemById,
@@ -26,7 +25,6 @@ import { getUserById } from "../db/users.js";
 import { pool } from "../db/pool.js";
 import { getClientById } from "../db/clients.js";
 import { getClientAiProfile } from "../db/clientAiProfiles.js";
-import { getClientOnboarding } from "../db/clientOnboarding.js";
 import { generateScriptDraft, isAiScriptDraftEnabled } from "../lib/aiScriptDraft.js";
 import { transitionContentItem, TransitionError, type TransitionAction, type TransitionPayload } from "../lib/socialMedia/transitions.js";
 import { sendApprovalReminderEmail, NotifyError } from "../lib/socialMedia/notify.js";
@@ -58,7 +56,6 @@ const createBodySchema = {
     contentType: { type: "string", enum: [...CONTENT_TYPE_VALUES] },
     platform: { type: "string", enum: [...PLATFORM_VALUES] },
     assignedTo: { type: "integer" },
-    startAsClip: { type: "boolean" },
   },
 } as const;
 
@@ -153,14 +150,7 @@ export default async function contentItemsRoutes(fastify: FastifyInstance) {
   });
 
   fastify.post<{
-    Body: {
-      clientId: number;
-      title: string;
-      contentType: ContentType;
-      platform: Platform;
-      assignedTo?: number;
-      startAsClip?: boolean;
-    };
+    Body: { clientId: number; title: string; contentType: ContentType; platform: Platform; assignedTo?: number };
   }>("/content-items", { onRequest: [fastify.authenticate], schema: { body: createBodySchema } }, async (
     request,
     reply
@@ -168,30 +158,6 @@ export default async function contentItemsRoutes(fastify: FastifyInstance) {
     const { sub: userId, role } = request.user;
     if (!(await canAccessSocialMediaModule(userId, role))) {
       return reply.code(403).send({ error: "Nincs hozzáférésed a Social Media modulhoz" });
-    }
-
-    // Clippelés: nincs script/forgatás fázis, egyenesen "Vágásra vár"
-    // állapotban indul, a rögzített forrás mappával — a forrást szerver
-    // oldalon nézzük ki (nem bízunk a kliens által küldött linkben), és
-    // csak akkor engedjük, ha az ügyfélnél tényleg be van kapcsolva a
-    // szolgáltatás.
-    if (request.body.startAsClip) {
-      if (request.body.contentType !== "video") {
-        return reply.code(400).send({ error: "Clippelés csak videó típusnál választható" });
-      }
-      const profile = await getClientOnboarding(request.body.clientId);
-      if (!profile?.service_clipping || !profile.clipping_source_folder_url) {
-        return reply
-          .code(400)
-          .send({ error: "Ennél az ügyfélnél nincs beállítva Clippelés szolgáltatás/forrás mappa" });
-      }
-      const item = await createClipContentItem({
-        clientId: request.body.clientId,
-        title: request.body.title,
-        platform: request.body.platform,
-        rawMediaUrl: profile.clipping_source_folder_url,
-      });
-      return reply.code(201).send({ item });
     }
 
     const item = await createContentItem(request.body);
@@ -282,8 +248,8 @@ export default async function contentItemsRoutes(fastify: FastifyInstance) {
   });
 
   // Nincs még számlázási/fizetési modul — ez az ideiglenes, admin-only
-  // jóváhagyás, ami elindíthatóvá teszi a munkát egy Clippelés-kötegből
-  // létrejött (payment_confirmed=false) tartalmon.
+  // jóváhagyás, ami elindíthatóvá teszi a munkát egy payment_confirmed=false
+  // állapotú tartalmon.
   fastify.post<{ Params: { id: string } }>(
     "/content-items/:id/confirm-payment",
     { onRequest: [fastify.authenticate] },

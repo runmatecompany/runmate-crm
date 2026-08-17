@@ -12,6 +12,7 @@ import {
   type ManualTaskStatus,
 } from "../lib/tasks";
 import { CONTENT_STATUS_LABELS, PLATFORM_LABELS, type ContentItem } from "../lib/socialMedia";
+import { confirmClippingPayment, getClippingProgress, type ClippingProgress } from "../lib/clippingProgress";
 import ManualTaskFormModal from "../components/tasks/ManualTaskFormModal";
 
 const STATUS_ORDER: ManualTaskStatus[] = ["todo", "in_progress", "done"];
@@ -100,6 +101,7 @@ export default function TasksPage() {
   const [search, setSearch] = useState("");
   const [onlyMine, setOnlyMine] = useState(false);
   const [clientFilter, setClientFilter] = useState<number | "">("");
+  const [clipProgress, setClipProgress] = useState<Record<number, ClippingProgress>>({});
 
   const refresh = useCallback(() => {
     if (!token) return;
@@ -116,6 +118,28 @@ export default function TasksPage() {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  const clippingClients = useMemo(() => clients.filter((c) => c.service_clipping), [clients]);
+
+  useEffect(() => {
+    if (!token || clippingClients.length === 0) return;
+    let cancelled = false;
+    Promise.all(
+      clippingClients.map((c) => getClippingProgress(token, c.client_id).then((p) => [c.client_id, p] as const))
+    ).then((pairs) => {
+      if (cancelled) return;
+      setClipProgress(Object.fromEntries(pairs));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [token, clippingClients]);
+
+  async function handleConfirmClipPayment(clientId: number) {
+    if (!token) return;
+    const progress = await confirmClippingPayment(token, clientId);
+    setClipProgress((prev) => ({ ...prev, [clientId]: progress }));
+  }
 
   const stats = useMemo(() => {
     const open = manualTasks.filter((t) => t.status !== "done").length;
@@ -329,24 +353,62 @@ export default function TasksPage() {
               const inProgress = clientItems.filter((i) => i.status !== "published");
               const videoTarget = client.monthly_video_target;
               const postTarget = client.monthly_post_target;
+              const clip = client.service_clipping ? clipProgress[client.client_id] : undefined;
 
               return (
                 <div key={client.client_id} className="mt-client-card">
                   <div className="mt-client-card-header">{client.client_name}</div>
 
-                  {videoTarget != null && (
-                    <div className="mt-progress-row">
-                      <div className="mt-progress-label">
-                        <span>Videó</span>
-                        <span>{videoDone}/{videoTarget}</span>
+                  {client.service_clipping ? (
+                    clip?.paymentConfirmed === false ? (
+                      <div className="sm-status-locked">🔒 Klippek: fizetésre vár</div>
+                    ) : (
+                      <div className="mt-progress-row">
+                        <div className="mt-progress-label">
+                          <span>Klippek</span>
+                          <span>
+                            {clip?.done ?? "…"}/{clip?.target ?? videoTarget ?? "?"}
+                          </span>
+                        </div>
+                        <div className="mt-progress">
+                          <div
+                            className={`mt-progress-fill${
+                              clip?.done != null && clip.target != null && clip.done >= clip.target
+                                ? " mt-progress-fill--done"
+                                : ""
+                            }`}
+                            style={{
+                              width: `${Math.min(100, ((clip?.done ?? 0) / Math.max(1, clip?.target ?? 1)) * 100)}%`,
+                            }}
+                          />
+                        </div>
                       </div>
-                      <div className="mt-progress">
-                        <div
-                          className={`mt-progress-fill${videoDone >= videoTarget ? " mt-progress-fill--done" : ""}`}
-                          style={{ width: `${Math.min(100, (videoDone / Math.max(1, videoTarget)) * 100)}%` }}
-                        />
+                    )
+                  ) : (
+                    videoTarget != null && (
+                      <div className="mt-progress-row">
+                        <div className="mt-progress-label">
+                          <span>Videó</span>
+                          <span>{videoDone}/{videoTarget}</span>
+                        </div>
+                        <div className="mt-progress">
+                          <div
+                            className={`mt-progress-fill${videoDone >= videoTarget ? " mt-progress-fill--done" : ""}`}
+                            style={{ width: `${Math.min(100, (videoDone / Math.max(1, videoTarget)) * 100)}%` }}
+                          />
+                        </div>
                       </div>
-                    </div>
+                    )
+                  )}
+
+                  {client.service_clipping && isAdmin && clip?.paymentConfirmed === false && (
+                    <button
+                      type="button"
+                      className="sm-status-confirm-btn"
+                      onClick={() => void handleConfirmClipPayment(client.client_id)}
+                    >
+                      Fizetés jóváhagyása
+                    </button>
                   )}
 
                   {postTarget != null && (
@@ -364,21 +426,22 @@ export default function TasksPage() {
                     </div>
                   )}
 
-                  {inProgress.length === 0 ? (
-                    <p className="chat-empty-hint">Nincs folyamatban lévő tartalom.</p>
-                  ) : (
-                    <ul className="mt-client-card-items">
-                      {inProgress.map((item) => (
-                        <li key={item.id} className="mt-client-card-item">
-                          <span className="mt-client-card-item-title">{item.title}</span>
-                          <span className="mt-client-card-item-meta">
-                            {CONTENT_STATUS_LABELS[item.status]} · {PLATFORM_LABELS[item.platform]}
-                            {item.last_actor_name && ` · utoljára: ${item.last_actor_name}`}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
+                  {!client.service_clipping &&
+                    (inProgress.length === 0 ? (
+                      <p className="chat-empty-hint">Nincs folyamatban lévő tartalom.</p>
+                    ) : (
+                      <ul className="mt-client-card-items">
+                        {inProgress.map((item) => (
+                          <li key={item.id} className="mt-client-card-item">
+                            <span className="mt-client-card-item-title">{item.title}</span>
+                            <span className="mt-client-card-item-meta">
+                              {CONTENT_STATUS_LABELS[item.status]} · {PLATFORM_LABELS[item.platform]}
+                              {item.last_actor_name && ` · utoljára: ${item.last_actor_name}`}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    ))}
                 </div>
               );
             })}

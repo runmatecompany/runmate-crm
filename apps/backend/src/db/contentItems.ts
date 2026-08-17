@@ -132,31 +132,6 @@ export async function createContentItem(input: CreateContentItemInput): Promise<
   return created!;
 }
 
-export interface CreateClipContentItemInput {
-  clientId: number;
-  title: string;
-  platform: Platform;
-  rawMediaUrl: string;
-}
-
-// Clippelés szolgáltatás: az ügyfél saját nyersanyagot ad egy rögzített
-// forrás mappából, nincs script/forgatás fázis — egyenesen "editing"
-// ("Vágásra vár") állapotban jön létre, a raw_media_url előre kitöltve
-// (lásd lib/clipping.ts, a havi köteg-generáláshoz). payment_confirmed
-// mindig false-szal indul: nincs még számlázási modul, addig admin
-// kézzel hagyja jóvá (confirmContentItemPayment), hogy a munka
-// elindítható legyen — lásd routes/contentItems.ts.
-export async function createClipContentItem(input: CreateClipContentItemInput): Promise<ContentItemRow> {
-  const { rows } = await pool.query<{ id: number }>(
-    `INSERT INTO content_items (client_id, title, content_type, platform, status, raw_media_url, payment_confirmed)
-     VALUES ($1, $2, 'video', $3, 'editing', $4, false)
-     RETURNING id`,
-    [input.clientId, input.title, input.platform, input.rawMediaUrl]
-  );
-  const created = await getContentItemById(rows[0].id);
-  return created!;
-}
-
 export async function confirmContentItemPayment(id: number): Promise<ContentItemRow | undefined> {
   const { rowCount } = await pool.query(`UPDATE content_items SET payment_confirmed = true, updated_at = now() WHERE id = $1`, [
     id,

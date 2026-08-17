@@ -16,6 +16,7 @@ export interface ClientRow {
   onboarding_completed_at: string | null;
   monthly_video_target: number | null;
   monthly_post_target: number | null;
+  service_clipping: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -23,13 +24,16 @@ export interface ClientRow {
 // A JOIN client_onboarding_profiles-szal a completed_at-ért (az Ügyfelek
 // lista "Onboarding" oszlopához) és a havi célszámokért van (a Social
 // Media "Állapot" füléhez) — így nem kell N+1 külön lekérdezés minden
-// ügyfélhez.
+// ügyfélhez. A service_clipping jelzi, hogy az adott ügyfélnél a kész
+// videók száma a Drive-mappából olvasandó (lásd lib/clipping.ts), nem a
+// content_items-ekből.
 const CLIENT_SELECT = `
   SELECT
     c.id, c.company_name, c.contact_name, c.phone, c.email, c.address, c.notes,
     c.lead_id, c.next_shoot_date, c.drive_folder_id,
     c.created_by, cu.name AS created_by_name,
     op.completed_at AS onboarding_completed_at, op.monthly_video_target, op.monthly_post_target,
+    COALESCE(op.service_clipping, false) AS service_clipping,
     c.created_at, c.updated_at
   FROM clients c
   LEFT JOIN users cu ON cu.id = c.created_by

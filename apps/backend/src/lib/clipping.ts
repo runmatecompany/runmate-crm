@@ -1,118 +1,68 @@
-import { pool } from "../db/pool.js";
-import { createClipContentItem, type Platform } from "../db/contentItems.js";
-import { hasClippingBatch, markClippingBatch } from "../db/clippingBatches.js";
+import { getClientById } from "../db/clients.js";
+import { getClientOnboarding } from "../db/clientOnboarding.js";
+import { confirmClippingPayment, isClippingPaymentConfirmed } from "../db/clippingPeriods.js";
+import { getAuthorizedClient } from "./googleCalendar/oauth.js";
+import { listFolderChildren } from "./googleDrive/api.js";
+import { ensureVideoSubfolder } from "./googleDrive/upload.js";
 
-const LEAD_DAYS = 10;
-
-interface ClippingClientRow {
-  client_id: number;
-  company_name: string;
-  clipping_source_folder_url: string;
-  monthly_video_target: number;
-  platform_facebook: boolean;
-  platform_instagram: boolean;
-  platform_tiktok: boolean;
-  platform_youtube: boolean;
+function currentYearMonth(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
-function yearMonthKey(date: Date): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+// A vágó a kész klippeket közvetlenül a havi "Videók/Megvágva" Drive-
+// mappába tölti fel, számozva: "1", "2", "3"... Felülvágás esetén a
+// javított verzió neve "1v2", "1v3" stb. — a szám ugyanaz marad, csak a
+// verzió-utótag változik, tehát az "1" és "1v2" ugyanazt az 1. videót
+// jelenti (a legfrissebb verziót számítjuk késznek, a count-hoz elég az
+// egyedi videó-sorszámokat összeszámolni).
+function parseClipNumber(filename: string): number | null {
+  const base = filename.replace(/\.[^./]+$/, "");
+  const match = base.match(/^(\d+)(?:v\d+)?$/);
+  return match ? Number(match[1]) : null;
 }
 
-const HU_MONTHS = [
-  "január", "február", "március", "április", "május", "június",
-  "július", "augusztus", "szeptember", "október", "november", "december",
-];
-
-// A klippek onnan mennek ki, amilyen platformokat az onboardingnál
-// kijelöltek (nem külön "tartalom-gyártási" szolgáltatásként, hanem
-// egyszerűen mint célfelület) — több platform esetén körbeforgatva
-// osztjuk szét köztük, hogy egyik se maradjon ki. Ha semmi nincs
-// kijelölve, Instagramra esik vissza (biztonsági alapérték).
-function enabledPlatforms(client: ClippingClientRow): Platform[] {
-  const platforms: Platform[] = [
-    client.platform_facebook && "facebook",
-    client.platform_instagram && "instagram",
-    client.platform_tiktok && "tiktok",
-    client.platform_youtube && "youtube",
-  ].filter((p): p is Platform => Boolean(p));
-  return platforms.length > 0 ? platforms : ["instagram"];
+export interface ClippingProgress {
+  eligible: boolean;
+  paymentConfirmed: boolean;
+  target: number | null;
+  done: number | null;
 }
 
-async function generateBatch(client: ClippingClientRow, targetMonth: Date): Promise<void> {
-  const yearMonth = yearMonthKey(targetMonth);
-  if (await hasClippingBatch(client.client_id, yearMonth)) return;
-
-  const monthLabel = `${targetMonth.getFullYear()} ${HU_MONTHS[targetMonth.getMonth()]}`;
-  const platforms = enabledPlatforms(client);
-
-  for (let i = 1; i <= client.monthly_video_target; i++) {
-    await createClipContentItem({
-      clientId: client.client_id,
-      title: `Clip ${monthLabel} #${i}`,
-      platform: platforms[(i - 1) % platforms.length],
-      rawMediaUrl: client.clipping_source_folder_url,
-    });
+// A kész klippek száma NEM a rendszerben nyilvántartott content_items-ekből
+// jön — nincs egyenként létrehozott/kilistázott "Vágásra vár" kártya —,
+// hanem élőben a Drive-mappa tartalmából olvassuk ki, a fájlnevek alapján.
+// Amíg a fizetés nincs jóváhagyva arra a hónapra, a szám el van rejtve
+// (done: null) — a csapat még azt sem látja, hogy van-e már kész munka.
+export async function getClippingProgress(clientId: number): Promise<ClippingProgress> {
+  const profile = await getClientOnboarding(clientId);
+  if (!profile?.service_clipping || !profile.monthly_video_target) {
+    return { eligible: false, paymentConfirmed: false, target: null, done: null };
   }
-  await markClippingBatch(client.client_id, yearMonth);
-}
 
-async function listEligibleClients(): Promise<ClippingClientRow[]> {
-  const { rows } = await pool.query<ClippingClientRow>(
-    `SELECT c.id AS client_id, c.company_name,
-            op.clipping_source_folder_url, op.monthly_video_target,
-            op.platform_facebook, op.platform_instagram, op.platform_tiktok, op.platform_youtube
-     FROM clients c
-     JOIN client_onboarding_profiles op ON op.client_id = c.id
-     WHERE op.service_clipping = true
-       AND op.clipping_source_folder_url IS NOT NULL
-       AND op.monthly_video_target IS NOT NULL
-       AND op.monthly_video_target > 0`
-  );
-  return rows;
-}
-
-// Amint egy ügyfélnél Clippelés-t állítanak be onboardingkor (vagy utólag
-// bekapcsolják), a folyó hónapra egyből létrejön a "Vágásra vár" köteg —
-// nem kell megvárni a hónapváltást, hogy elkezdődhessen a munka. Best-
-// effort, hívható közvetlenül az onboarding-mentés végén.
-export async function ensureCurrentMonthClippingBatch(clientId: number): Promise<void> {
-  const { rows } = await pool.query<ClippingClientRow>(
-    `SELECT c.id AS client_id, c.company_name,
-            op.clipping_source_folder_url, op.monthly_video_target,
-            op.platform_facebook, op.platform_instagram, op.platform_tiktok, op.platform_youtube
-     FROM clients c
-     JOIN client_onboarding_profiles op ON op.client_id = c.id
-     WHERE c.id = $1
-       AND op.service_clipping = true
-       AND op.clipping_source_folder_url IS NOT NULL
-       AND op.monthly_video_target IS NOT NULL
-       AND op.monthly_video_target > 0`,
-    [clientId]
-  );
-  const client = rows[0];
-  if (!client) return;
-  await generateBatch(client, new Date());
-}
-
-// Naponta lefutó biztonsági háló: mindenkinek, akinél Clippelés van
-// beállítva, biztosítja, hogy a FOLYÓ hónapra legyen köteg (arra az
-// esetre, ha az onboarding-mentéskor futó azonnali generálás valamiért
-// kimaradt) — plusz a hónapváltás előtt legfeljebb 10 nappal előre
-// legenerálja a KÖVETKEZŐ hónap kötegét is, hogy egy nap csúszás se
-// legyen a hónapváltáskor.
-export async function processClippingBatches(): Promise<void> {
-  const clients = await listEligibleClients();
-  if (clients.length === 0) return;
-
-  const today = new Date();
-  const nextMonthStart = new Date(today.getFullYear(), today.getMonth() + 1, 1);
-  const daysUntilNextMonth = Math.ceil((nextMonthStart.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
-
-  for (const client of clients) {
-    await generateBatch(client, today);
-    if (daysUntilNextMonth <= LEAD_DAYS) {
-      await generateBatch(client, nextMonthStart);
-    }
+  const yearMonth = currentYearMonth();
+  const paymentConfirmed = await isClippingPaymentConfirmed(clientId, yearMonth);
+  if (!paymentConfirmed) {
+    return { eligible: true, paymentConfirmed: false, target: profile.monthly_video_target, done: null };
   }
+
+  const client = await getClientById(clientId);
+  const oauth = await getAuthorizedClient();
+  if (!client?.drive_folder_id || !oauth) {
+    return { eligible: true, paymentConfirmed: true, target: profile.monthly_video_target, done: null };
+  }
+
+  const folderId = await ensureVideoSubfolder(oauth, clientId, client.drive_folder_id, yearMonth, "edited");
+  const files = await listFolderChildren(oauth, folderId);
+  const doneNumbers = new Set<number>();
+  for (const file of files) {
+    const n = parseClipNumber(file.name);
+    if (n != null) doneNumbers.add(n);
+  }
+
+  return { eligible: true, paymentConfirmed: true, target: profile.monthly_video_target, done: doneNumbers.size };
+}
+
+export async function confirmCurrentMonthClippingPayment(clientId: number): Promise<void> {
+  await confirmClippingPayment(clientId, currentYearMonth());
 }

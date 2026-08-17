@@ -227,7 +227,6 @@ export async function createContentItem(
     contentType: ContentType;
     platform: Platform;
     assignedTo?: number;
-    startAsClip?: boolean;
   }
 ): Promise<ContentItem> {
   const res = await authFetch(token, "/content-items", {
@@ -365,7 +364,7 @@ export async function listContentItemEvents(token: string, itemId: number): Prom
 }
 
 // Nincs még számlázási modul — ez az ideiglenes admin-only jóváhagyás egy
-// Clippelés-kötegből létrejött tartalom elindíthatóvá tételéhez.
+// payment_confirmed=false-szal létrejött tartalom elindíthatóvá tételéhez.
 export async function confirmContentItemPayment(token: string, itemId: number): Promise<ContentItem> {
   const res = await authFetch(token, `/content-items/${itemId}/confirm-payment`, { method: "POST" });
   const data = await res.json();
