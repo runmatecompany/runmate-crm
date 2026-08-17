@@ -14,6 +14,8 @@ export interface Client {
   created_by: number | null;
   created_by_name: string | null;
   onboarding_completed_at: string | null;
+  monthly_video_target: number | null;
+  monthly_post_target: number | null;
   created_at: string;
   updated_at: string;
 }

@@ -106,8 +106,20 @@ export interface ContentItem {
   published_at: string | null;
   assigned_to: number | null;
   assigned_to_name: string | null;
+  last_actor_name: string | null;
+  last_actor_at: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface ContentItemEvent {
+  id: number;
+  content_item_id: number;
+  user_id: number | null;
+  user_name: string | null;
+  from_status: ContentStatus | null;
+  to_status: ContentStatus;
+  created_at: string;
 }
 
 export interface ContentItemFormInput {
@@ -335,6 +347,13 @@ export async function listApprovals(token: string, itemId: number): Promise<Appr
 
 export async function sendReminder(token: string, itemId: number, approvalId: number): Promise<void> {
   await authFetch(token, `/content-items/${itemId}/approvals/${approvalId}/remind`, { method: "POST" });
+}
+
+// Munkatörténet: ki vitte tovább a feladatot melyik fázisból a következőbe.
+export async function listContentItemEvents(token: string, itemId: number): Promise<ContentItemEvent[]> {
+  const res = await authFetch(token, `/content-items/${itemId}/activity`);
+  const data = await res.json();
+  return data.events;
 }
 
 export interface DriveBreadcrumbEntry {

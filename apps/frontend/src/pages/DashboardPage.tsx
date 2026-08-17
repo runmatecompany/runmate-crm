@@ -12,7 +12,7 @@ import SocialMediaPage, { type SocialMediaTab } from "./SocialMediaPage";
 import SettingsPage from "./SettingsPage";
 
 const SOCIAL_MEDIA_TABS: Record<string, SocialMediaTab> = {
-  "social-planner": "planner",
+  "social-status": "status",
   "social-kanban": "kanban",
   "social-post-queue": "post-queue",
   "social-shoot-calendar": "shoot-calendar",
