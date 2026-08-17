@@ -35,6 +35,7 @@ export default function ClientAiProfileModal({ clientId, clientName, onClose }: 
   const [approvalProcessNotes, setApprovalProcessNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [exportText, setExportText] = useState<string | null>(null);
 
   useEffect(() => {
     if (!token) return;
@@ -84,6 +85,40 @@ export default function ClientAiProfileModal({ clientId, clientName, onClose }: 
       setError(err instanceof Error ? err.message : "Nem sikerült menteni az AI-profilt");
       setSaving(false);
     }
+  }
+
+  // Kimásolható szöveg egy külső AI-chatbe (pl. a felhasználó saját Claude/
+  // ChatGPT előfizetése) beillesztéshez — így nem kell API-kulcsot fizetni
+  // ahhoz, hogy valaki AI-segítséget kérjen a profil alapján. Az üres
+  // mezőket kihagyjuk, hogy tiszta maradjon a beillesztett szöveg.
+  function buildExportText(): string {
+    const lines = [`ÜGYFÉL: ${clientName}`, ""];
+    const field = (label: string, value: string) => {
+      if (value.trim()) lines.push(`${label}: ${value.trim()}`, "");
+    };
+    field("Hangvétel", brandVoice);
+    field("Célközönség", targetAudience);
+    field("Tartalmi cél és típusok", contentGoals);
+    field("Publikálási ritmus", publishingCadence);
+    field("Vizuális irány", visualDirection);
+    field("CTA-stílus", ctaStyle);
+    field("Platform-specifikus jegyzetek", platformNotes);
+    field("Jóváhagyási folyamat", approvalProcessNotes);
+    field("Kerülendő témák/szavak", forbiddenTopics);
+    lines.push(`Social media jelenlét: ${hasSocialPresence ? "van" : "nincs"}`, "");
+    if (hasSocialPresence) {
+      field("Korábbi jól teljesítő tartalmak", referenceLinks);
+    } else {
+      field("Inspirációs márkák/versenytársak", inspirationBrands);
+      field("Márka küldetése/fő üzenete", brandMission);
+    }
+    return lines.join("\n").trim();
+  }
+
+  function handleExport() {
+    const text = buildExportText();
+    setExportText(text);
+    navigator.clipboard?.writeText(text).catch(() => {});
   }
 
   return (
@@ -207,6 +242,25 @@ export default function ClientAiProfileModal({ clientId, clientName, onClose }: 
                   value={brandMission}
                   onChange={(e) => setBrandMission(e.currentTarget.value)}
                 />
+              </>
+            )}
+          </>
+        )}
+
+        {!loading && (
+          <>
+            <div className="sm-detail-action">
+              <button type="button" onClick={handleExport}>
+                Profil exportálása (vágólapra + külső AI-hoz)
+              </button>
+            </div>
+            {exportText && (
+              <>
+                <p className="chat-empty-hint">
+                  Vágólapra másolva (ha engedélyezve van a böngésző) — vagy jelöld ki innen kézzel, és illeszd be egy
+                  külső AI-chatbe (pl. Claude, ChatGPT).
+                </p>
+                <textarea readOnly rows={8} value={exportText} onClick={(e) => e.currentTarget.select()} />
               </>
             )}
           </>
