@@ -40,8 +40,11 @@ export default function Sidebar({ activeId, onSelect, userId, userName, onLogout
         {MENU_ITEMS.map((item) => {
           const isParentActive = item.id === activeId || (item.children?.some((c) => c.id === activeId) ?? false);
           const isCollapsed = collapsedGroups.has(item.id);
+          const groupClasses = ["sidebar-group"];
+          if (item.children) groupClasses.push("sidebar-group-has-children");
+          if (item.children && isParentActive) groupClasses.push("sidebar-group-active");
           return (
-            <div key={item.id} className={item.children ? "sidebar-group sidebar-group-has-children" : "sidebar-group"}>
+            <div key={item.id} className={groupClasses.join(" ")}>
               <div className="sidebar-group-header">
                 {item.children && (
                   <button

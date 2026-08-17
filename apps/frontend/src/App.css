@@ -308,21 +308,41 @@ button:hover {
 .sidebar-group-header {
   display: flex;
   align-items: center;
-  gap: 0;
+  gap: 0.15em;
 }
 
+/* Egy egységes, teljes szélességű "pill" doboz a nyílnak és a névnek
+   együtt — nem két külön, egymásra csúszó téglalap. Aktív állapotban az
+   egész doboz vált kékre, nem csak a belső gomb. */
 .sidebar-group-has-children > .sidebar-group-header {
   background-color: #13294b;
-  border-radius: 6px;
+  border-radius: 8px;
+  padding: 0.15em 0.4em;
 }
 
-.sidebar-group-has-children > .sidebar-group-header .sidebar-link:not(.active) {
+.sidebar-group-active > .sidebar-group-header {
+  background-color: var(--accent);
+}
+
+.sidebar-group-has-children > .sidebar-group-header .sidebar-link {
+  background: transparent;
+  padding: 0.45em 0.3em;
   color: var(--text);
+}
+
+.sidebar-group-has-children > .sidebar-group-header .sidebar-link:hover {
+  background: transparent;
+  color: var(--text);
+}
+
+.sidebar-group-active > .sidebar-group-header .sidebar-link,
+.sidebar-group-active > .sidebar-group-header .sidebar-link.active {
+  color: #ffffff;
+  font-weight: 600;
 }
 
 .sidebar-group-header .sidebar-link {
   flex: 1;
-  padding-left: 0.1em;
 }
 
 .sidebar-collapse-toggle {
@@ -330,14 +350,19 @@ button:hover {
   border: none;
   box-shadow: none;
   color: #3a7bd5;
-  font-size: 1.3em;
+  font-size: 1.2em;
   font-weight: 700;
-  padding: 0.2em 0 0.2em 0.5em;
+  line-height: 1;
+  padding: 0;
   flex-shrink: 0;
 }
 
 .sidebar-collapse-toggle:hover {
   color: #4a91e6;
+}
+
+.sidebar-group-active .sidebar-collapse-toggle {
+  color: #ffffff;
 }
 
 .sidebar-submenu {
