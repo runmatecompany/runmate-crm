@@ -15,6 +15,7 @@ import leadsRoutes from "./routes/leads.js";
 import leadResearchRoutes from "./routes/leadResearch.js";
 import clientsRoutes from "./routes/clients.js";
 import contentItemsRoutes from "./routes/contentItems.js";
+import tasksRoutes from "./routes/tasks.js";
 import contentDraftsRoutes from "./routes/contentDrafts.js";
 import socialMediaApprovalRoutes from "./routes/socialMediaApproval.js";
 import adminSocialMediaConfigRoutes from "./routes/admin/socialMediaConfig.js";
@@ -55,6 +56,7 @@ export function buildApp() {
   app.register(leadResearchRoutes);
   app.register(clientsRoutes);
   app.register(contentItemsRoutes);
+  app.register(tasksRoutes);
   app.register(contentDraftsRoutes);
   app.register(socialMediaApprovalRoutes);
   app.register(adminSocialMediaConfigRoutes);

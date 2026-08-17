@@ -18,6 +18,7 @@ export default function UserAccessModal({ user, onClose }: UserAccessModalProps)
   const [leadsAccess, setLeadsAccessState] = useState(false);
   const [clientsAccess, setClientsAccessState] = useState(false);
   const [socialMediaAccess, setSocialMediaAccessState] = useState(false);
+  const [tasksAccess, setTasksAccessState] = useState(false);
   const [emailModuleAccess, setEmailModuleAccessState] = useState(false);
   const [selectedAccountIds, setSelectedAccountIds] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -32,6 +33,7 @@ export default function UserAccessModal({ user, onClose }: UserAccessModalProps)
         setLeadsAccessState(access.leadsAccess);
         setClientsAccessState(access.clientsAccess);
         setSocialMediaAccessState(access.socialMediaAccess);
+        setTasksAccessState(access.tasksAccess);
         setEmailModuleAccessState(access.emailModuleAccess);
         setSelectedAccountIds(new Set(access.emailAccountIds));
         setLoading(false);
@@ -60,6 +62,7 @@ export default function UserAccessModal({ user, onClose }: UserAccessModalProps)
         leadsAccess,
         clientsAccess,
         socialMediaAccess,
+        tasksAccess,
         emailModuleAccess,
         emailAccountIds: Array.from(selectedAccountIds),
       });
@@ -108,6 +111,15 @@ export default function UserAccessModal({ user, onClose }: UserAccessModalProps)
                 onChange={(e) => setSocialMediaAccessState(e.currentTarget.checked)}
               />
               {menuItemLabel("social", "Social Media")} modul
+            </label>
+
+            <label className="chat-colleague-pick email-account-access-option user-access-module">
+              <input
+                type="checkbox"
+                checked={tasksAccess}
+                onChange={(e) => setTasksAccessState(e.currentTarget.checked)}
+              />
+              {menuItemLabel("tasks", "Feladatok")} modul
             </label>
 
             <label className="chat-colleague-pick email-account-access-option user-access-module">

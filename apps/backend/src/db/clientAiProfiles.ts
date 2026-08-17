@@ -15,6 +15,8 @@ export interface ClientAiProfileRow {
   content_goals: string | null;
   publishing_cadence: string | null;
   approval_process_notes: string | null;
+  monthly_video_target: number | null;
+  monthly_post_target: number | null;
   onboarding_completed_at: string | null;
   updated_at: string;
 }
@@ -24,7 +26,7 @@ export async function getClientAiProfile(clientId: number): Promise<ClientAiProf
     `SELECT client_id, brand_voice, target_audience, visual_direction, forbidden_topics,
             cta_style, platform_notes, reference_links, has_social_presence, inspiration_brands,
             brand_mission, content_goals, publishing_cadence, approval_process_notes,
-            onboarding_completed_at, updated_at
+            monthly_video_target, monthly_post_target, onboarding_completed_at, updated_at
      FROM client_ai_profiles WHERE client_id = $1`,
     [clientId]
   );
@@ -45,6 +47,8 @@ export interface UpsertClientAiProfileInput {
   contentGoals?: string;
   publishingCadence?: string;
   approvalProcessNotes?: string;
+  monthlyVideoTarget?: number;
+  monthlyPostTarget?: number;
 }
 
 // Az onboarding_completed_at az ELSŐ sikeres mentéskor áll be, és utólagos
@@ -59,13 +63,15 @@ export async function upsertClientAiProfile(
     `INSERT INTO client_ai_profiles
        (client_id, brand_voice, target_audience, visual_direction, forbidden_topics, cta_style, platform_notes,
         reference_links, has_social_presence, inspiration_brands, brand_mission,
-        content_goals, publishing_cadence, approval_process_notes, onboarding_completed_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, now())
+        content_goals, publishing_cadence, approval_process_notes,
+        monthly_video_target, monthly_post_target, onboarding_completed_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, now())
      ON CONFLICT (client_id) DO UPDATE SET
        brand_voice = $2, target_audience = $3, visual_direction = $4, forbidden_topics = $5,
        cta_style = $6, platform_notes = $7, reference_links = $8, has_social_presence = $9,
        inspiration_brands = $10, brand_mission = $11,
        content_goals = $12, publishing_cadence = $13, approval_process_notes = $14,
+       monthly_video_target = $15, monthly_post_target = $16,
        onboarding_completed_at = COALESCE(client_ai_profiles.onboarding_completed_at, now()),
        updated_at = now()`,
     [
@@ -83,6 +89,8 @@ export async function upsertClientAiProfile(
       input.contentGoals ?? null,
       input.publishingCadence ?? null,
       input.approvalProcessNotes ?? null,
+      input.monthlyVideoTarget ?? null,
+      input.monthlyPostTarget ?? null,
     ]
   );
   return (await getClientAiProfile(clientId))!;

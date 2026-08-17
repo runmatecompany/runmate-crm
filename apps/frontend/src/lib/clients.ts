@@ -76,6 +76,8 @@ export interface ClientAiProfile {
   content_goals: string | null;
   publishing_cadence: string | null;
   approval_process_notes: string | null;
+  monthly_video_target: number | null;
+  monthly_post_target: number | null;
   onboarding_completed_at: string | null;
   updated_at: string;
 }
@@ -94,6 +96,8 @@ export interface ClientAiProfileInput {
   contentGoals?: string;
   publishingCadence?: string;
   approvalProcessNotes?: string;
+  monthlyVideoTarget?: number;
+  monthlyPostTarget?: number;
 }
 
 export async function getClientAiProfile(token: string, clientId: number): Promise<ClientAiProfile | null> {

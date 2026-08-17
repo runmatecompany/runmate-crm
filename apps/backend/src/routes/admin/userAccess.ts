@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { grantLeadsAccess, hasLeadsAccess, revokeLeadsAccess } from "../../db/leads.js";
 import { grantClientsAccess, hasClientsAccess, revokeClientsAccess } from "../../db/clients.js";
 import { grantSocialMediaAccess, hasSocialMediaAccess, revokeSocialMediaAccess } from "../../db/contentItems.js";
+import { grantTasksAccess, hasTasksAccess, revokeTasksAccess } from "../../db/tasks.js";
 import {
   grantAccountAccess,
   grantEmailModuleAccess,
@@ -14,11 +15,12 @@ import {
 
 const accessBodySchema = {
   type: "object",
-  required: ["leadsAccess", "clientsAccess", "socialMediaAccess", "emailModuleAccess", "emailAccountIds"],
+  required: ["leadsAccess", "clientsAccess", "socialMediaAccess", "tasksAccess", "emailModuleAccess", "emailAccountIds"],
   properties: {
     leadsAccess: { type: "boolean" },
     clientsAccess: { type: "boolean" },
     socialMediaAccess: { type: "boolean" },
+    tasksAccess: { type: "boolean" },
     emailModuleAccess: { type: "boolean" },
     emailAccountIds: { type: "array", items: { type: "integer" } },
   },
@@ -33,14 +35,16 @@ export default async function adminUserAccessRoutes(fastify: FastifyInstance) {
 
   fastify.get<{ Params: { id: string } }>("/admin/users/:id/access", async (request) => {
     const userId = Number(request.params.id);
-    const [leadsAccess, clientsAccess, socialMediaAccess, emailModuleAccess, emailAccountIds] = await Promise.all([
-      hasLeadsAccess(userId),
-      hasClientsAccess(userId),
-      hasSocialMediaAccess(userId),
-      hasEmailModuleAccess(userId),
-      listAccessibleAccountIdsForUser(userId),
-    ]);
-    return { leadsAccess, clientsAccess, socialMediaAccess, emailModuleAccess, emailAccountIds };
+    const [leadsAccess, clientsAccess, socialMediaAccess, tasksAccess, emailModuleAccess, emailAccountIds] =
+      await Promise.all([
+        hasLeadsAccess(userId),
+        hasClientsAccess(userId),
+        hasSocialMediaAccess(userId),
+        hasTasksAccess(userId),
+        hasEmailModuleAccess(userId),
+        listAccessibleAccountIdsForUser(userId),
+      ]);
+    return { leadsAccess, clientsAccess, socialMediaAccess, tasksAccess, emailModuleAccess, emailAccountIds };
   });
 
   fastify.put<{
@@ -49,12 +53,14 @@ export default async function adminUserAccessRoutes(fastify: FastifyInstance) {
       leadsAccess: boolean;
       clientsAccess: boolean;
       socialMediaAccess: boolean;
+      tasksAccess: boolean;
       emailModuleAccess: boolean;
       emailAccountIds: number[];
     };
   }>("/admin/users/:id/access", { schema: { body: accessBodySchema } }, async (request, reply) => {
     const userId = Number(request.params.id);
-    const { leadsAccess, clientsAccess, socialMediaAccess, emailModuleAccess, emailAccountIds } = request.body;
+    const { leadsAccess, clientsAccess, socialMediaAccess, tasksAccess, emailModuleAccess, emailAccountIds } =
+      request.body;
 
     if (leadsAccess) {
       await grantLeadsAccess(userId, request.user.sub);
@@ -72,6 +78,12 @@ export default async function adminUserAccessRoutes(fastify: FastifyInstance) {
       await grantSocialMediaAccess(userId, request.user.sub);
     } else {
       await revokeSocialMediaAccess(userId);
+    }
+
+    if (tasksAccess) {
+      await grantTasksAccess(userId, request.user.sub);
+    } else {
+      await revokeTasksAccess(userId);
     }
 
     if (emailModuleAccess) {

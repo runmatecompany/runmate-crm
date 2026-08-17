@@ -57,6 +57,8 @@ const aiProfileBodySchema = {
     contentGoals: { type: "string" },
     publishingCadence: { type: "string" },
     approvalProcessNotes: { type: "string" },
+    monthlyVideoTarget: { type: "integer" },
+    monthlyPostTarget: { type: "integer" },
   },
 } as const;
 
@@ -74,6 +76,8 @@ interface AiProfileBody {
   contentGoals?: string;
   publishingCadence?: string;
   approvalProcessNotes?: string;
+  monthlyVideoTarget?: number;
+  monthlyPostTarget?: number;
 }
 
 // Modul-szintű hozzáférés: admin mindig, más csak akkor, ha az admin

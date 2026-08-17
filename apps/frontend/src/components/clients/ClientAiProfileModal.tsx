@@ -33,6 +33,8 @@ export default function ClientAiProfileModal({ clientId, clientName, onClose }: 
   const [contentGoals, setContentGoals] = useState("");
   const [publishingCadence, setPublishingCadence] = useState("");
   const [approvalProcessNotes, setApprovalProcessNotes] = useState("");
+  const [monthlyVideoTarget, setMonthlyVideoTarget] = useState("");
+  const [monthlyPostTarget, setMonthlyPostTarget] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [exportText, setExportText] = useState<string | null>(null);
@@ -55,6 +57,8 @@ export default function ClientAiProfileModal({ clientId, clientName, onClose }: 
         setContentGoals(profile.content_goals ?? "");
         setPublishingCadence(profile.publishing_cadence ?? "");
         setApprovalProcessNotes(profile.approval_process_notes ?? "");
+        setMonthlyVideoTarget(profile.monthly_video_target != null ? String(profile.monthly_video_target) : "");
+        setMonthlyPostTarget(profile.monthly_post_target != null ? String(profile.monthly_post_target) : "");
       })
       .finally(() => setLoading(false));
   }, [token, clientId]);
@@ -79,6 +83,8 @@ export default function ClientAiProfileModal({ clientId, clientName, onClose }: 
         contentGoals: contentGoals.trim() || undefined,
         publishingCadence: publishingCadence.trim() || undefined,
         approvalProcessNotes: approvalProcessNotes.trim() || undefined,
+        monthlyVideoTarget: monthlyVideoTarget.trim() ? Number(monthlyVideoTarget) : undefined,
+        monthlyPostTarget: monthlyPostTarget.trim() ? Number(monthlyPostTarget) : undefined,
       });
       onClose();
     } catch (err) {
@@ -100,6 +106,8 @@ export default function ClientAiProfileModal({ clientId, clientName, onClose }: 
     field("Célközönség", targetAudience);
     field("Tartalmi cél és típusok", contentGoals);
     field("Publikálási ritmus", publishingCadence);
+    field("Havi videó-cél", monthlyVideoTarget);
+    field("Havi képes poszt-cél", monthlyPostTarget);
     field("Vizuális irány", visualDirection);
     field("CTA-stílus", ctaStyle);
     field("Platform-specifikus jegyzetek", platformNotes);
@@ -163,6 +171,26 @@ export default function ClientAiProfileModal({ clientId, clientName, onClose }: 
               value={publishingCadence}
               onChange={(e) => setPublishingCadence(e.currentTarget.value)}
               placeholder="Pl. hetente 2 poszt, mindig kedden és pénteken"
+            />
+
+            <label htmlFor="ai-monthly-video-target">Havi videó-cél</label>
+            <input
+              id="ai-monthly-video-target"
+              type="number"
+              min={0}
+              value={monthlyVideoTarget}
+              onChange={(e) => setMonthlyVideoTarget(e.currentTarget.value)}
+              placeholder="Pl. 8"
+            />
+
+            <label htmlFor="ai-monthly-post-target">Havi képes poszt-cél</label>
+            <input
+              id="ai-monthly-post-target"
+              type="number"
+              min={0}
+              value={monthlyPostTarget}
+              onChange={(e) => setMonthlyPostTarget(e.currentTarget.value)}
+              placeholder="Pl. 8"
             />
 
             <label htmlFor="ai-visual-direction">Vizuális irány</label>
