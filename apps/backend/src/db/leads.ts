@@ -1,6 +1,6 @@
 import { pool } from "./pool.js";
 
-export type LeadStatus = "to_call" | "called" | "call_back" | "became_customer" | "not_interested";
+export type LeadStatus = "to_call" | "call_back" | "interested" | "became_customer" | "not_interested";
 
 export interface LeadRow {
   id: number;
@@ -122,11 +122,18 @@ export async function updateLeadDetails(id: number, input: UpdateLeadDetailsInpu
   return getLeadById(id);
 }
 
-export async function updateLeadStatus(id: number, status: LeadStatus): Promise<LeadRow | undefined> {
-  const { rowCount } = await pool.query(`UPDATE leads SET status = $2, updated_at = now() WHERE id = $1`, [
-    id,
-    status,
-  ]);
+// "interested"-re váltáskor kötelező egy jegyzet (lásd routes/leads.ts
+// validáció) — ha meg van adva, a meglévő jegyzetek végéhez fűzzük, nem
+// írjuk felül őket.
+export async function updateLeadStatus(id: number, status: LeadStatus, note?: string): Promise<LeadRow | undefined> {
+  const { rowCount } = await pool.query(
+    `UPDATE leads SET
+       status = $2,
+       notes = CASE WHEN $3::text IS NOT NULL THEN COALESCE(notes || E'\n', '') || $3 ELSE notes END,
+       updated_at = now()
+     WHERE id = $1`,
+    [id, status, note ?? null]
+  );
   if (!rowCount) return undefined;
   return getLeadById(id);
 }

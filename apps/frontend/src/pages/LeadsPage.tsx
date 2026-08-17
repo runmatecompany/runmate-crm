@@ -46,7 +46,13 @@ export default function LeadsPage() {
 
   async function handleStatusChange(lead: Lead, status: LeadStatus) {
     if (!token) return;
-    await updateLeadStatus(token, lead.id, status);
+    let note: string | undefined;
+    if (status === "interested") {
+      const entered = prompt("Miért érdekli? (kötelező jegyzet)");
+      if (!entered?.trim()) return;
+      note = entered.trim();
+    }
+    await updateLeadStatus(token, lead.id, status, note);
     refresh();
   }
 

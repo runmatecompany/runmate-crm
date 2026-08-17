@@ -1,13 +1,13 @@
 import { authFetch } from "./api";
 
-export type LeadStatus = "to_call" | "called" | "call_back" | "became_customer" | "not_interested";
+export type LeadStatus = "to_call" | "call_back" | "interested" | "became_customer" | "not_interested";
 
 export const LEAD_STATUS_OPTIONS: { value: LeadStatus; label: string }[] = [
   { value: "to_call", label: "Hívandó" },
   { value: "call_back", label: "Visszahívandó" },
-  { value: "called", label: "Hívva" },
+  { value: "interested", label: "Érdekli" },
   { value: "became_customer", label: "Ügyfél lett" },
-  { value: "not_interested", label: "Nem érdekelt" },
+  { value: "not_interested", label: "Nem érdekli" },
 ];
 
 export interface Lead {
@@ -83,11 +83,11 @@ export async function updateLead(token: string, id: number, input: LeadFormInput
   return data.lead;
 }
 
-export async function updateLeadStatus(token: string, id: number, status: LeadStatus): Promise<Lead> {
+export async function updateLeadStatus(token: string, id: number, status: LeadStatus, note?: string): Promise<Lead> {
   const res = await authFetch(token, `/leads/${id}/status`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ status }),
+    body: JSON.stringify({ status, note }),
   });
   const data = await res.json();
   return data.lead;

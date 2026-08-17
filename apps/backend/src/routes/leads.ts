@@ -15,7 +15,7 @@ import { canAccessClientsModule } from "./clients.js";
 import { getClientById } from "../db/clients.js";
 import { provisionClientDriveFolders } from "../lib/googleDrive/onboarding.js";
 
-const LEAD_STATUS_VALUES = ["to_call", "called", "call_back", "became_customer", "not_interested"] as const;
+const LEAD_STATUS_VALUES = ["to_call", "call_back", "interested", "became_customer", "not_interested"] as const;
 
 const leadDetailsSchema = {
   companyName: { type: "string", minLength: 1 },
@@ -46,7 +46,10 @@ const updateLeadBodySchema = {
 const statusBodySchema = {
   type: "object",
   required: ["status"],
-  properties: { status: { type: "string", enum: [...LEAD_STATUS_VALUES] } },
+  properties: {
+    status: { type: "string", enum: [...LEAD_STATUS_VALUES] },
+    note: { type: "string" },
+  },
 } as const;
 
 const DATA_URL_PATTERN = /^data:(image\/(?:png|jpeg|jpg|webp|gif));base64,(.+)$/;
@@ -161,16 +164,19 @@ export default async function leadsRoutes(fastify: FastifyInstance) {
     }
   );
 
-  fastify.patch<{ Params: { id: string }; Body: { status: LeadStatus } }>(
+  fastify.patch<{ Params: { id: string }; Body: { status: LeadStatus; note?: string } }>(
     "/leads/:id/status",
     { onRequest: [fastify.authenticate], schema: { body: statusBodySchema } },
     async (request, reply) => {
       if (!(await canAccessLeadsModule(request.user.sub, request.user.role))) {
         return reply.code(403).send({ error: "Nincs hozzáférésed a Leadek modulhoz" });
       }
+      if (request.body.status === "interested" && !request.body.note?.trim()) {
+        return reply.code(400).send({ error: "Az 'Érdekli' állapothoz kötelező jegyzetet megadni" });
+      }
       const existing = await getLeadById(Number(request.params.id));
       if (!existing) return reply.code(404).send({ error: "Lead not found" });
-      const lead = await updateLeadStatus(existing.id, request.body.status);
+      const lead = await updateLeadStatus(existing.id, request.body.status, request.body.note?.trim());
       return { lead };
     }
   );
