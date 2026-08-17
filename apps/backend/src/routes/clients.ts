@@ -10,6 +10,7 @@ import {
 import { getClientAiProfile, upsertClientAiProfile } from "../db/clientAiProfiles.js";
 import { getClientOnboarding, upsertClientOnboarding } from "../db/clientOnboarding.js";
 import { hasSocialMediaAccess } from "../db/contentItems.js";
+import { ensureCurrentMonthClippingBatch } from "../lib/clipping.js";
 import { provisionClientDriveFolders } from "../lib/googleDrive/onboarding.js";
 
 const clientDetailsSchema = {
@@ -257,6 +258,16 @@ export default async function clientsRoutes(fastify: FastifyInstance) {
       const clientId = Number(request.params.id);
       if (!(await getClientById(clientId))) return reply.code(404).send({ error: "Client not found" });
       const profile = await upsertClientOnboarding(clientId, request.body);
+
+      // Ha Clippelés van beállítva, a folyó hónap "Vágásra vár" kötege
+      // egyből létrejön — nem kell megvárni a hónapváltás előtti 10 napos
+      // automatikát. Best-effort: ha hibázik, a mentés akkor is sikeres.
+      try {
+        await ensureCurrentMonthClippingBatch(clientId);
+      } catch (err) {
+        fastify.log.error(err, "Immediate clipping batch provisioning failed on onboarding save");
+      }
+
       return { profile };
     }
   );
