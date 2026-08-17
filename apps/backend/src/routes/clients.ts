@@ -65,6 +65,8 @@ const aiProfileBodySchema = {
     platformYoutube: { type: "boolean" },
     serviceWebsiteBuild: { type: "boolean" },
     serviceLandingPage: { type: "boolean" },
+    serviceClipping: { type: "boolean" },
+    clippingSourceFolderUrl: { type: "string" },
     websiteUrl: { type: "string" },
   },
 } as const;
@@ -91,6 +93,8 @@ interface AiProfileBody {
   platformYoutube?: boolean;
   serviceWebsiteBuild?: boolean;
   serviceLandingPage?: boolean;
+  serviceClipping?: boolean;
+  clippingSourceFolderUrl?: string;
   websiteUrl?: string;
 }
 

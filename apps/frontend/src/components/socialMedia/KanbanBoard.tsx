@@ -6,6 +6,7 @@ import {
   KANBAN_COLUMNS,
   PLATFORM_LABELS,
   STAGE_BADGE_LABELS,
+  confirmContentItemPayment,
   getCardAction,
   getStageBadge,
   nextImagePostStatus,
@@ -24,6 +25,7 @@ interface KanbanBoardProps {
 export default function KanbanBoard({ items, onOpen, onChanged }: KanbanBoardProps) {
   const { auth } = useAuth();
   const token = auth?.token ?? null;
+  const isAdmin = auth?.user.role === "admin";
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingUploadItemRef = useRef<ContentItem | null>(null);
   const [uploadingItemId, setUploadingItemId] = useState<number | null>(null);
@@ -86,6 +88,16 @@ export default function KanbanBoard({ items, onOpen, onChanged }: KanbanBoardPro
     void runAction(item, action, feedback);
   }
 
+  async function handleConfirmPayment(item: ContentItem) {
+    if (!token) return;
+    try {
+      await confirmContentItemPayment(token, item.id);
+      onChanged();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Nem sikerült jóváhagyni a fizetést");
+    }
+  }
+
   async function handleAdvanceImagePost(item: ContentItem) {
     const next = nextImagePostStatus(item.status);
     if (!next || !token) return;
@@ -140,31 +152,44 @@ export default function KanbanBoard({ items, onOpen, onChanged }: KanbanBoardPro
                           {STAGE_BADGE_LABELS[stageBadge]}
                         </span>
                       )}
+                      {!item.payment_confirmed && (
+                        <span className="sm-kanban-card-badge sm-kanban-card-badge-payment">🔒 Fizetésre vár</span>
+                      )}
                     </button>
-                    {cardAction.kind === "forward" && (
-                      <button
-                        type="button"
-                        className="sm-kanban-card-action"
-                        disabled={isUploading}
-                        onClick={() => handleCardAction(item)}
-                      >
-                        {isUploading ? `Feltöltés... ${Math.round(uploadProgress * 100)}%` : cardAction.label}
-                      </button>
-                    )}
-                    {cardAction.kind === "review" && (
-                      <div className="sm-kanban-card-review-actions">
-                        <button type="button" onClick={() => void runAction(item, cardAction.approveAction)}>
-                          Jóváhagyva
+                    {!item.payment_confirmed ? (
+                      isAdmin && (
+                        <button type="button" className="sm-kanban-card-action" onClick={() => void handleConfirmPayment(item)}>
+                          Fizetés jóváhagyása
                         </button>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleReject(item, cardAction.rejectAction as "reject_script" | "reject_edit")
-                          }
-                        >
-                          Módosítás kell
-                        </button>
-                      </div>
+                      )
+                    ) : (
+                      <>
+                        {cardAction.kind === "forward" && (
+                          <button
+                            type="button"
+                            className="sm-kanban-card-action"
+                            disabled={isUploading}
+                            onClick={() => handleCardAction(item)}
+                          >
+                            {isUploading ? `Feltöltés... ${Math.round(uploadProgress * 100)}%` : cardAction.label}
+                          </button>
+                        )}
+                        {cardAction.kind === "review" && (
+                          <div className="sm-kanban-card-review-actions">
+                            <button type="button" onClick={() => void runAction(item, cardAction.approveAction)}>
+                              Jóváhagyva
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleReject(item, cardAction.rejectAction as "reject_script" | "reject_edit")
+                              }
+                            >
+                              Módosítás kell
+                            </button>
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 );

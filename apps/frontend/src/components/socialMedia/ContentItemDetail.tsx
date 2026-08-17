@@ -3,6 +3,7 @@ import { useAuth } from "../../lib/auth";
 import {
   CONTENT_STATUS_LABELS,
   PLATFORM_LABELS,
+  confirmContentItemPayment,
   generateScriptDraft,
   getCardAction,
   getContentItem,
@@ -35,6 +36,7 @@ function formatDateTime(value: string | null): string {
 export default function ContentItemDetail({ itemId, onBack, onChanged }: ContentItemDetailProps) {
   const { auth } = useAuth();
   const token = auth?.token ?? null;
+  const isAdmin = auth?.user.role === "admin";
 
   const [item, setItem] = useState<ContentItem | null>(null);
   const [approvals, setApprovals] = useState<Approval[]>([]);
@@ -176,6 +178,20 @@ export default function ContentItemDetail({ itemId, onBack, onChanged }: Content
     }
   }
 
+  async function handleConfirmPayment() {
+    if (!token || !item) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const updated = await confirmContentItemPayment(token, item.id);
+      setItem(updated);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Nem sikerült jóváhagyni a fizetést");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function handleRemind(approval: Approval) {
     if (!token || !item) return;
     setBusy(true);
@@ -208,7 +224,18 @@ export default function ContentItemDetail({ itemId, onBack, onChanged }: Content
 
       {error && <p className="login-error">{error}</p>}
 
-      <div className="sm-detail-action">
+      {!item.payment_confirmed && (
+        <div className="sm-detail-action sm-detail-action-payment">
+          <p>🔒 A fizetés még nincs jóváhagyva — a munka nem indítható el ezen a tartalmon.</p>
+          {isAdmin && (
+            <button type="button" disabled={busy} onClick={handleConfirmPayment}>
+              Fizetés jóváhagyása
+            </button>
+          )}
+        </div>
+      )}
+
+      <div className="sm-detail-action" style={item.payment_confirmed ? undefined : { display: "none" }}>
         {cardAction.kind === "forward" && !cardAction.input && (
           <button type="button" disabled={busy} onClick={() => runAction(cardAction.action)}>
             {cardAction.label}
@@ -329,7 +356,7 @@ export default function ContentItemDetail({ itemId, onBack, onChanged }: Content
               <a href={item.edited_media_url} target="_blank" rel="noreferrer">{item.edited_media_url}</a>
             </p>
           )}
-          {item.status === "editing" && (
+          {item.status === "editing" && item.payment_confirmed && (
             <div className="sm-detail-action-form">
               <input ref={editedFileInputRef} type="file" multiple hidden onChange={handleEditedFilesSelected} />
               <button type="button" disabled={savingField} onClick={() => editedFileInputRef.current?.click()}>

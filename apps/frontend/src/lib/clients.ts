@@ -86,6 +86,8 @@ export interface ClientAiProfile {
   platform_youtube: boolean;
   service_website_build: boolean;
   service_landing_page: boolean;
+  service_clipping: boolean;
+  clipping_source_folder_url: string | null;
   website_url: string | null;
   facebook_url: string | null;
   instagram_url: string | null;
@@ -117,6 +119,8 @@ export interface ClientAiProfileInput {
   platformYoutube?: boolean;
   serviceWebsiteBuild?: boolean;
   serviceLandingPage?: boolean;
+  serviceClipping?: boolean;
+  clippingSourceFolderUrl?: string;
   websiteUrl?: string;
 }
 

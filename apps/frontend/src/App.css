@@ -2218,6 +2218,11 @@ button:hover {
   color: #3ecf8e;
 }
 
+.sm-kanban-card-badge-payment {
+  background-color: rgba(255, 107, 107, 0.15);
+  color: var(--danger);
+}
+
 .sm-planner {
   max-width: 640px;
 }
@@ -2477,6 +2482,11 @@ button:hover {
   background-color: var(--surface);
   border: 1px solid var(--border);
   border-radius: 10px;
+}
+
+.sm-detail-action-payment {
+  border-color: var(--danger);
+  background-color: rgba(255, 107, 107, 0.08);
 }
 
 .sm-detail-action-form {

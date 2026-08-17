@@ -44,6 +44,8 @@ export default function ClientAiProfileModal({ clientId, clientName, onClose }: 
   const [platformYoutube, setPlatformYoutube] = useState(false);
   const [serviceWebsiteBuild, setServiceWebsiteBuild] = useState(false);
   const [serviceLandingPage, setServiceLandingPage] = useState(false);
+  const [serviceClipping, setServiceClipping] = useState(false);
+  const [clippingSourceFolderUrl, setClippingSourceFolderUrl] = useState("");
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [existingLinks, setExistingLinks] = useState<{ label: string; url: string }[]>([]);
   const [saving, setSaving] = useState(false);
@@ -68,6 +70,8 @@ export default function ClientAiProfileModal({ clientId, clientName, onClose }: 
         setPlatformYoutube(profile.platform_youtube);
         setServiceWebsiteBuild(profile.service_website_build);
         setServiceLandingPage(profile.service_landing_page);
+        setServiceClipping(profile.service_clipping);
+        setClippingSourceFolderUrl(profile.clipping_source_folder_url ?? "");
         setWebsiteUrl(profile.website_url ?? "");
         setExistingLinks(
           [
@@ -99,8 +103,19 @@ export default function ClientAiProfileModal({ clientId, clientName, onClose }: 
     if (!targetAudience.trim()) return "A célközönség mező kitöltése kötelező (írj '-'-t, ha nem releváns).";
     if (!monthlyVideoTarget.trim()) return "A havi videó mennyiség kitöltése kötelező.";
     if (!monthlyPostTarget.trim()) return "A havi poszt mennyiség kitöltése kötelező.";
-    if (!platformFacebook && !platformInstagram && !platformTiktok && !platformYoutube && !serviceWebsiteBuild && !serviceLandingPage) {
+    if (
+      !platformFacebook &&
+      !platformInstagram &&
+      !platformTiktok &&
+      !platformYoutube &&
+      !serviceWebsiteBuild &&
+      !serviceLandingPage &&
+      !serviceClipping
+    ) {
       return "Válassz legalább egy szolgáltatást.";
+    }
+    if (serviceClipping && !clippingSourceFolderUrl.trim()) {
+      return "Clippeléshez kötelező megadni a forrás mappát.";
     }
     if (!websiteUrl.trim()) return "A weboldal mező kitöltése kötelező (írj '-'-t, ha nincs).";
     return null;
@@ -129,6 +144,8 @@ export default function ClientAiProfileModal({ clientId, clientName, onClose }: 
         platformYoutube,
         serviceWebsiteBuild,
         serviceLandingPage,
+        serviceClipping,
+        clippingSourceFolderUrl: serviceClipping ? clippingSourceFolderUrl.trim() : undefined,
         websiteUrl: websiteUrl.trim(),
       });
       onClose();
@@ -149,12 +166,16 @@ export default function ClientAiProfileModal({ clientId, clientName, onClose }: 
     const services = [
       serviceWebsiteBuild && "Weboldal készítés",
       serviceLandingPage && "Landing oldal készítés",
+      serviceClipping && "Clippelés",
       platformFacebook && "Facebook",
       platformInstagram && "Instagram",
       platformTiktok && "TikTok",
       platformYoutube && "YouTube",
     ].filter(Boolean);
     if (services.length) lines.push(`Szolgáltatások: ${services.join(", ")}`, "");
+    if (serviceClipping && clippingSourceFolderUrl.trim()) {
+      lines.push(`Clippelés forrás mappa: ${clippingSourceFolderUrl.trim()}`, "");
+    }
     if (websiteUrl.trim()) lines.push(`Weboldal: ${websiteUrl.trim()}`, "");
     if (existingLinks.length) {
       lines.push(`Meglévő közösségi jelenlét: ${existingLinks.map((l) => `${l.label}: ${l.url}`).join(" · ")}`, "");
@@ -257,7 +278,31 @@ export default function ClientAiProfileModal({ clientId, clientName, onClose }: 
               >
                 YouTube
               </button>
+              <button
+                type="button"
+                className={serviceClipping ? "ai-profile-platform-toggle active" : "ai-profile-platform-toggle"}
+                onClick={() => setServiceClipping((v) => !v)}
+              >
+                Clippelés
+              </button>
             </div>
+
+            {serviceClipping && (
+              <div className="sm-detail-field">
+                <label htmlFor="ai-clipping-source">Forrás mappa (Drive link, ahonnan a vágó dolgozik)</label>
+                <input
+                  id="ai-clipping-source"
+                  value={clippingSourceFolderUrl}
+                  onChange={(e) => setClippingSourceFolderUrl(e.currentTarget.value)}
+                  placeholder="https://drive.google.com/..."
+                />
+                <p className="chat-empty-hint">
+                  A havi videó-cél alapján minden hónapban, a hónapváltás előtt 10 nappal automatikusan létrejön a
+                  megfelelő mennyiségű "Vágásra vár" tartalom ebből a mappából — de a munka csak akkor indítható,
+                  ha admin jóváhagyta, hogy az ügyfél fizetett.
+                </p>
+              </div>
+            )}
 
             {existingLinks.length > 0 && (
               <div className="ai-profile-existing-links">

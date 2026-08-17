@@ -108,6 +108,7 @@ export interface ContentItem {
   assigned_to_name: string | null;
   last_actor_name: string | null;
   last_actor_at: string | null;
+  payment_confirmed: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -354,6 +355,14 @@ export async function listContentItemEvents(token: string, itemId: number): Prom
   const res = await authFetch(token, `/content-items/${itemId}/activity`);
   const data = await res.json();
   return data.events;
+}
+
+// Nincs még számlázási modul — ez az ideiglenes admin-only jóváhagyás egy
+// Clippelés-kötegből létrejött tartalom elindíthatóvá tételéhez.
+export async function confirmContentItemPayment(token: string, itemId: number): Promise<ContentItem> {
+  const res = await authFetch(token, `/content-items/${itemId}/confirm-payment`, { method: "POST" });
+  const data = await res.json();
+  return data.item;
 }
 
 export interface DriveBreadcrumbEntry {

@@ -57,6 +57,7 @@ export default function SocialMediaStatusView({ clients, items, onOpen }: Social
                       <span className="sm-status-card-item-meta">
                         {CONTENT_STATUS_LABELS[item.status]} · {PLATFORM_LABELS[item.platform]}
                         {item.last_actor_name && ` · utoljára: ${item.last_actor_name}`}
+                        {!item.payment_confirmed && " · 🔒 fizetésre vár"}
                       </span>
                     </button>
                   </li>

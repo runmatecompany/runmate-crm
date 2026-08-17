@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import {
+  confirmContentItemPayment,
   createContentItem,
   deleteContentItem,
   getContentItemById,
@@ -244,6 +245,22 @@ export default async function contentItemsRoutes(fastify: FastifyInstance) {
     return { ok: true };
   });
 
+  // Nincs még számlázási/fizetési modul — ez az ideiglenes, admin-only
+  // jóváhagyás, ami elindíthatóvá teszi a munkát egy Clippelés-kötegből
+  // létrejött (payment_confirmed=false) tartalmon.
+  fastify.post<{ Params: { id: string } }>(
+    "/content-items/:id/confirm-payment",
+    { onRequest: [fastify.authenticate] },
+    async (request, reply) => {
+      if (request.user.role !== "admin") {
+        return reply.code(403).send({ error: "Csak admin hagyhatja jóvá a fizetést" });
+      }
+      const item = await confirmContentItemPayment(Number(request.params.id));
+      if (!item) return reply.code(404).send({ error: "Content item not found" });
+      return { item };
+    }
+  );
+
   // Az egyetlen végpont minden állapotváltáshoz — a kanban gombjai és a
   // részletes nézet kiemelt gombja is ezt hívja.
   fastify.post<{ Params: { id: string }; Body: { action: TransitionAction; payload?: TransitionPayload } }>(
@@ -258,6 +275,9 @@ export default async function contentItemsRoutes(fastify: FastifyInstance) {
       if (!existing) return reply.code(404).send({ error: "Content item not found" });
       if (!canAccessItem(existing, userId, role)) {
         return reply.code(403).send({ error: "Nincs hozzárendelve hozzád ez a tartalom" });
+      }
+      if (!existing.payment_confirmed) {
+        return reply.code(400).send({ error: "A fizetés még nincs jóváhagyva — a munka nem indítható el" });
       }
 
       // A saját nevünket használjuk decided_by_name-ként — sosem a kliens
@@ -416,6 +436,9 @@ export default async function contentItemsRoutes(fastify: FastifyInstance) {
       if (!existing) return reply.code(404).send({ error: "Content item not found" });
       if (!canAccessItem(existing, userId, role)) {
         return reply.code(403).send({ error: "Nincs hozzárendelve hozzád ez a tartalom" });
+      }
+      if (!existing.payment_confirmed) {
+        return reply.code(400).send({ error: "A fizetés még nincs jóváhagyva — a munka nem indítható el" });
       }
 
       const oauth = await getAuthorizedClient();
