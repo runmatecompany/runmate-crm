@@ -63,6 +63,9 @@ export async function deleteClient(token: string, id: number): Promise<void> {
   await authFetch(token, `/clients/${id}`, { method: "DELETE" });
 }
 
+// Kreatív/tartalmi stílus-döntések — a "mit vállalunk nekik" és a
+// vállalkozásról szóló tények lib/clientOnboarding.ts-ben vannak, külön
+// kategóriaként.
 export interface ClientAiProfile {
   client_id: number;
   brand_voice: string | null;
@@ -75,25 +78,6 @@ export interface ClientAiProfile {
   has_social_presence: boolean;
   inspiration_brands: string | null;
   brand_mission: string | null;
-  content_goals: string | null;
-  publishing_cadence: string | null;
-  approval_process_notes: string | null;
-  monthly_video_target: number | null;
-  monthly_post_target: number | null;
-  platform_facebook: boolean;
-  platform_instagram: boolean;
-  platform_tiktok: boolean;
-  platform_youtube: boolean;
-  service_website_build: boolean;
-  service_landing_page: boolean;
-  service_clipping: boolean;
-  clipping_source_folder_url: string | null;
-  website_url: string | null;
-  facebook_url: string | null;
-  instagram_url: string | null;
-  tiktok_url: string | null;
-  youtube_url: string | null;
-  onboarding_completed_at: string | null;
   updated_at: string;
 }
 
@@ -108,20 +92,6 @@ export interface ClientAiProfileInput {
   hasSocialPresence?: boolean;
   inspirationBrands?: string;
   brandMission?: string;
-  contentGoals?: string;
-  publishingCadence?: string;
-  approvalProcessNotes?: string;
-  monthlyVideoTarget?: number;
-  monthlyPostTarget?: number;
-  platformFacebook?: boolean;
-  platformInstagram?: boolean;
-  platformTiktok?: boolean;
-  platformYoutube?: boolean;
-  serviceWebsiteBuild?: boolean;
-  serviceLandingPage?: boolean;
-  serviceClipping?: boolean;
-  clippingSourceFolderUrl?: string;
-  websiteUrl?: string;
 }
 
 export async function getClientAiProfile(token: string, clientId: number): Promise<ClientAiProfile | null> {

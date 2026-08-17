@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useAuth } from "../../lib/auth";
-import { getClientAiProfile, type Client } from "../../lib/clients";
+import type { Client } from "../../lib/clients";
+import { getClientOnboarding } from "../../lib/clientOnboarding";
 import { PLATFORM_LABELS, type ContentType, type Platform } from "../../lib/socialMedia";
 import { useEscapeToClose } from "../../lib/useEscapeToClose";
 
@@ -54,7 +55,7 @@ export default function ContentItemFormModal({ clients, onClose, onSave }: Conte
   useEffect(() => {
     if (!token || clientId === "") return;
     setLoadingProfile(true);
-    getClientAiProfile(token, clientId)
+    getClientOnboarding(token, clientId)
       .then((profile) => {
         const platforms: Platform[] = [
           profile?.platform_facebook && "facebook",

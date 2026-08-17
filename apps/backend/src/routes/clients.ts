@@ -8,6 +8,7 @@ import {
   updateClientDetails,
 } from "../db/clients.js";
 import { getClientAiProfile, upsertClientAiProfile } from "../db/clientAiProfiles.js";
+import { getClientOnboarding, upsertClientOnboarding } from "../db/clientOnboarding.js";
 import { hasSocialMediaAccess } from "../db/contentItems.js";
 import { provisionClientDriveFolders } from "../lib/googleDrive/onboarding.js";
 
@@ -54,20 +55,6 @@ const aiProfileBodySchema = {
     hasSocialPresence: { type: "boolean" },
     inspirationBrands: { type: "string" },
     brandMission: { type: "string" },
-    contentGoals: { type: "string" },
-    publishingCadence: { type: "string" },
-    approvalProcessNotes: { type: "string" },
-    monthlyVideoTarget: { type: "integer" },
-    monthlyPostTarget: { type: "integer" },
-    platformFacebook: { type: "boolean" },
-    platformInstagram: { type: "boolean" },
-    platformTiktok: { type: "boolean" },
-    platformYoutube: { type: "boolean" },
-    serviceWebsiteBuild: { type: "boolean" },
-    serviceLandingPage: { type: "boolean" },
-    serviceClipping: { type: "boolean" },
-    clippingSourceFolderUrl: { type: "string" },
-    websiteUrl: { type: "string" },
   },
 } as const;
 
@@ -82,11 +69,38 @@ interface AiProfileBody {
   hasSocialPresence?: boolean;
   inspirationBrands?: string;
   brandMission?: string;
-  contentGoals?: string;
-  publishingCadence?: string;
-  approvalProcessNotes?: string;
-  monthlyVideoTarget?: number;
-  monthlyPostTarget?: number;
+}
+
+const onboardingBodySchema = {
+  type: "object",
+  properties: {
+    industry: { type: "string" },
+    businessDescription: { type: "string" },
+    websiteUrl: { type: "string" },
+    brandAssetsLocation: { type: "string" },
+    platformFacebook: { type: "boolean" },
+    platformInstagram: { type: "boolean" },
+    platformTiktok: { type: "boolean" },
+    platformYoutube: { type: "boolean" },
+    serviceWebsiteBuild: { type: "boolean" },
+    serviceLandingPage: { type: "boolean" },
+    serviceClipping: { type: "boolean" },
+    clippingSourceFolderUrl: { type: "string" },
+    monthlyVideoTarget: { type: "integer" },
+    monthlyPostTarget: { type: "integer" },
+    collaborationGoals: { type: "string" },
+    approvalProcessNotes: { type: "string" },
+    approverName: { type: "string" },
+    approverEmail: { type: "string" },
+    otherNotes: { type: "string" },
+  },
+} as const;
+
+interface OnboardingBody {
+  industry?: string;
+  businessDescription?: string;
+  websiteUrl?: string;
+  brandAssetsLocation?: string;
   platformFacebook?: boolean;
   platformInstagram?: boolean;
   platformTiktok?: boolean;
@@ -95,7 +109,13 @@ interface AiProfileBody {
   serviceLandingPage?: boolean;
   serviceClipping?: boolean;
   clippingSourceFolderUrl?: string;
-  websiteUrl?: string;
+  monthlyVideoTarget?: number;
+  monthlyPostTarget?: number;
+  collaborationGoals?: string;
+  approvalProcessNotes?: string;
+  approverName?: string;
+  approverEmail?: string;
+  otherNotes?: string;
 }
 
 // Modul-szintű hozzáférés: admin mindig, más csak akkor, ha az admin
@@ -200,6 +220,43 @@ export default async function clientsRoutes(fastify: FastifyInstance) {
       const clientId = Number(request.params.id);
       if (!(await getClientById(clientId))) return reply.code(404).send({ error: "Client not found" });
       const profile = await upsertClientAiProfile(clientId, request.body);
+      return { profile };
+    }
+  );
+
+  // Az onboarding-profilt (vállalkozás adatai + amit vállalunk nekik) az
+  // Ügyfelek VAGY a Social Media modul hozzáférésével rendelkezők
+  // olvashatják (a tartalom-létrehozás is ebből szűri a platformokat) — a
+  // szerkesztés az Ügyfelek modul hozzáféréssel rendelkező bárkinek elérhető,
+  // NEM admin-only, mert az onboarding-hívást lebonyolító kolléga nem
+  // feltétlen admin.
+  fastify.get<{ Params: { id: string } }>(
+    "/clients/:id/onboarding",
+    { onRequest: [fastify.authenticate] },
+    async (request, reply) => {
+      const { sub: userId, role } = request.user;
+      const access =
+        role === "admin" || (await hasClientsAccess(userId)) || (await hasSocialMediaAccess(userId));
+      if (!access) {
+        return reply.code(403).send({ error: "Nincs hozzáférésed ehhez" });
+      }
+      const clientId = Number(request.params.id);
+      if (!(await getClientById(clientId))) return reply.code(404).send({ error: "Client not found" });
+      const profile = (await getClientOnboarding(clientId)) ?? null;
+      return { profile };
+    }
+  );
+
+  fastify.put<{ Params: { id: string }; Body: OnboardingBody }>(
+    "/clients/:id/onboarding",
+    { onRequest: [fastify.authenticate], schema: { body: onboardingBodySchema } },
+    async (request, reply) => {
+      if (!(await canAccessClientsModule(request.user.sub, request.user.role))) {
+        return reply.code(403).send({ error: "Nincs hozzáférésed az Ügyfelek modulhoz" });
+      }
+      const clientId = Number(request.params.id);
+      if (!(await getClientById(clientId))) return reply.code(404).send({ error: "Client not found" });
+      const profile = await upsertClientOnboarding(clientId, request.body);
       return { profile };
     }
   );

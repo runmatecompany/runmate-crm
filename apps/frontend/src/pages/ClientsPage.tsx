@@ -11,6 +11,7 @@ import {
 } from "../lib/clients";
 import ClientFormModal from "../components/clients/ClientFormModal";
 import ClientAiProfileModal from "../components/clients/ClientAiProfileModal";
+import ClientOnboardingModal from "../components/clients/ClientOnboardingModal";
 
 export default function ClientsPage() {
   const { auth } = useAuth();
@@ -22,6 +23,7 @@ export default function ClientsPage() {
   const [hasAccess, setHasAccess] = useState(true);
   const [editingClient, setEditingClient] = useState<Client | "new" | null>(null);
   const [aiProfileClient, setAiProfileClient] = useState<Client | null>(null);
+  const [onboardingClient, setOnboardingClient] = useState<Client | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -42,11 +44,12 @@ export default function ClientsPage() {
 
   // Lead→ügyfél konverzió után ide navigálunk vissza egy kérésbe csomagolt
   // ügyfél-azonosítóval (lib/navigation.tsx) — mihelyt a lista betöltődött,
-  // automatikusan megnyitjuk rá az onboarding (AI-profil) formot.
+  // automatikusan megnyitjuk rá az Onboarding formot (nem az AI-profilt —
+  // azt a hívó kolléga tölti ki élőben, nem feltétlen admin).
   useEffect(() => {
     if (requestedOnboardingClientId == null || clients.length === 0) return;
     const client = clients.find((c) => c.id === requestedOnboardingClientId);
-    if (client) setAiProfileClient(client);
+    if (client) setOnboardingClient(client);
     clearRequestedOnboarding();
   }, [requestedOnboardingClientId, clients, clearRequestedOnboarding]);
 
@@ -141,9 +144,12 @@ export default function ClientsPage() {
                       <button type="button" onClick={() => setEditingClient(client)}>
                         Szerkesztés
                       </button>
+                      <button type="button" onClick={() => setOnboardingClient(client)}>
+                        {onboarded ? "Onboarding szerkesztése" : "Onboarding"}
+                      </button>
                       {isAdmin && (
                         <button type="button" onClick={() => setAiProfileClient(client)}>
-                          {onboarded ? "AI-profil szerkesztése" : "Onboarding"}
+                          AI-profil
                         </button>
                       )}
                       {isAdmin && (
@@ -174,6 +180,17 @@ export default function ClientsPage() {
           clientName={aiProfileClient.company_name}
           onClose={() => {
             setAiProfileClient(null);
+            refresh();
+          }}
+        />
+      )}
+
+      {onboardingClient && token && (
+        <ClientOnboardingModal
+          clientId={onboardingClient.id}
+          clientName={onboardingClient.company_name}
+          onClose={() => {
+            setOnboardingClient(null);
             refresh();
           }}
         />

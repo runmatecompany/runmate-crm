@@ -36,11 +36,15 @@ function buildContext(item: ContentItemRow, version: number, link: string): Appr
   };
 }
 
+// Ha az onboarding-profilban meg van adva külön tartalom-jóváhagyó
+// kapcsolattartó, a jóváhagyási emailek oda mennek — egyébként a fő
+// kapcsolattartói címre.
 function requireClientEmail(item: ContentItemRow): string {
-  if (!item.client_email) {
+  const email = item.client_approval_email || item.client_email;
+  if (!email) {
     throw new NotifyError(`"${item.client_name}" ügyfélnek nincs email címe megadva`);
   }
-  return item.client_email;
+  return email;
 }
 
 export async function sendApprovalRequestEmail(

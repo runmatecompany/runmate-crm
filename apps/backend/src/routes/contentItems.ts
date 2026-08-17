@@ -26,6 +26,7 @@ import { getUserById } from "../db/users.js";
 import { pool } from "../db/pool.js";
 import { getClientById } from "../db/clients.js";
 import { getClientAiProfile } from "../db/clientAiProfiles.js";
+import { getClientOnboarding } from "../db/clientOnboarding.js";
 import { generateScriptDraft, isAiScriptDraftEnabled } from "../lib/aiScriptDraft.js";
 import { transitionContentItem, TransitionError, type TransitionAction, type TransitionPayload } from "../lib/socialMedia/transitions.js";
 import { sendApprovalReminderEmail, NotifyError } from "../lib/socialMedia/notify.js";
@@ -178,7 +179,7 @@ export default async function contentItemsRoutes(fastify: FastifyInstance) {
       if (request.body.contentType !== "video") {
         return reply.code(400).send({ error: "Clippelés csak videó típusnál választható" });
       }
-      const profile = await getClientAiProfile(request.body.clientId);
+      const profile = await getClientOnboarding(request.body.clientId);
       if (!profile?.service_clipping || !profile.clipping_source_folder_url) {
         return reply
           .code(400)

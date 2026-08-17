@@ -177,11 +177,11 @@ export async function convertLeadToClient(leadId: number, createdBy: number): Pr
     );
 
     // A lead-kutatásnál már megadott weboldal/social linkek (vagy a "-"
-    // jelzés, hogy nincs) átkerülnek az AI-profilba, hogy az onboarding-
+    // jelzés, hogy nincs) átkerülnek az onboarding-profilba, hogy a
     // kérdőívnél ne kelljen újra megkérdezni.
     if (lead.website_url || lead.facebook_url || lead.instagram_url || lead.tiktok_url || lead.youtube_url) {
       await client.query(
-        `INSERT INTO client_ai_profiles (client_id, website_url, facebook_url, instagram_url, tiktok_url, youtube_url)
+        `INSERT INTO client_onboarding_profiles (client_id, website_url, facebook_url, instagram_url, tiktok_url, youtube_url)
          VALUES ($1, $2, $3, $4, $5, $6)
          ON CONFLICT (client_id) DO NOTHING`,
         [created[0].id, lead.website_url, lead.facebook_url, lead.instagram_url, lead.tiktok_url, lead.youtube_url]

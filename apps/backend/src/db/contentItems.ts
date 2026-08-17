@@ -36,6 +36,7 @@ export interface ContentItemRow {
   client_name: string;
   client_contact_name: string | null;
   client_email: string | null;
+  client_approval_email: string | null;
   client_next_shoot_date: string | null;
   title: string;
   content_type: ContentType;
@@ -58,11 +59,15 @@ export interface ContentItemRow {
 
 // A last_actor_* a content_item_events legutóbbi sorából jön (LATERAL) —
 // ki vitte tovább a feladatot utoljára, hogy egyben látszódjon a Feladatok
-// modulban/kanban kártyán, ne kelljen külön lekérdezni előzményenként.
+// modulban/kanban kártyán, ne kelljen külön lekérdezni előzményenként. A
+// client_approval_email az onboarding-profilból jön: ha az ügyfélnél meg
+// van adva külön jóváhagyó kapcsolattartó, a jóváhagyó emailek oda mennek
+// a fő kapcsolattartói cím helyett (lásd lib/socialMedia/notify.ts).
 const CONTENT_ITEM_SELECT = `
   SELECT
     ci.id, ci.client_id, cl.company_name AS client_name,
     cl.contact_name AS client_contact_name, cl.email AS client_email,
+    op.approver_email AS client_approval_email,
     cl.next_shoot_date AS client_next_shoot_date,
     ci.title, ci.content_type, ci.platform, ci.status,
     ci.shoot_date, ci.script_content, ci.raw_media_url, ci.edited_media_url,
@@ -73,6 +78,7 @@ const CONTENT_ITEM_SELECT = `
     ci.created_at, ci.updated_at
   FROM content_items ci
   JOIN clients cl ON cl.id = ci.client_id
+  LEFT JOIN client_onboarding_profiles op ON op.client_id = ci.client_id
   LEFT JOIN users au ON au.id = ci.assigned_to
   LEFT JOIN LATERAL (
     SELECT user_name, created_at FROM content_item_events

@@ -38,13 +38,13 @@ export async function processClippingBatches(): Promise<void> {
 
   const { rows } = await pool.query<ClippingClientRow>(
     `SELECT c.id AS client_id, c.company_name,
-            ap.clipping_source_folder_url, ap.monthly_video_target
+            op.clipping_source_folder_url, op.monthly_video_target
      FROM clients c
-     JOIN client_ai_profiles ap ON ap.client_id = c.id
-     WHERE ap.service_clipping = true
-       AND ap.clipping_source_folder_url IS NOT NULL
-       AND ap.monthly_video_target IS NOT NULL
-       AND ap.monthly_video_target > 0`
+     JOIN client_onboarding_profiles op ON op.client_id = c.id
+     WHERE op.service_clipping = true
+       AND op.clipping_source_folder_url IS NOT NULL
+       AND op.monthly_video_target IS NOT NULL
+       AND op.monthly_video_target > 0`
   );
 
   for (const row of rows) {

@@ -153,9 +153,9 @@ export interface ClientTaskSummaryRow {
 export async function listClientTaskSummaries(): Promise<ClientTaskSummaryRow[]> {
   const { rows } = await pool.query<ClientTaskSummaryRow>(
     `SELECT c.id AS client_id, c.company_name AS client_name,
-            ap.monthly_video_target, ap.monthly_post_target
+            op.monthly_video_target, op.monthly_post_target
      FROM clients c
-     LEFT JOIN client_ai_profiles ap ON ap.client_id = c.id
+     LEFT JOIN client_onboarding_profiles op ON op.client_id = c.id
      ORDER BY c.company_name ASC`
   );
   return rows;
