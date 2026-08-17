@@ -63,7 +63,14 @@ export default function SocialMediaPage({ tab }: SocialMediaPageProps) {
     listClients(token).then((result) => setClients(result.clients));
   }, [token]);
 
-  async function handleCreate(input: { clientId: number; title: string; contentType: ContentType; platform: ContentItem["platform"]; assignedTo?: number }) {
+  async function handleCreate(input: {
+    clientId: number;
+    title: string;
+    contentType: ContentType;
+    platform: ContentItem["platform"];
+    assignedTo?: number;
+    startAsClip?: boolean;
+  }) {
     if (!token) return;
     await createContentItem(token, input);
     setShowCreate(false);

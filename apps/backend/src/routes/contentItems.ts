@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import {
   confirmContentItemPayment,
+  createClipContentItem,
   createContentItem,
   deleteContentItem,
   getContentItemById,
@@ -56,6 +57,7 @@ const createBodySchema = {
     contentType: { type: "string", enum: [...CONTENT_TYPE_VALUES] },
     platform: { type: "string", enum: [...PLATFORM_VALUES] },
     assignedTo: { type: "integer" },
+    startAsClip: { type: "boolean" },
   },
 } as const;
 
@@ -149,23 +151,56 @@ export default async function contentItemsRoutes(fastify: FastifyInstance) {
     return { item };
   });
 
-  fastify.post<{ Body: { clientId: number; title: string; contentType: ContentType; platform: Platform; assignedTo?: number } }>(
-    "/content-items",
-    { onRequest: [fastify.authenticate], schema: { body: createBodySchema } },
-    async (request, reply) => {
-      const { sub: userId, role } = request.user;
-      if (!(await canAccessSocialMediaModule(userId, role))) {
-        return reply.code(403).send({ error: "Nincs hozzáférésed a Social Media modulhoz" });
+  fastify.post<{
+    Body: {
+      clientId: number;
+      title: string;
+      contentType: ContentType;
+      platform: Platform;
+      assignedTo?: number;
+      startAsClip?: boolean;
+    };
+  }>("/content-items", { onRequest: [fastify.authenticate], schema: { body: createBodySchema } }, async (
+    request,
+    reply
+  ) => {
+    const { sub: userId, role } = request.user;
+    if (!(await canAccessSocialMediaModule(userId, role))) {
+      return reply.code(403).send({ error: "Nincs hozzáférésed a Social Media modulhoz" });
+    }
+
+    // Clippelés: nincs script/forgatás fázis, egyenesen "Vágásra vár"
+    // állapotban indul, a rögzített forrás mappával — a forrást szerver
+    // oldalon nézzük ki (nem bízunk a kliens által küldött linkben), és
+    // csak akkor engedjük, ha az ügyfélnél tényleg be van kapcsolva a
+    // szolgáltatás.
+    if (request.body.startAsClip) {
+      if (request.body.contentType !== "video") {
+        return reply.code(400).send({ error: "Clippelés csak videó típusnál választható" });
       }
-      const item = await createContentItem(request.body);
-      try {
-        await ensureContentItemMonthFolder(item.client_id, item.shoot_date);
-      } catch (err) {
-        request.log.error(err, "Drive month folder provisioning failed on content item create");
+      const profile = await getClientAiProfile(request.body.clientId);
+      if (!profile?.service_clipping || !profile.clipping_source_folder_url) {
+        return reply
+          .code(400)
+          .send({ error: "Ennél az ügyfélnél nincs beállítva Clippelés szolgáltatás/forrás mappa" });
       }
+      const item = await createClipContentItem({
+        clientId: request.body.clientId,
+        title: request.body.title,
+        platform: request.body.platform,
+        rawMediaUrl: profile.clipping_source_folder_url,
+      });
       return reply.code(201).send({ item });
     }
-  );
+
+    const item = await createContentItem(request.body);
+    try {
+      await ensureContentItemMonthFolder(item.client_id, item.shoot_date);
+    } catch (err) {
+      request.log.error(err, "Drive month folder provisioning failed on content item create");
+    }
+    return reply.code(201).send({ item });
+  });
 
   fastify.put<{
     Params: { id: string };

@@ -221,7 +221,14 @@ export async function getContentItem(token: string, id: number): Promise<Content
 
 export async function createContentItem(
   token: string,
-  input: { clientId: number; title: string; contentType: ContentType; platform: Platform; assignedTo?: number }
+  input: {
+    clientId: number;
+    title: string;
+    contentType: ContentType;
+    platform: Platform;
+    assignedTo?: number;
+    startAsClip?: boolean;
+  }
 ): Promise<ContentItem> {
   const res = await authFetch(token, "/content-items", {
     method: "POST",
