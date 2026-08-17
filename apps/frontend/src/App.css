@@ -1728,6 +1728,13 @@ button:hover {
   margin: 0;
 }
 
+.sm-section-title {
+  font-size: 1em;
+  font-weight: 600;
+  margin: 1.4em 0 0.6em;
+  color: var(--text-muted);
+}
+
 .leads-status-tabs {
   display: flex;
   align-items: center;
