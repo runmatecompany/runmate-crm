@@ -41,14 +41,8 @@ export default function Sidebar({ activeId, onSelect, userId, userName, onLogout
           const isParentActive = item.id === activeId || (item.children?.some((c) => c.id === activeId) ?? false);
           const isCollapsed = collapsedGroups.has(item.id);
           return (
-            <div key={item.id} className="sidebar-group">
+            <div key={item.id} className={item.children ? "sidebar-group sidebar-group-has-children" : "sidebar-group"}>
               <div className="sidebar-group-header">
-                <button
-                  className={isParentActive ? "sidebar-link active" : "sidebar-link"}
-                  onClick={() => onSelect(item.children ? item.children[0].id : item.id)}
-                >
-                  {item.label}
-                </button>
                 {item.children && (
                   <button
                     type="button"
@@ -59,6 +53,12 @@ export default function Sidebar({ activeId, onSelect, userId, userName, onLogout
                     {isCollapsed ? "▸" : "▾"}
                   </button>
                 )}
+                <button
+                  className={isParentActive ? "sidebar-link active" : "sidebar-link"}
+                  onClick={() => onSelect(item.children ? item.children[0].id : item.id)}
+                >
+                  {item.label}
+                </button>
               </div>
               {item.children && !isCollapsed && (
                 <div className="sidebar-submenu">

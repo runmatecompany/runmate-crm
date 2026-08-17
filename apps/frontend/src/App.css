@@ -311,6 +311,15 @@ button:hover {
   gap: 0.2em;
 }
 
+.sidebar-group-has-children > .sidebar-group-header {
+  background-color: #13294b;
+  border-radius: 6px;
+}
+
+.sidebar-group-has-children > .sidebar-group-header .sidebar-link:not(.active) {
+  color: var(--text);
+}
+
 .sidebar-group-header .sidebar-link {
   flex: 1;
 }
