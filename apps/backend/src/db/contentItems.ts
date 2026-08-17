@@ -7,7 +7,25 @@ export type ContentStatus =
   | "editing"
   | "edit_review"
   | "scheduling"
-  | "published";
+  | "published"
+  | "planning"
+  | "approval";
+
+export type ContentType = "video" | "image_post";
+
+// A videó a 7 fázisos state machine-t használja (script_writing ... published),
+// a képes poszt az egyszerűsített 4 fázisosat — forgatás/vágás nem
+// értelmezhető egy statikus képnél.
+export const VIDEO_STATUSES: ContentStatus[] = [
+  "script_writing",
+  "script_review",
+  "shoot_done",
+  "editing",
+  "edit_review",
+  "scheduling",
+  "published",
+];
+export const IMAGE_POST_STATUSES: ContentStatus[] = ["planning", "approval", "scheduling", "published"];
 
 export type Platform = "instagram" | "tiktok" | "youtube" | "facebook";
 
@@ -19,6 +37,7 @@ export interface ContentItemRow {
   client_email: string | null;
   client_next_shoot_date: string | null;
   title: string;
+  content_type: ContentType;
   platform: Platform;
   status: ContentStatus;
   shoot_date: string | null;
@@ -38,7 +57,7 @@ const CONTENT_ITEM_SELECT = `
     ci.id, ci.client_id, cl.company_name AS client_name,
     cl.contact_name AS client_contact_name, cl.email AS client_email,
     cl.next_shoot_date AS client_next_shoot_date,
-    ci.title, ci.platform, ci.status,
+    ci.title, ci.content_type, ci.platform, ci.status,
     ci.shoot_date, ci.script_content, ci.raw_media_url, ci.edited_media_url,
     ci.scheduled_publish_at, ci.published_at,
     ci.assigned_to, au.name AS assigned_to_name,
@@ -72,20 +91,23 @@ export async function getContentItemById(id: number): Promise<ContentItemRow | u
 export interface CreateContentItemInput {
   clientId: number;
   title: string;
+  contentType: ContentType;
   platform: Platform;
   assignedTo?: number;
   shootDate?: Date | string;
 }
 
-// Mindig "script_writing" ("Scriptre vár") állapotban indul — nincs többé
-// külön forgatás-egyeztető előfázis, a forgatás dátumát vagy a Google
-// Naptár szinkron adja meg létrehozáskor, vagy utólag kézzel szerkeszthető.
+// Videó "script_writing" ("Scriptre vár") állapotban indul, képes poszt
+// "planning"-ban (nincs forgatás/vágás fázisa) — nincs többé külön
+// forgatás-egyeztető előfázis, a forgatás dátumát vagy a Google Naptár
+// szinkron adja meg létrehozáskor, vagy utólag kézzel szerkeszthető.
 export async function createContentItem(input: CreateContentItemInput): Promise<ContentItemRow> {
+  const initialStatus: ContentStatus = input.contentType === "video" ? "script_writing" : "planning";
   const { rows } = await pool.query<{ id: number }>(
-    `INSERT INTO content_items (client_id, title, platform, assigned_to, status, shoot_date)
-     VALUES ($1, $2, $3, $4, 'script_writing', $5)
+    `INSERT INTO content_items (client_id, title, content_type, platform, assigned_to, status, shoot_date)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
      RETURNING id`,
-    [input.clientId, input.title, input.platform, input.assignedTo ?? null, input.shootDate ?? null]
+    [input.clientId, input.title, input.contentType, input.platform, input.assignedTo ?? null, initialStatus, input.shootDate ?? null]
   );
   const created = await getContentItemById(rows[0].id);
   return created!;
@@ -127,6 +149,19 @@ export async function updateContentItemDetails(
       input.shootDate ?? null,
     ]
   );
+  if (!rowCount) return undefined;
+  return getContentItemById(id);
+}
+
+// Csak a képes poszt egyszerű, közvetlen státuszváltásához (nincs email-
+// jóváhagyás/token, ellentétben a videó lib/socialMedia/transitions.ts
+// állapotgépével) — a hívó fél (routes/contentItems.ts) ellenőrzi, hogy csak
+// image_post típusú elemre és csak IMAGE_POST_STATUSES értékre hívható.
+export async function updateContentItemStatus(id: number, status: ContentStatus): Promise<ContentItemRow | undefined> {
+  const { rowCount } = await pool.query(`UPDATE content_items SET status = $2, updated_at = now() WHERE id = $1`, [
+    id,
+    status,
+  ]);
   if (!rowCount) return undefined;
   return getContentItemById(id);
 }

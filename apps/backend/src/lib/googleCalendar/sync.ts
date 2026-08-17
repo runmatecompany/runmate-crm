@@ -54,6 +54,7 @@ async function processMatchedEvent(event: GoogleCalendarEvent, client: ClientRow
   const item = await createContentItem({
     clientId: client.id,
     title: `Forgatás – ${dateLabel}`,
+    contentType: "video",
     platform: "instagram",
     shootDate: start,
   });

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "../lib/auth";
 import { listClients, type Client } from "../lib/clients";
-import { createContentItem, listContentItems, type ContentItem } from "../lib/socialMedia";
+import { createContentItem, listContentItems, type ContentItem, type ContentType } from "../lib/socialMedia";
 import KanbanBoard from "../components/socialMedia/KanbanBoard";
 import ContentItemDetail from "../components/socialMedia/ContentItemDetail";
 import ContentItemFormModal from "../components/socialMedia/ContentItemFormModal";
@@ -63,7 +63,7 @@ export default function SocialMediaPage({ tab }: SocialMediaPageProps) {
     listClients(token).then((result) => setClients(result.clients));
   }, [token]);
 
-  async function handleCreate(input: { clientId: number; title: string; platform: ContentItem["platform"]; assignedTo?: number }) {
+  async function handleCreate(input: { clientId: number; title: string; contentType: ContentType; platform: ContentItem["platform"]; assignedTo?: number }) {
     if (!token) return;
     await createContentItem(token, input);
     setShowCreate(false);

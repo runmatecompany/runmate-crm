@@ -6,7 +6,11 @@ import {
   hasSocialMediaAccess,
   listContentItems,
   updateContentItemDetails,
+  updateContentItemStatus,
+  IMAGE_POST_STATUSES,
   type ContentItemRow,
+  type ContentStatus,
+  type ContentType,
   type Platform,
 } from "../db/contentItems.js";
 import {
@@ -29,6 +33,7 @@ import { ensureVideoSubfolder, uploadStreamToFolder } from "../lib/googleDrive/u
 import { ensureContentItemMonthFolder, provisionClientDriveFolders } from "../lib/googleDrive/onboarding.js";
 
 const PLATFORM_VALUES = ["instagram", "tiktok", "youtube", "facebook"] as const;
+const CONTENT_TYPE_VALUES = ["video", "image_post"] as const;
 const TRANSITION_ACTIONS = [
   "send_script_for_approval",
   "approve_script",
@@ -42,12 +47,21 @@ const TRANSITION_ACTIONS = [
 
 const createBodySchema = {
   type: "object",
-  required: ["clientId", "title", "platform"],
+  required: ["clientId", "title", "contentType", "platform"],
   properties: {
     clientId: { type: "integer" },
     title: { type: "string", minLength: 1 },
+    contentType: { type: "string", enum: [...CONTENT_TYPE_VALUES] },
     platform: { type: "string", enum: [...PLATFORM_VALUES] },
     assignedTo: { type: "integer" },
+  },
+} as const;
+
+const setStatusBodySchema = {
+  type: "object",
+  required: ["status"],
+  properties: {
+    status: { type: "string", enum: [...IMAGE_POST_STATUSES] },
   },
 } as const;
 
@@ -133,7 +147,7 @@ export default async function contentItemsRoutes(fastify: FastifyInstance) {
     return { item };
   });
 
-  fastify.post<{ Body: { clientId: number; title: string; platform: Platform; assignedTo?: number } }>(
+  fastify.post<{ Body: { clientId: number; title: string; contentType: ContentType; platform: Platform; assignedTo?: number } }>(
     "/content-items",
     { onRequest: [fastify.authenticate], schema: { body: createBodySchema } },
     async (request, reply) => {
@@ -263,6 +277,31 @@ export default async function contentItemsRoutes(fastify: FastifyInstance) {
         }
         throw err;
       }
+    }
+  );
+
+  // Képes posztoknál nincs email-jóváhagyásos, forgatás/vágás-alapú
+  // átmenet-rendszer (lásd lib/socialMedia/transitions.ts, ami videó-
+  // specifikus) — egyszerű, közvetlen státuszváltás a 4 fázisú
+  // (planning/approval/scheduling/published) körben.
+  fastify.post<{ Params: { id: string }; Body: { status: ContentStatus } }>(
+    "/content-items/:id/set-status",
+    { onRequest: [fastify.authenticate], schema: { body: setStatusBodySchema } },
+    async (request, reply) => {
+      const { sub: userId, role } = request.user;
+      if (!(await canAccessSocialMediaModule(userId, role))) {
+        return reply.code(403).send({ error: "Nincs hozzáférésed a Social Media modulhoz" });
+      }
+      const existing = await getContentItemById(Number(request.params.id));
+      if (!existing) return reply.code(404).send({ error: "Content item not found" });
+      if (!canAccessItem(existing, userId, role)) {
+        return reply.code(403).send({ error: "Nincs hozzárendelve hozzád ez a tartalom" });
+      }
+      if (existing.content_type !== "image_post") {
+        return reply.code(400).send({ error: "Videónál a normál átmenet-végpontot kell használni" });
+      }
+      const item = await updateContentItemStatus(existing.id, request.body.status);
+      return { item };
     }
   );
 

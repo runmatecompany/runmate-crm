@@ -1,12 +1,12 @@
 import { useEffect, useState, type FormEvent } from "react";
 import type { Client } from "../../lib/clients";
-import type { Platform } from "../../lib/socialMedia";
+import type { ContentType, Platform } from "../../lib/socialMedia";
 import { useEscapeToClose } from "../../lib/useEscapeToClose";
 
 interface ContentItemFormModalProps {
   clients: Client[];
   onClose: () => void;
-  onSave: (input: { clientId: number; title: string; platform: Platform; assignedTo?: number }) => Promise<void>;
+  onSave: (input: { clientId: number; title: string; contentType: ContentType; platform: Platform; assignedTo?: number }) => Promise<void>;
 }
 
 // A cím ("Munkacím – {mai dátum}") csak egy ésszerű alapérték, hogy a
@@ -20,6 +20,7 @@ function defaultTitle(): string {
 export default function ContentItemFormModal({ clients, onClose, onSave }: ContentItemFormModalProps) {
   useEscapeToClose(onClose);
   const [clientId, setClientId] = useState<number | "">(clients[0]?.id ?? "");
+  const [contentType, setContentType] = useState<ContentType>("video");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,6 +37,7 @@ export default function ContentItemFormModal({ clients, onClose, onSave }: Conte
       await onSave({
         clientId,
         title: defaultTitle(),
+        contentType,
         platform: "instagram",
       });
     } catch (err) {
@@ -60,6 +62,16 @@ export default function ContentItemFormModal({ clients, onClose, onSave }: Conte
                   {c.company_name}
                 </option>
               ))}
+            </select>
+
+            <label htmlFor="ci-content-type">Típus</label>
+            <select
+              id="ci-content-type"
+              value={contentType}
+              onChange={(e) => setContentType(e.currentTarget.value as ContentType)}
+            >
+              <option value="video">Videó</option>
+              <option value="image_post">Képes poszt</option>
             </select>
           </>
         )}

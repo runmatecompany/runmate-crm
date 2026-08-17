@@ -1,11 +1,15 @@
 import { useRef, useState, type ChangeEvent } from "react";
 import { useAuth } from "../../lib/auth";
 import {
+  CONTENT_STATUS_LABELS,
+  IMAGE_POST_STATUSES,
   KANBAN_COLUMNS,
   PLATFORM_LABELS,
   STAGE_BADGE_LABELS,
   getCardAction,
   getStageBadge,
+  nextImagePostStatus,
+  setContentItemStatus,
   transitionContentItem,
   uploadRawFiles,
   type ContentItem,
@@ -82,11 +86,26 @@ export default function KanbanBoard({ items, onOpen, onChanged }: KanbanBoardPro
     void runAction(item, action, feedback);
   }
 
+  async function handleAdvanceImagePost(item: ContentItem) {
+    const next = nextImagePostStatus(item.status);
+    if (!next || !token) return;
+    try {
+      await setContentItemStatus(token, item.id, next);
+      onChanged();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Nem sikerült léptetni az állapotot");
+    }
+  }
+
+  const videoItems = items.filter((i) => i.content_type === "video");
+  const imagePostItems = items.filter((i) => i.content_type === "image_post");
+
   return (
+    <div className="sm-kanban-wrap">
     <div className="sm-kanban">
       <input ref={fileInputRef} type="file" multiple hidden onChange={handleFilesSelected} />
       {KANBAN_COLUMNS.map((column) => {
-        const columnItems = items.filter((i) => column.statuses.includes(i.status));
+        const columnItems = videoItems.filter((i) => column.statuses.includes(i.status));
         // A "Forgatásra vár" oszlopban időrendben (a legközelebbi forgatás
         // elöl) érdemes látni, hogy melyik a legsürgősebb.
         if (column.key === "shoot") {
@@ -154,6 +173,45 @@ export default function KanbanBoard({ items, onOpen, onChanged }: KanbanBoardPro
           </div>
         );
       })}
+    </div>
+
+    {imagePostItems.length > 0 && (
+      <>
+        <h2>Képes posztok</h2>
+        <div className="sm-kanban">
+          {IMAGE_POST_STATUSES.map((status) => {
+            const columnItems = imagePostItems.filter((i) => i.status === status);
+            return (
+              <div key={status} className="sm-kanban-col">
+                <div className="sm-kanban-col-header">
+                  {CONTENT_STATUS_LABELS[status]} <span className="sm-kanban-col-count">{columnItems.length}</span>
+                </div>
+                <div className="sm-kanban-col-body">
+                  {columnItems.map((item) => {
+                    const next = nextImagePostStatus(item.status);
+                    return (
+                      <div key={item.id} className="sm-kanban-card">
+                        <button type="button" className="sm-kanban-card-main" onClick={() => onOpen(item.id)}>
+                          <div className="sm-kanban-card-client">{item.client_name}</div>
+                          <div className="sm-kanban-card-title">{item.title}</div>
+                          <div className="sm-kanban-card-meta">{PLATFORM_LABELS[item.platform]}</div>
+                        </button>
+                        {next && (
+                          <button type="button" className="sm-kanban-card-action" onClick={() => void handleAdvanceImagePost(item)}>
+                            Tovább: {CONTENT_STATUS_LABELS[next]}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {columnItems.length === 0 && <p className="sm-kanban-col-empty">—</p>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </>
+    )}
     </div>
   );
 }

@@ -8,7 +8,11 @@ export type ContentStatus =
   | "editing"
   | "edit_review"
   | "scheduling"
-  | "published";
+  | "published"
+  | "planning"
+  | "approval";
+
+export type ContentType = "video" | "image_post";
 
 export type Platform = "instagram" | "tiktok" | "youtube" | "facebook";
 
@@ -20,7 +24,21 @@ export const CONTENT_STATUS_LABELS: Record<ContentStatus, string> = {
   edit_review: "Vágás jóváhagyásra vár",
   scheduling: "Időzítésre vár",
   published: "Közzétéve",
+  planning: "Tervezés alatt",
+  approval: "Jóváhagyásra vár",
 };
+
+// A képes poszt egyszerűsített, 4 fázisú köre — nincs forgatás/vágás, ezért
+// nincs email-jóváhagyásos állapotgép sem (lásd getCardAction, ami csak a
+// videó 7 fázisára vonatkozik). A "Tovább" gomb egyszerűen a következő
+// indexre lép a listában.
+export const IMAGE_POST_STATUSES: ContentStatus[] = ["planning", "approval", "scheduling", "published"];
+
+export function nextImagePostStatus(status: ContentStatus): ContentStatus | null {
+  const idx = IMAGE_POST_STATUSES.indexOf(status);
+  if (idx === -1 || idx === IMAGE_POST_STATUSES.length - 1) return null;
+  return IMAGE_POST_STATUSES[idx + 1];
+}
 
 // A kanban nem minden státuszt jelenít meg külön oszlopként: a
 // "jóváhagyásra vár" állapotok a megfelelő munka-oszlopon belül, egy
@@ -77,6 +95,7 @@ export interface ContentItem {
   client_email: string | null;
   client_next_shoot_date: string | null;
   title: string;
+  content_type: ContentType;
   platform: Platform;
   status: ContentStatus;
   shoot_date: string | null;
@@ -142,6 +161,9 @@ export type CardAction =
   | { kind: "review"; approveAction: TransitionAction; rejectAction: TransitionAction }
   | { kind: "none" };
 
+// Csak videó (content_type === "video") elemekre hívjuk — a képes posztok
+// a nextImagePostStatus()/setContentItemStatus() egyszerű, közvetlen
+// útján haladnak, nem ezen a jóváhagyásos állapotgépen.
 export function getCardAction(status: ContentStatus): CardAction {
   switch (status) {
     case "script_writing":
@@ -157,6 +179,8 @@ export function getCardAction(status: ContentStatus): CardAction {
     case "scheduling":
       return { kind: "forward", action: "schedule", label: "Időzítés és közzététel", input: "scheduledPublishAt" };
     case "published":
+    case "planning":
+    case "approval":
       return { kind: "none" };
   }
 }
@@ -184,12 +208,23 @@ export async function getContentItem(token: string, id: number): Promise<Content
 
 export async function createContentItem(
   token: string,
-  input: { clientId: number; title: string; platform: Platform; assignedTo?: number }
+  input: { clientId: number; title: string; contentType: ContentType; platform: Platform; assignedTo?: number }
 ): Promise<ContentItem> {
   const res = await authFetch(token, "/content-items", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
+  });
+  const data = await res.json();
+  return data.item;
+}
+
+// Csak image_post típusú elemekre — lásd a getCardAction fenti kommentjét.
+export async function setContentItemStatus(token: string, id: number, status: ContentStatus): Promise<ContentItem> {
+  const res = await authFetch(token, `/content-items/${id}/set-status`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ status }),
   });
   const data = await res.json();
   return data.item;
