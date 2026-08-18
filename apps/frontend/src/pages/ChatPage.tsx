@@ -45,6 +45,8 @@ export default function ChatPage() {
   const [typingUserId, setTypingUserId] = useState<number | null>(null);
   const [sendingImage, setSendingImage] = useState(false);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
+  const [pendingImage, setPendingImage] = useState<File | null>(null);
+  const [pendingImagePreview, setPendingImagePreview] = useState<string | null>(null);
 
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTypingSentRef = useRef(0);
@@ -60,6 +62,16 @@ export default function ChatPage() {
     refreshRooms();
     listColleagues(token).then(setColleagues);
   }, [token, refreshRooms]);
+
+  // Szoba-váltáskor a függőben lévő kép-előnézetet is töröljük, nehogy
+  // véletlenül egy másik szobának küldjük el.
+  useEffect(() => {
+    setPendingImage(null);
+    setPendingImagePreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+  }, [activeRoomId]);
 
   useEffect(() => {
     setTypingUserId(null);
@@ -211,10 +223,52 @@ export default function ChatPage() {
     }
   }
 
-  function handleSend(e: FormEvent) {
+  // Egy képet (fájlválasztóból vagy drag&drop-ból) nem küldünk el rögtön —
+  // előnézetként megmarad a beviteli sor felett, hogy még lehessen hozzá
+  // szöveget írni, vagy meggondolhassa magát a felhasználó és X-szel
+  // eltávolíthassa, mielőtt ténylegesen elküldi.
+  function stageImage(file: File) {
+    setPendingImage(file);
+    setPendingImagePreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return URL.createObjectURL(file);
+    });
+  }
+
+  function clearPendingImage() {
+    setPendingImage(null);
+    setPendingImagePreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+  }
+
+  async function sendPendingImage() {
+    if (!token || activeRoomId == null || !pendingImage) return;
+    setSendingImage(true);
+    try {
+      const dataUrl = await resizeImageToDataUrl(pendingImage, 1600, 0.82);
+      await sendChatImage(token, activeRoomId, dataUrl, draft.trim() || undefined);
+      setDraft("");
+      clearPendingImage();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Nem sikerült elküldeni a képet");
+    } finally {
+      setSendingImage(false);
+    }
+  }
+
+  async function handleSend(e: FormEvent) {
     e.preventDefault();
-    if (!draft.trim() || activeRoomId == null) return;
+    if (activeRoomId == null) return;
+
+    if (pendingImage) {
+      await sendPendingImage();
+      return;
+    }
+
     const trimmed = draft.trim();
+    if (!trimmed) return;
 
     if (trimmed.startsWith("/")) {
       setDraft("");
@@ -233,25 +287,11 @@ export default function ChatPage() {
     setDraft("");
   }
 
-  async function sendImageFile(file: File) {
-    if (!token || activeRoomId == null) return;
-    setSendingImage(true);
-    try {
-      const dataUrl = await resizeImageToDataUrl(file, 1600, 0.82);
-      await sendChatImage(token, activeRoomId, dataUrl, draft.trim() || undefined);
-      setDraft("");
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "Nem sikerült elküldeni a képet");
-    } finally {
-      setSendingImage(false);
-    }
-  }
-
-  async function handleImageSelected(e: ChangeEvent<HTMLInputElement>) {
+  function handleImageSelected(e: ChangeEvent<HTMLInputElement>) {
     const file = e.currentTarget.files?.[0];
     e.currentTarget.value = "";
     if (!file) return;
-    await sendImageFile(file);
+    stageImage(file);
   }
 
   // A Tauri ablak dragDropEnabled beállítása false — enélkül a natív
@@ -275,7 +315,7 @@ export default function ChatPage() {
     if (activeRoomId == null) return;
     const file = Array.from(e.dataTransfer.files).find((f) => f.type.startsWith("image/"));
     if (!file) return;
-    void sendImageFile(file);
+    stageImage(file);
   }
 
   async function handleCreateRoom(name: string) {
@@ -358,6 +398,21 @@ export default function ChatPage() {
             </div>
             <MessageThread messages={messages} currentUserId={auth?.user.id ?? -1} />
             {typingUserName && <div className="chat-typing-indicator">{typingUserName} éppen ír...</div>}
+            {pendingImage && (
+              <div className="chat-pending-image">
+                {pendingImagePreview && <img src={pendingImagePreview} alt="" />}
+                <span className="chat-pending-image-name">{pendingImage.name}</span>
+                <button
+                  type="button"
+                  className="chat-pending-image-remove"
+                  onClick={clearPendingImage}
+                  disabled={sendingImage}
+                  aria-label="Kép eltávolítása"
+                >
+                  ×
+                </button>
+              </div>
+            )}
             <form className="chat-input-row" onSubmit={handleSend}>
               <input
                 ref={imageInputRef}
@@ -369,14 +424,20 @@ export default function ChatPage() {
               <button
                 type="button"
                 className="chat-image-btn"
-                title="Kép küldése"
+                title="Kép csatolása"
                 disabled={sendingImage}
                 onClick={() => imageInputRef.current?.click()}
               >
-                {sendingImage ? "..." : "📷"}
+                📷
               </button>
-              <input value={draft} onChange={handleDraftChange} placeholder="Írj üzenetet..." />
-              <button type="submit">Küldés</button>
+              <input
+                value={draft}
+                onChange={handleDraftChange}
+                placeholder={pendingImage ? "Írhatsz hozzá szöveget (nem kötelező)..." : "Írj üzenetet..."}
+              />
+              <button type="submit" disabled={sendingImage || (!draft.trim() && !pendingImage)}>
+                {sendingImage ? "Küldés..." : "Küldés"}
+              </button>
             </form>
           </>
         ) : (

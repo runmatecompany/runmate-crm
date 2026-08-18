@@ -995,6 +995,52 @@ button:hover {
   font-style: italic;
 }
 
+.chat-pending-image {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  padding: 0.6em 1.5em;
+  border-top: 1px solid var(--border);
+  background-color: var(--surface-alt);
+}
+
+.chat-pending-image img {
+  width: 44px;
+  height: 44px;
+  object-fit: cover;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.chat-pending-image-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-muted);
+  font-size: 0.85em;
+}
+
+.chat-pending-image-remove {
+  flex-shrink: 0;
+  background: transparent;
+  border: 1px solid var(--border);
+  box-shadow: none;
+  color: var(--text-muted);
+  width: 1.8em;
+  height: 1.8em;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 1em;
+  line-height: 1;
+}
+
+.chat-pending-image-remove:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
 .chat-input-row {
   display: flex;
   gap: 0.6em;
@@ -2386,16 +2432,88 @@ button:hover {
   padding-top: 0.6em;
 }
 
-.sm-kanban-clip-links {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25em;
-  padding: 0.3em 0.7em 0.6em;
-  font-size: 0.8em;
+.sm-clip-upload-modal {
+  width: min(480px, calc(100vw - 3em));
 }
 
-.sm-kanban-clip-links a {
+.sm-clip-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3em;
+  text-align: center;
+  border: 2px dashed var(--border);
+  border-radius: 10px;
+  padding: 2em 1em;
+  cursor: pointer;
+  color: var(--text-muted);
+}
+
+.sm-clip-dropzone:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.sm-clip-dropzone-dragover {
+  border-color: var(--accent);
+  background-color: rgba(47, 127, 224, 0.08);
+  color: var(--text);
+}
+
+.sm-clip-file-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3em;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.sm-clip-file-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  background-color: var(--surface-alt);
+  border-radius: 6px;
+  padding: 0.4em 0.6em;
+}
+
+.sm-clip-file-number {
+  flex-shrink: 0;
+  font-weight: 700;
   color: var(--accent-hover);
+  font-variant-numeric: tabular-nums;
+}
+
+.sm-clip-file-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.88em;
+}
+
+.sm-clip-file-remove {
+  flex-shrink: 0;
+  background: transparent;
+  border: 1px solid var(--border);
+  box-shadow: none;
+  color: var(--text-muted);
+  width: 1.6em;
+  height: 1.6em;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 0.9em;
+  line-height: 1;
+}
+
+.sm-clip-file-remove:hover {
+  color: var(--danger);
+  border-color: var(--danger);
 }
 
 .sm-status-card-targets {

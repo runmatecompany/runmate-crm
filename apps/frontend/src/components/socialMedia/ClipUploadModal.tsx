@@ -1,78 +1,118 @@
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type ChangeEvent, type DragEvent } from "react";
 import { useAuth } from "../../lib/auth";
-import { uploadClippingClip, type ClippingProgress } from "../../lib/clippingProgress";
+import { uploadClippingClips, type ClippingProgress } from "../../lib/clippingProgress";
 import { useEscapeToClose } from "../../lib/useEscapeToClose";
 
 interface ClipUploadModalProps {
   clientId: number;
   clientName: string;
+  nextClipNumber: number | null;
   onClose: () => void;
   onUploaded: (progress: ClippingProgress) => void;
 }
 
-// A vágó itt tölti fel a kész klipet — a szerver a saját Drive-fiókjával
-// írja fel a fájlt a megfelelő névre ("1", "2", felülvágásnál "1v2" stb.),
-// így nem kell kézzel elnevezgetni, és garantáltan látható/számolható lesz
-// a progress-számlálóban, függetlenül attól, ki tölti fel.
-export default function ClipUploadModal({ clientId, clientName, onClose, onUploaded }: ClipUploadModalProps) {
+// A vágó ide dobja be a kész klipeket — a fájlneveket nem kell kézzel
+// megadni, a rendszer a mappa jelenlegi állása alapján automatikusan,
+// sorban elnevezi és felírja őket a feltöltéskor (lásd
+// lib/clipping.ts uploadNumberedClip). Itt csak a kiválasztás és a
+// tényleges "Feltöltés" gomb választja szét a két lépést, hogy még
+// meggondolhassa magát a felhasználó.
+export default function ClipUploadModal({ clientId, clientName, nextClipNumber, onClose, onUploaded }: ClipUploadModalProps) {
   useEscapeToClose(onClose);
   const { auth } = useAuth();
   const token = auth?.token ?? null;
 
-  const [clipNumber, setClipNumber] = useState("");
-  const [version, setVersion] = useState("");
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  async function handleSubmit(e: FormEvent) {
+  function addFiles(newFiles: File[]) {
+    const videos = newFiles.filter((f) => f.type.startsWith("video/"));
+    if (videos.length > 0) setFiles((prev) => [...prev, ...videos]);
+  }
+
+  function removeFile(index: number) {
+    setFiles((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function handleFileInput(e: ChangeEvent<HTMLInputElement>) {
+    addFiles(Array.from(e.currentTarget.files ?? []));
+    e.currentTarget.value = "";
+  }
+
+  // A Tauri ablak dragDropEnabled beállítása false — enélkül a natív
+  // ablak-réteg elkapná a fájl-dobást, mielőtt a webview HTML5 drag/drop
+  // eseményei egyáltalán lefutnának.
+  function handleDragOver(e: DragEvent) {
     e.preventDefault();
-    if (!token || !file || !clipNumber) return;
+    setIsDraggingOver(true);
+  }
+
+  function handleDragLeave(e: DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsDraggingOver(false);
+  }
+
+  function handleDrop(e: DragEvent) {
+    e.preventDefault();
+    setIsDraggingOver(false);
+    addFiles(Array.from(e.dataTransfer.files));
+  }
+
+  async function handleUpload() {
+    if (!token || files.length === 0) return;
     setUploading(true);
     setError(null);
     try {
-      const progress = await uploadClippingClip(token, clientId, Number(clipNumber), version ? Number(version) : null, file);
-      onUploaded(progress);
+      const result = await uploadClippingClips(token, clientId, files);
+      onUploaded(result.progress);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Nem sikerült feltölteni a fájlt");
+      setError(err instanceof Error ? err.message : "Nem sikerült feltölteni a fájlokat");
       setUploading(false);
     }
   }
 
+  const previewNumbers =
+    nextClipNumber != null ? files.map((_, i) => nextClipNumber + i) : files.map(() => null);
+
   return (
     <div className="chat-modal-backdrop">
-      <form className="chat-modal" onSubmit={handleSubmit}>
-        <h2>Klip feltöltése — {clientName}</h2>
+      <div className="chat-modal sm-clip-upload-modal">
+        <h2>Klipek feltöltése — {clientName}</h2>
 
-        <label htmlFor="clip-number">Hányadik videó?</label>
-        <input
-          id="clip-number"
-          type="number"
-          min={1}
-          value={clipNumber}
-          onChange={(e) => setClipNumber(e.currentTarget.value)}
-          autoFocus
-          required
-        />
+        <div
+          className={`sm-clip-dropzone${isDraggingOver ? " sm-clip-dropzone-dragover" : ""}`}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          onClick={() => fileInputRef.current?.click()}
+        >
+          <input ref={fileInputRef} type="file" accept="video/*" multiple hidden onChange={handleFileInput} />
+          <p>Húzd ide a kész videókat, vagy kattints a tallózáshoz</p>
+          <p className="chat-empty-hint">A fájlnevek automatikusan sorszámozódnak feltöltéskor</p>
+        </div>
 
-        <label htmlFor="clip-version">Verzió (csak felülvágásnál — pl. 2)</label>
-        <input
-          id="clip-version"
-          type="number"
-          min={2}
-          value={version}
-          onChange={(e) => setVersion(e.currentTarget.value)}
-          placeholder="Üresen hagyva: első/eredeti verzió"
-        />
-
-        <label htmlFor="clip-file">Videófájl</label>
-        <input
-          id="clip-file"
-          type="file"
-          accept="video/*"
-          onChange={(e) => setFile(e.currentTarget.files?.[0] ?? null)}
-          required
-        />
+        {files.length > 0 && (
+          <ul className="sm-clip-file-list">
+            {files.map((file, i) => (
+              <li key={`${file.name}-${i}`}>
+                <span className="sm-clip-file-number">{previewNumbers[i] ?? "?"}.</span>
+                <span className="sm-clip-file-name">{file.name}</span>
+                <button
+                  type="button"
+                  className="sm-clip-file-remove"
+                  onClick={() => removeFile(i)}
+                  disabled={uploading}
+                  aria-label="Eltávolítás"
+                >
+                  ×
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
 
         {error && <p className="login-error">{error}</p>}
 
@@ -80,11 +120,11 @@ export default function ClipUploadModal({ clientId, clientName, onClose, onUploa
           <button type="button" onClick={onClose} disabled={uploading}>
             Mégse
           </button>
-          <button type="submit" disabled={uploading || !file || !clipNumber}>
-            {uploading ? "Feltöltés..." : "Feltöltés"}
+          <button type="button" className="ob-submit-btn" onClick={() => void handleUpload()} disabled={uploading || files.length === 0}>
+            {uploading ? "Feltöltés..." : `Feltöltés (${files.length})`}
           </button>
         </div>
-      </form>
+      </div>
     </div>
   );
 }

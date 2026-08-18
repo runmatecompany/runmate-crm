@@ -184,20 +184,6 @@ export default function KanbanBoard({ items, clients, onOpen, onChanged }: Kanba
                           {clip?.done ?? "…"}/{clip?.target ?? "?"} kész
                         </div>
                       )}
-                      {clip?.paymentConfirmed && (clip.sourceFolderUrl || clip.outputFolderUrl) && (
-                        <div className="sm-kanban-clip-links">
-                          {clip.sourceFolderUrl && clip.sourceFolderUrl !== "-" && (
-                            <a href={clip.sourceFolderUrl} target="_blank" rel="noreferrer">
-                              Forrás mappa
-                            </a>
-                          )}
-                          {clip.outputFolderUrl && (
-                            <a href={clip.outputFolderUrl} target="_blank" rel="noreferrer">
-                              Megvágva mappa
-                            </a>
-                          )}
-                        </div>
-                      )}
                       {isAdmin && clip?.paymentConfirmed === false && (
                         <button
                           type="button"
@@ -328,6 +314,7 @@ export default function KanbanBoard({ items, clients, onOpen, onChanged }: Kanba
       <ClipUploadModal
         clientId={uploadTarget.id}
         clientName={uploadTarget.company_name}
+        nextClipNumber={clipProgress[uploadTarget.id]?.nextClipNumber ?? null}
         onClose={() => setUploadTarget(null)}
         onUploaded={(progress) => {
           setClipProgress((prev) => ({ ...prev, [uploadTarget.id]: progress }));
