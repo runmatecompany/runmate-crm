@@ -87,6 +87,7 @@ const onboardingBodySchema = {
     serviceLandingPage: { type: "boolean" },
     serviceClipping: { type: "boolean" },
     clippingSourceFolderUrl: { type: "string" },
+    clippingDailyTarget: { type: "integer" },
     monthlyVideoTarget: { type: "integer" },
     monthlyPostTarget: { type: "integer" },
     collaborationGoals: { type: "string" },
@@ -110,6 +111,7 @@ interface OnboardingBody {
   serviceLandingPage?: boolean;
   serviceClipping?: boolean;
   clippingSourceFolderUrl?: string;
+  clippingDailyTarget?: number;
   monthlyVideoTarget?: number;
   monthlyPostTarget?: number;
   collaborationGoals?: string;

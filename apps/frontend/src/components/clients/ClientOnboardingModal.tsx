@@ -37,6 +37,7 @@ export default function ClientOnboardingModal({ clientId, clientName, onClose }:
   const [serviceLandingPage, setServiceLandingPage] = useState(false);
   const [serviceClipping, setServiceClipping] = useState(false);
   const [clippingSourceFolderUrl, setClippingSourceFolderUrl] = useState("");
+  const [clippingDailyTarget, setClippingDailyTarget] = useState("");
   const [monthlyVideoTarget, setMonthlyVideoTarget] = useState("");
   const [monthlyPostTarget, setMonthlyPostTarget] = useState("");
 
@@ -74,6 +75,7 @@ export default function ClientOnboardingModal({ clientId, clientName, onClose }:
         setServiceLandingPage(profile.service_landing_page);
         setServiceClipping(profile.service_clipping);
         setClippingSourceFolderUrl(profile.clipping_source_folder_url ?? "");
+        setClippingDailyTarget(profile.clipping_daily_target != null ? String(profile.clipping_daily_target) : "");
         setMonthlyVideoTarget(profile.monthly_video_target != null ? String(profile.monthly_video_target) : "");
         setMonthlyPostTarget(profile.monthly_post_target != null ? String(profile.monthly_post_target) : "");
         setCollaborationGoals(profile.collaboration_goals ?? "");
@@ -101,7 +103,7 @@ export default function ClientOnboardingModal({ clientId, clientName, onClose }:
       websiteUrl.trim(),
       brandAssetsLocation.trim(),
       anyServiceSelected ? "x" : "",
-      monthlyVideoTarget.trim(),
+      serviceClipping ? clippingDailyTarget.trim() : monthlyVideoTarget.trim(),
       monthlyPostTarget.trim(),
       collaborationGoals.trim(),
       approvalProcessNotes.trim(),
@@ -117,6 +119,8 @@ export default function ClientOnboardingModal({ clientId, clientName, onClose }:
     websiteUrl,
     brandAssetsLocation,
     anyServiceSelected,
+    serviceClipping,
+    clippingDailyTarget,
     monthlyVideoTarget,
     monthlyPostTarget,
     collaborationGoals,
@@ -134,7 +138,11 @@ export default function ClientOnboardingModal({ clientId, clientName, onClose }:
     if (serviceClipping && !clippingSourceFolderUrl.trim()) {
       return "Clippeléshez kötelező megadni a forrás mappát.";
     }
-    if (!monthlyVideoTarget.trim()) return "A havi videó mennyiség kitöltése kötelező.";
+    if (serviceClipping) {
+      if (!clippingDailyTarget.trim()) return "A napi klip mennyiség kitöltése kötelező.";
+    } else if (!monthlyVideoTarget.trim()) {
+      return "A havi videó mennyiség kitöltése kötelező.";
+    }
     if (!monthlyPostTarget.trim()) return "A havi poszt mennyiség kitöltése kötelező.";
     return null;
   }
@@ -163,7 +171,8 @@ export default function ClientOnboardingModal({ clientId, clientName, onClose }:
         serviceLandingPage,
         serviceClipping,
         clippingSourceFolderUrl: serviceClipping ? clippingSourceFolderUrl.trim() : undefined,
-        monthlyVideoTarget: Number(monthlyVideoTarget),
+        clippingDailyTarget: serviceClipping ? Number(clippingDailyTarget) : undefined,
+        monthlyVideoTarget: serviceClipping ? undefined : Number(monthlyVideoTarget),
         monthlyPostTarget: Number(monthlyPostTarget),
         collaborationGoals: collaborationGoals.trim() || undefined,
         approvalProcessNotes: approvalProcessNotes.trim() || undefined,
@@ -350,26 +359,39 @@ export default function ClientOnboardingModal({ clientId, clientName, onClose }:
                         onChange={(e) => setClippingSourceFolderUrl(e.currentTarget.value)}
                         placeholder="https://drive.google.com/..."
                       />
+
+                      <label htmlFor="ob-clipping-daily-target">Napi klip mennyiség</label>
+                      <input
+                        id="ob-clipping-daily-target"
+                        type="number"
+                        min={0}
+                        value={clippingDailyTarget}
+                        onChange={(e) => setClippingDailyTarget(e.currentTarget.value)}
+                        placeholder="Pl. 3"
+                      />
                       <p className="chat-empty-hint">
-                        A havi videó-cél alapján minden hónapban, a hónapváltás előtt 10 nappal automatikusan
-                        létrejön a megfelelő mennyiségű "Vágásra vár" tartalom ebből a mappából — de a munka csak
-                        akkor indítható, ha admin jóváhagyta, hogy az ügyfél fizetett.
+                        A havi cél ebből számolódik ki automatikusan, a naptári hónap tényleges napjainak száma
+                        alapján (pl. napi 3 → 28 naposhónapban 84, 31 naposban 93) — a kész klipek száma élőben a
+                        "Videók/Megvágva" Drive-mappából olvasódik, a munka csak akkor válik láthatóvá/elérhetővé,
+                        ha admin jóváhagyta, hogy az ügyfél fizetett.
                       </p>
                     </div>
                   )}
 
                   <div className="ob-grid">
-                    <div className="ob-field">
-                      <label htmlFor="ob-monthly-video-target">Havi videó mennyiség</label>
-                      <input
-                        id="ob-monthly-video-target"
-                        type="number"
-                        min={0}
-                        value={monthlyVideoTarget}
-                        onChange={(e) => setMonthlyVideoTarget(e.currentTarget.value)}
-                        placeholder="Pl. 8"
-                      />
-                    </div>
+                    {!serviceClipping && (
+                      <div className="ob-field">
+                        <label htmlFor="ob-monthly-video-target">Havi videó mennyiség</label>
+                        <input
+                          id="ob-monthly-video-target"
+                          type="number"
+                          min={0}
+                          value={monthlyVideoTarget}
+                          onChange={(e) => setMonthlyVideoTarget(e.currentTarget.value)}
+                          placeholder="Pl. 8"
+                        />
+                      </div>
+                    )}
                     <div className="ob-field">
                       <label htmlFor="ob-monthly-post-target">Havi poszt mennyiség</label>
                       <input

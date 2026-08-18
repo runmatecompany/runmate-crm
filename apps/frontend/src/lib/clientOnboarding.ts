@@ -22,6 +22,7 @@ export interface ClientOnboarding {
   service_landing_page: boolean;
   service_clipping: boolean;
   clipping_source_folder_url: string | null;
+  clipping_daily_target: number | null;
   monthly_video_target: number | null;
   monthly_post_target: number | null;
   collaboration_goals: string | null;
@@ -46,6 +47,7 @@ export interface ClientOnboardingInput {
   serviceLandingPage?: boolean;
   serviceClipping?: boolean;
   clippingSourceFolderUrl?: string;
+  clippingDailyTarget?: number;
   monthlyVideoTarget?: number;
   monthlyPostTarget?: number;
   collaborationGoals?: string;

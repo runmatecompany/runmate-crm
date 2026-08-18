@@ -10,6 +10,8 @@ export interface ClippingProgress {
   paymentConfirmed: boolean;
   target: number | null;
   done: number | null;
+  sourceFolderUrl: string | null;
+  outputFolderUrl: string | null;
 }
 
 export async function getClippingProgress(token: string, clientId: number): Promise<ClippingProgress> {

@@ -411,6 +411,21 @@ export default function TasksPage() {
                     </button>
                   )}
 
+                  {client.service_clipping && clip?.paymentConfirmed && (clip.sourceFolderUrl || clip.outputFolderUrl) && (
+                    <div className="sm-status-clip-links">
+                      {clip.sourceFolderUrl && clip.sourceFolderUrl !== "-" && (
+                        <a href={clip.sourceFolderUrl} target="_blank" rel="noreferrer">
+                          Forrás mappa (nyersanyag)
+                        </a>
+                      )}
+                      {clip.outputFolderUrl && (
+                        <a href={clip.outputFolderUrl} target="_blank" rel="noreferrer">
+                          Megvágva mappa (ide kell feltölteni)
+                        </a>
+                      )}
+                    </div>
+                  )}
+
                   {postTarget != null && (
                     <div className="mt-progress-row">
                       <div className="mt-progress-label">

@@ -18,6 +18,7 @@ export interface ClientOnboardingRow {
   service_landing_page: boolean;
   service_clipping: boolean;
   clipping_source_folder_url: string | null;
+  clipping_daily_target: number | null;
   monthly_video_target: number | null;
   monthly_post_target: number | null;
   collaboration_goals: string | null;
@@ -35,6 +36,7 @@ export async function getClientOnboarding(clientId: number): Promise<ClientOnboa
             facebook_url, instagram_url, tiktok_url, youtube_url, brand_assets_location,
             platform_facebook, platform_instagram, platform_tiktok, platform_youtube,
             service_website_build, service_landing_page, service_clipping, clipping_source_folder_url,
+            clipping_daily_target,
             monthly_video_target, monthly_post_target,
             collaboration_goals, approval_process_notes, approver_name, approver_email, other_notes,
             completed_at, updated_at
@@ -57,6 +59,7 @@ export interface UpsertClientOnboardingInput {
   serviceLandingPage?: boolean;
   serviceClipping?: boolean;
   clippingSourceFolderUrl?: string;
+  clippingDailyTarget?: number;
   monthlyVideoTarget?: number;
   monthlyPostTarget?: number;
   collaborationGoals?: string;

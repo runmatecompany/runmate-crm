@@ -2330,6 +2330,17 @@ button:hover {
   border-color: var(--accent-hover);
 }
 
+.sm-status-clip-links {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3em;
+  font-size: 0.82em;
+}
+
+.sm-status-clip-links a {
+  color: var(--accent-hover);
+}
+
 .sm-status-card-targets {
   display: flex;
   gap: 1em;
