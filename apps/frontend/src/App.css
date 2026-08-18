@@ -2330,14 +2330,29 @@ button:hover {
   border-color: var(--accent-hover);
 }
 
-.sm-status-clip-links {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3em;
-  font-size: 0.82em;
+.sm-kanban-clip-card {
+  border-left: 3px solid #f5a623;
 }
 
-.sm-status-clip-links a {
+.sm-kanban-clip-card .sm-kanban-card-client,
+.sm-kanban-clip-card .sm-kanban-card-title,
+.sm-kanban-clip-card .sm-kanban-card-meta {
+  padding: 0 0.7em;
+}
+
+.sm-kanban-clip-card .sm-kanban-card-client {
+  padding-top: 0.6em;
+}
+
+.sm-kanban-clip-links {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25em;
+  padding: 0.3em 0.7em 0.6em;
+  font-size: 0.8em;
+}
+
+.sm-kanban-clip-links a {
   color: var(--accent-hover);
 }
 

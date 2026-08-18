@@ -1,5 +1,7 @@
-import { useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { useAuth } from "../../lib/auth";
+import type { Client } from "../../lib/clients";
+import { confirmClippingPayment, getClippingProgress, type ClippingProgress } from "../../lib/clippingProgress";
 import {
   CONTENT_STATUS_LABELS,
   IMAGE_POST_STATUSES,
@@ -18,11 +20,12 @@ import {
 
 interface KanbanBoardProps {
   items: ContentItem[];
+  clients: Client[];
   onOpen: (id: number) => void;
   onChanged: () => void;
 }
 
-export default function KanbanBoard({ items, onOpen, onChanged }: KanbanBoardProps) {
+export default function KanbanBoard({ items, clients, onOpen, onChanged }: KanbanBoardProps) {
   const { auth } = useAuth();
   const token = auth?.token ?? null;
   const isAdmin = auth?.user.role === "admin";
@@ -30,6 +33,35 @@ export default function KanbanBoard({ items, onOpen, onChanged }: KanbanBoardPro
   const pendingUploadItemRef = useRef<ContentItem | null>(null);
   const [uploadingItemId, setUploadingItemId] = useState<number | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [clipProgress, setClipProgress] = useState<Record<number, ClippingProgress>>({});
+
+  // A Clippelés-ügyfeleknek nincs egyenkénti tartalom-kártyájuk (a kész
+  // klipek számát a rendszer élőben a Drive-mappából olvassa, lásd
+  // lib/clipping.ts) — de a vágónak pontosan itt, a "Vágásra vár"
+  // oszlopban van rá szüksége, hogy lássa: kire vár még klippelés, és
+  // honnan/hova kell dolgoznia. Egy állandó, ügyfelenkénti kártyaként
+  // jelenik meg, függetlenül attól, hogy van-e már kész klip.
+  const clippingClients = useMemo(() => clients.filter((c) => c.service_clipping), [clients]);
+
+  useEffect(() => {
+    if (!token || clippingClients.length === 0) return;
+    let cancelled = false;
+    Promise.all(clippingClients.map((c) => getClippingProgress(token, c.id).then((p) => [c.id, p] as const))).then(
+      (pairs) => {
+        if (cancelled) return;
+        setClipProgress(Object.fromEntries(pairs));
+      }
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [token, clippingClients]);
+
+  async function handleConfirmClipPayment(clientId: number) {
+    if (!token) return;
+    const progress = await confirmClippingPayment(token, clientId);
+    setClipProgress((prev) => ({ ...prev, [clientId]: progress }));
+  }
 
   async function runAction(item: ContentItem, action: Parameters<typeof transitionContentItem>[2], value?: string) {
     if (!token) return;
@@ -127,12 +159,55 @@ export default function KanbanBoard({ items, onOpen, onChanged }: KanbanBoardPro
             return new Date(a.shoot_date).getTime() - new Date(b.shoot_date).getTime();
           });
         }
+        const extraCount = column.key === "editing" ? clippingClients.length : 0;
         return (
           <div key={column.key} className="sm-kanban-col">
             <div className="sm-kanban-col-header">
-              {column.label} <span className="sm-kanban-col-count">{columnItems.length}</span>
+              {column.label} <span className="sm-kanban-col-count">{columnItems.length + extraCount}</span>
             </div>
             <div className="sm-kanban-col-body">
+              {column.key === "editing" &&
+                clippingClients.map((client) => {
+                  const clip = clipProgress[client.id];
+                  return (
+                    <div key={`clip-${client.id}`} className="sm-kanban-card sm-kanban-clip-card">
+                      <div className="sm-kanban-card-client">{client.company_name}</div>
+                      <div className="sm-kanban-card-title">Clippelés</div>
+                      {clip?.paymentConfirmed === false ? (
+                        <div className="sm-kanban-card-meta">
+                          <span className="sm-kanban-card-badge sm-kanban-card-badge-payment">🔒 Fizetésre vár</span>
+                        </div>
+                      ) : (
+                        <div className="sm-kanban-card-meta">
+                          {clip?.done ?? "…"}/{clip?.target ?? "?"} kész
+                        </div>
+                      )}
+                      {clip?.paymentConfirmed && (clip.sourceFolderUrl || clip.outputFolderUrl) && (
+                        <div className="sm-kanban-clip-links">
+                          {clip.sourceFolderUrl && clip.sourceFolderUrl !== "-" && (
+                            <a href={clip.sourceFolderUrl} target="_blank" rel="noreferrer">
+                              Forrás mappa
+                            </a>
+                          )}
+                          {clip.outputFolderUrl && (
+                            <a href={clip.outputFolderUrl} target="_blank" rel="noreferrer">
+                              Megvágva mappa
+                            </a>
+                          )}
+                        </div>
+                      )}
+                      {isAdmin && clip?.paymentConfirmed === false && (
+                        <button
+                          type="button"
+                          className="sm-kanban-card-action"
+                          onClick={() => void handleConfirmClipPayment(client.id)}
+                        >
+                          Fizetés jóváhagyása
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
               {columnItems.map((item) => {
                 const cardAction = getCardAction(item.status);
                 const isUploading = uploadingItemId === item.id;
@@ -194,7 +269,7 @@ export default function KanbanBoard({ items, onOpen, onChanged }: KanbanBoardPro
                   </div>
                 );
               })}
-              {columnItems.length === 0 && <p className="sm-kanban-col-empty">—</p>}
+              {columnItems.length === 0 && extraCount === 0 && <p className="sm-kanban-col-empty">—</p>}
             </div>
           </div>
         );

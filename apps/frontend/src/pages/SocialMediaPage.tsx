@@ -113,7 +113,7 @@ export default function SocialMediaPage({ tab }: SocialMediaPageProps) {
       {loading && <p className="chat-empty-hint">Betöltés...</p>}
 
       {!loading && tab === "status" && <SocialMediaStatusView clients={clients} items={items} onOpen={setOpenItemId} />}
-      {!loading && tab === "kanban" && <KanbanBoard items={items} onOpen={setOpenItemId} onChanged={refresh} />}
+      {!loading && tab === "kanban" && <KanbanBoard items={items} clients={clients} onOpen={setOpenItemId} onChanged={refresh} />}
       {!loading && tab === "post-queue" && <PostQueueView items={items} onOpen={setOpenItemId} onChanged={refresh} />}
       {!loading && tab === "shoot-calendar" && <ShootCalendar items={items} onOpen={setOpenItemId} />}
       {!loading && tab === "content-calendar" && <ContentCalendar items={items} onOpen={setOpenItemId} />}

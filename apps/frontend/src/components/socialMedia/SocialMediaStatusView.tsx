@@ -177,21 +177,6 @@ export default function SocialMediaStatusView({ clients, items, onOpen }: Social
                 </button>
               )}
 
-              {client.service_clipping && clip?.paymentConfirmed && (clip.sourceFolderUrl || clip.outputFolderUrl) && (
-                <div className="sm-status-clip-links">
-                  {clip.sourceFolderUrl && clip.sourceFolderUrl !== "-" && (
-                    <a href={clip.sourceFolderUrl} target="_blank" rel="noreferrer">
-                      Forrás mappa (nyersanyag)
-                    </a>
-                  )}
-                  {clip.outputFolderUrl && (
-                    <a href={clip.outputFolderUrl} target="_blank" rel="noreferrer">
-                      Megvágva mappa (ide kell feltölteni)
-                    </a>
-                  )}
-                </div>
-              )}
-
               {!client.service_clipping &&
                 (inProgress.length === 0 ? (
                   <p className="chat-empty-hint">Nincs folyamatban lévő tartalom.</p>
