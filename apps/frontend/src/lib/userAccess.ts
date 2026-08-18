@@ -5,6 +5,7 @@ export interface UserAccess {
   clientsAccess: boolean;
   socialMediaAccess: boolean;
   tasksAccess: boolean;
+  leadGenAccess: boolean;
   emailModuleAccess: boolean;
   emailAccountIds: number[];
 }

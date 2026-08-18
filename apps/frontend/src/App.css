@@ -3294,3 +3294,310 @@ button:hover {
   text-overflow: ellipsis;
   box-shadow: none;
 }
+
+/* ---- Lead Gen ---- */
+
+.lg-temp-badge {
+  display: inline-block;
+  padding: 0.15em 0.6em;
+  border-radius: 999px;
+  font-size: 0.75em;
+  font-weight: 700;
+}
+
+.lg-temp-badge--hot {
+  background-color: rgba(255, 107, 107, 0.18);
+  color: var(--danger);
+}
+
+.lg-temp-badge--warm {
+  background-color: rgba(245, 166, 35, 0.18);
+  color: #f5a623;
+}
+
+.lg-temp-badge--potential {
+  background-color: rgba(224, 195, 65, 0.18);
+  color: #e0c341;
+}
+
+.lg-temp-badge--low_priority {
+  background-color: var(--surface-alt);
+  color: var(--text-muted);
+}
+
+.lg-callqueue-start {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1em;
+  max-width: 560px;
+  padding: 1.5em 0;
+}
+
+.lg-callqueue-progress {
+  color: var(--text-muted);
+  font-size: 0.85em;
+  margin: 0 0 0.6em;
+}
+
+.lg-callcard {
+  max-width: 640px;
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1.4em 1.6em;
+  display: flex;
+  flex-direction: column;
+  gap: 1.1em;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.lg-callcard-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1em;
+}
+
+.lg-callcard-company {
+  font-size: 1.3em;
+  font-weight: 700;
+}
+
+.lg-callcard-sub {
+  color: var(--text-muted);
+  font-size: 0.85em;
+  margin-top: 0.15em;
+}
+
+.lg-callcard-badge {
+  flex-shrink: 0;
+  padding: 0.3em 0.8em;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.85em;
+}
+
+.lg-callcard-badge--hot {
+  background-color: rgba(255, 107, 107, 0.18);
+  color: var(--danger);
+}
+
+.lg-callcard-badge--warm {
+  background-color: rgba(245, 166, 35, 0.18);
+  color: #f5a623;
+}
+
+.lg-callcard-badge--potential {
+  background-color: rgba(224, 195, 65, 0.18);
+  color: #e0c341;
+}
+
+.lg-callcard-badge--low_priority {
+  background-color: var(--surface-alt);
+  color: var(--text-muted);
+}
+
+.lg-callcard-phone-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1em;
+  background-color: var(--surface-alt);
+  border-radius: 10px;
+  padding: 0.8em 1em;
+}
+
+.lg-callcard-phone {
+  font-size: 1.15em;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.lg-callcard-phone-source {
+  color: var(--text-muted);
+  font-size: 0.78em;
+}
+
+.lg-callcard-call-btn {
+  flex-shrink: 0;
+  background-color: #3ecf8e;
+  border-color: #3ecf8e;
+  color: #0b1f16;
+  font-weight: 700;
+  padding: 0.6em 1.2em;
+  border-radius: 8px;
+  text-decoration: none;
+}
+
+.lg-callcard-section-label {
+  font-size: 0.72em;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent-hover);
+  font-weight: 700;
+  margin-bottom: 0.35em;
+}
+
+.lg-callcard-meta {
+  color: var(--text-muted);
+  font-size: 0.8em;
+  margin-top: 0.15em;
+}
+
+.lg-callcard-why {
+  margin: 0;
+  padding-left: 1.2em;
+}
+
+.lg-callcard-why li {
+  margin-bottom: 0.25em;
+}
+
+.lg-callcard-opening {
+  font-style: italic;
+  color: var(--text);
+  background-color: var(--surface-alt);
+  border-left: 3px solid var(--accent);
+  padding: 0.6em 0.8em;
+  border-radius: 6px;
+  margin: 0;
+}
+
+.lg-callcard-gdpr {
+  font-size: 0.8em;
+  color: #f5a623;
+  background-color: rgba(245, 166, 35, 0.1);
+  border-radius: 6px;
+  padding: 0.5em 0.7em;
+  margin: 0;
+}
+
+.lg-callcard-attempt-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1em;
+  font-size: 0.8em;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border);
+  padding-top: 0.8em;
+}
+
+.lg-callcard-dispositions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+}
+
+.lg-callcard-disposition-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5em;
+}
+
+.lg-disposition-btn {
+  flex: 1 1 auto;
+  font-size: 0.85em;
+  padding: 0.55em 0.9em;
+}
+
+.lg-disposition-btn--positive {
+  border-color: #3ecf8e;
+  color: #3ecf8e;
+}
+
+.lg-disposition-btn--danger {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.lg-callcard-skip {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  color: var(--text-muted);
+  font-size: 0.78em;
+  text-align: center;
+  padding: 0.3em;
+}
+
+.lg-callcard-disposition-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+  background-color: var(--surface-alt);
+  border-radius: 10px;
+  padding: 1em;
+}
+
+.lg-callcard-disposition-form-title {
+  font-weight: 700;
+  margin-bottom: 0.2em;
+}
+
+.lg-callcard-disposition-form label {
+  font-size: 0.82em;
+  color: var(--text-muted);
+}
+
+.lg-callcard-disposition-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6em;
+  margin-top: 0.4em;
+}
+
+.lg-csv-mapping {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.7em;
+}
+
+.lg-csv-mapping-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8em;
+}
+
+.lg-csv-mapping-header {
+  font-size: 0.85em;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lg-csv-mapping-row select {
+  flex-shrink: 0;
+  width: auto;
+}
+
+.lg-score-breakdown {
+  white-space: pre-wrap;
+  font-family: inherit;
+  font-size: 0.85em;
+  color: var(--text-muted);
+  background-color: var(--surface-alt);
+  border-radius: 8px;
+  padding: 0.8em;
+  margin: 0.5em 0 0;
+}
+
+.lg-contact-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1em;
+  padding: 0.6em 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.lg-contact-row:last-child {
+  border-bottom: none;
+}
