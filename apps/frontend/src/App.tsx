@@ -10,6 +10,7 @@ import DashboardPage from "./pages/DashboardPage";
 import SetupWizard from "./pages/SetupWizard";
 import CallOverlay from "./components/CallOverlay";
 import ToastNotifications from "./components/ToastNotifications";
+import ErrorBoundary from "./components/ErrorBoundary";
 import logo from "./assets/logo.png";
 import "./App.css";
 
@@ -60,16 +61,18 @@ function Screen() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <RealtimeProvider>
-        <NavigationProvider>
-          <CallProvider>
-            <Screen />
-            <CallOverlay />
-            <ToastNotifications />
-          </CallProvider>
-        </NavigationProvider>
-      </RealtimeProvider>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <RealtimeProvider>
+          <NavigationProvider>
+            <CallProvider>
+              <Screen />
+              <CallOverlay />
+              <ToastNotifications />
+            </CallProvider>
+          </NavigationProvider>
+        </RealtimeProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }

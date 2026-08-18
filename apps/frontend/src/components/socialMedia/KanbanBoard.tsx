@@ -320,6 +320,9 @@ export default function KanbanBoard({ items, clients, onOpen, onChanged }: Kanba
           setClipProgress((prev) => ({ ...prev, [uploadTarget.id]: progress }));
           setUploadTarget(null);
         }}
+        onProgressUpdate={(progress) => {
+          setClipProgress((prev) => ({ ...prev, [uploadTarget.id]: progress }));
+        }}
       />
     )}
     </div>

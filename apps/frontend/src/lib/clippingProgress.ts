@@ -26,26 +26,42 @@ export async function confirmClippingPayment(token: string, clientId: number): P
   return data.progress;
 }
 
-// A vágó egyszerre több kész klipet is bedobhat — a szerver a mappa
-// jelenlegi állása alapján automatikusan, sorban elnevezi és felírja
-// őket a saját Drive-fiókjával, így garantáltan látható/számolható lesz
-// a progress-számlálóban, függetlenül attól, ki kezdeményezte a
-// feltöltést.
-export async function uploadClippingClips(
+// A vágó egyszerre több kész klipet is bedobhat, de a feltöltés a
+// szerver oldali sorszámozás (mappa aktuális állása alapján, lásd
+// lib/clipping.ts beginClippingUpload) miatt csak szigorúan egymás
+// után, egyenként mehet — a hívó fél (ClipUploadModal) egy for-loopban,
+// fájlonként hívja ezt, csak akkor indítva a következőt, ha az előző
+// teljesen lezárult. XHR kell a fetch helyett, mert csak az ad valódi
+// feltöltési progress-eseményt (%) a UI progress-csíkjához.
+export function uploadClippingClip(
   token: string,
   clientId: number,
-  files: File[]
-): Promise<{ progress: ClippingProgress; uploaded: number }> {
-  const formData = new FormData();
-  for (const file of files) formData.append("file", file);
-  const res = await fetch(`${getApiUrl()}/clients/${clientId}/clipping-progress/upload`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token}` },
-    body: formData,
+  file: File,
+  onProgress: (percent: number) => void
+): Promise<{ progress: ClippingProgress }> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${getApiUrl()}/clients/${clientId}/clipping-progress/upload`);
+    xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+    };
+    xhr.onload = () => {
+      let body: { progress?: ClippingProgress; error?: string } = {};
+      try {
+        body = JSON.parse(xhr.responseText);
+      } catch {
+        // no-op — az onload alatti státusz-ág dönt a hibaüzenetről
+      }
+      if (xhr.status >= 200 && xhr.status < 300 && body.progress) {
+        resolve({ progress: body.progress });
+      } else {
+        reject(new Error(body.error ?? "Nem sikerült feltölteni a fájlt"));
+      }
+    };
+    xhr.onerror = () => reject(new Error("Hálózati hiba a feltöltés közben"));
+    const formData = new FormData();
+    formData.append("file", file);
+    xhr.send(formData);
   });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.error ?? "Nem sikerült feltölteni a fájlokat");
-  }
-  return res.json();
 }

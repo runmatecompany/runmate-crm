@@ -137,24 +137,33 @@ export async function importLeadGenCsv(
 
     const revenueCurrentRaw = get("revenueCurrent");
     const revenueYearRaw = get("revenueYear");
+    const revenueCurrent = revenueCurrentRaw ? Number(revenueCurrentRaw.replace(/[^\d.]/g, "")) : undefined;
+    const revenueYear = revenueYearRaw ? Number(revenueYearRaw) : undefined;
 
-    await createLeadGenCompany({
-      companyName: effectiveName,
-      taxNumber,
-      website,
-      phoneMain: get("phoneMain"),
-      phoneSource: get("phoneMain") ? "CSV import" : undefined,
-      address: get("address"),
-      city: get("city"),
-      county: get("county"),
-      industry: get("industry"),
-      revenueCurrent: revenueCurrentRaw ? Number(revenueCurrentRaw.replace(/[^\d.]/g, "")) : undefined,
-      revenueYear: revenueYearRaw ? Number(revenueYearRaw) : undefined,
-      revenueSource: revenueCurrentRaw ? "CSV import" : undefined,
-      seedSource: "csv",
-      createdBy,
-    });
-    imported++;
+    try {
+      await createLeadGenCompany({
+        companyName: effectiveName,
+        taxNumber,
+        website,
+        phoneMain: get("phoneMain"),
+        phoneSource: get("phoneMain") ? "CSV import" : undefined,
+        address: get("address"),
+        city: get("city"),
+        county: get("county"),
+        industry: get("industry"),
+        revenueCurrent: revenueCurrent != null && !Number.isNaN(revenueCurrent) ? revenueCurrent : undefined,
+        revenueYear: revenueYear != null && !Number.isNaN(revenueYear) ? revenueYear : undefined,
+        revenueSource: revenueCurrentRaw ? "CSV import" : undefined,
+        seedSource: "csv",
+        createdBy,
+      });
+      imported++;
+    } catch {
+      // Egy hibás/váratlan formátumú sor (pl. érvénytelen adat egy
+      // mezőben) nem szakíthatja meg a teljes importot — a többi sor
+      // feldolgozása folytatódik, ez a sor hiányos adatként számít.
+      skippedMissingData++;
+    }
   }
 
   return { imported, skippedDuplicates, skippedMissingData, total: dataRows.length };

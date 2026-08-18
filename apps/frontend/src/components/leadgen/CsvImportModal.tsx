@@ -39,12 +39,24 @@ function guessField(header: string): LeadGenCsvField | "" {
   return "";
 }
 
+// Ha valaki tévedésből egy nem CSV (pl. .xlsx bináris) fájlt választ ki,
+// abban gyakran nincs semmilyen sortörésnek felismerhető karakter — ekkor
+// a teljes fájltartalom "egyetlen fejlécoszlopként" végződne, amit a DOM-ba
+// renderelve (akár több MB-os szövegcsomópontként) a webview érdemben
+// lefagyhat. Ezért itt limitáljuk a vizsgált szakaszt.
+const MAX_HEADER_SCAN_CHARS = 20000;
+const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
+
 function splitFirstLine(text: string): string[] {
-  const firstLine = text.split(/\r?\n/, 1)[0] ?? "";
+  const scanText = text.length > MAX_HEADER_SCAN_CHARS ? text.slice(0, MAX_HEADER_SCAN_CHARS) : text;
+  const firstLine = scanText.split(/\r?\n/, 1)[0] ?? "";
   const commas = (firstLine.match(/,/g) ?? []).length;
   const semicolons = (firstLine.match(/;/g) ?? []).length;
   const delimiter = semicolons > commas ? ";" : ",";
-  return firstLine.split(delimiter).map((h) => h.trim().replace(/^"|"$/g, ""));
+  return firstLine
+    .split(delimiter)
+    .map((h) => h.trim().replace(/^"|"$/g, ""))
+    .map((h) => (h.length > 200 ? `${h.slice(0, 200)}…` : h));
 }
 
 export default function CsvImportModal({ onClose, onImported }: CsvImportModalProps) {
@@ -60,17 +72,36 @@ export default function CsvImportModal({ onClose, onImported }: CsvImportModalPr
   const [summary, setSummary] = useState<LeadGenImportSummary | null>(null);
 
   async function handleFileSelected(f: File) {
-    setFile(f);
     setError(null);
-    const text = await f.text();
-    const cols = splitFirstLine(text);
-    setHeaders(cols);
-    const guessed: LeadGenCsvMapping = {};
-    cols.forEach((h, i) => {
-      const guess = guessField(h);
-      if (guess) guessed[i] = guess;
-    });
-    setMapping(guessed);
+    setHeaders([]);
+    setMapping({});
+    if (f.size > MAX_FILE_SIZE_BYTES) {
+      setFile(null);
+      setError(
+        `A fájl túl nagy (${Math.round(f.size / 1024 / 1024)} MB). A CSV import legfeljebb ${MAX_FILE_SIZE_BYTES / 1024 / 1024} MB méretig támogatott.`
+      );
+      return;
+    }
+    setFile(f);
+    try {
+      const text = await f.text();
+      const cols = splitFirstLine(text);
+      if (cols.length > 200) {
+        setFile(null);
+        setError("A fájl fejléce értelmezhetetlenül sok oszlopot tartalmaz — valódi CSV fájlt választottál ki?");
+        return;
+      }
+      setHeaders(cols);
+      const guessed: LeadGenCsvMapping = {};
+      cols.forEach((h, i) => {
+        const guess = guessField(h);
+        if (guess) guessed[i] = guess;
+      });
+      setMapping(guessed);
+    } catch {
+      setFile(null);
+      setError("Nem sikerült beolvasni a fájlt — ellenőrizd, hogy valódi CSV fájlt választottál-e ki.");
+    }
   }
 
   const hasRequiredMapping = Object.values(mapping).some((v) => v === "companyName" || v === "website" || v === "taxNumber");

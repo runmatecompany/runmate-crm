@@ -6,6 +6,19 @@ import { processNextLeadResearch } from "./lib/leadResearch/process.js";
 
 const app = buildApp();
 
+// Ez a szerver ténylegesen éles gépként fut (a kollégák ezen keresztül
+// érik el Tailscale-en), nincs mögötte process-supervisor ami crash után
+// automatikusan újraindítaná — egy kezeletlen promise-elutasítás vagy
+// szinkron kivétel alapból leállítaná a teljes Node-folyamatot, ami a
+// teljes szoftvert használhatatlanná tenné, amíg valaki manuálisan újra
+// nem indítja. Naplózzuk és életben tartjuk a folyamatot helyette.
+process.on("unhandledRejection", (reason) => {
+  app.log.error(reason, "Kezeletlen promise-elutasítás — a szerver életben marad");
+});
+process.on("uncaughtException", (err) => {
+  app.log.error(err, "Kezeletlen kivétel — a szerver életben marad");
+});
+
 const GOOGLE_CALENDAR_SYNC_INTERVAL_MS = 5 * 60 * 1000;
 const DRIVE_MONTH_PROVISION_INTERVAL_MS = 24 * 60 * 60 * 1000;
 // Nincs queue-infrastruktúra a rendszerben — ez a minta (rövid periódusú

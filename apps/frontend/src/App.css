@@ -2472,13 +2472,52 @@ button:hover {
   overflow-y: auto;
 }
 
-.sm-clip-file-list li {
+.sm-clip-file-item {
   display: flex;
-  align-items: center;
-  gap: 0.6em;
+  flex-direction: column;
+  gap: 0.35em;
   background-color: var(--surface-alt);
   border-radius: 6px;
   padding: 0.4em 0.6em;
+}
+
+.sm-clip-file-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+}
+
+.sm-clip-file-done {
+  flex-shrink: 0;
+  font-size: 0.8em;
+  font-weight: 600;
+  color: var(--accent-hover);
+}
+
+.sm-clip-progress-track {
+  position: relative;
+  height: 0.9em;
+  border-radius: 5px;
+  background-color: var(--border);
+  overflow: hidden;
+}
+
+.sm-clip-progress-fill {
+  height: 100%;
+  background-color: var(--accent);
+  transition: width 0.15s ease-out;
+}
+
+.sm-clip-progress-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72em;
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
 }
 
 .sm-clip-file-number {

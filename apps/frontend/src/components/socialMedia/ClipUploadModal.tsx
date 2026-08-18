@@ -1,6 +1,6 @@
 import { useRef, useState, type ChangeEvent, type DragEvent } from "react";
 import { useAuth } from "../../lib/auth";
-import { uploadClippingClips, type ClippingProgress } from "../../lib/clippingProgress";
+import { uploadClippingClip, type ClippingProgress } from "../../lib/clippingProgress";
 import { useEscapeToClose } from "../../lib/useEscapeToClose";
 
 interface ClipUploadModalProps {
@@ -9,6 +9,7 @@ interface ClipUploadModalProps {
   nextClipNumber: number | null;
   onClose: () => void;
   onUploaded: (progress: ClippingProgress) => void;
+  onProgressUpdate: (progress: ClippingProgress) => void;
 }
 
 // A vágó ide dobja be a kész klipeket — a fájlneveket nem kell kézzel
@@ -17,7 +18,14 @@ interface ClipUploadModalProps {
 // lib/clipping.ts uploadNumberedClip). Itt csak a kiválasztás és a
 // tényleges "Feltöltés" gomb választja szét a két lépést, hogy még
 // meggondolhassa magát a felhasználó.
-export default function ClipUploadModal({ clientId, clientName, nextClipNumber, onClose, onUploaded }: ClipUploadModalProps) {
+export default function ClipUploadModal({
+  clientId,
+  clientName,
+  nextClipNumber,
+  onClose,
+  onUploaded,
+  onProgressUpdate,
+}: ClipUploadModalProps) {
   useEscapeToClose(onClose);
   const { auth } = useAuth();
   const token = auth?.token ?? null;
@@ -25,6 +33,8 @@ export default function ClipUploadModal({ clientId, clientName, nextClipNumber, 
   const [files, setFiles] = useState<File[]>([]);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const [progressByIndex, setProgressByIndex] = useState<Record<number, number>>({});
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -61,17 +71,41 @@ export default function ClipUploadModal({ clientId, clientName, nextClipNumber, 
     addFiles(Array.from(e.dataTransfer.files));
   }
 
+  // A szerver a mappa aktuális állása alapján adja ki a következő
+  // sorszámot, ezért a klipek csak szigorúan egymás után, egyenként
+  // tölthetők fel — a következő csak akkor indul, ha az előző teljesen
+  // lezárult (nincs párhuzamos feltöltés, nincs sorrendcsere).
   async function handleUpload() {
     if (!token || files.length === 0) return;
     setUploading(true);
     setError(null);
-    try {
-      const result = await uploadClippingClips(token, clientId, files);
-      onUploaded(result.progress);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Nem sikerült feltölteni a fájlokat");
-      setUploading(false);
+
+    let lastProgress: ClippingProgress | null = null;
+    let completed = 0;
+    for (let i = 0; i < files.length; i++) {
+      setActiveIndex(i);
+      try {
+        const result = await uploadClippingClip(token, clientId, files[i], (pct) => {
+          setProgressByIndex((prev) => ({ ...prev, [i]: pct }));
+        });
+        lastProgress = result.progress;
+        onProgressUpdate(result.progress);
+        completed++;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Nem sikerült feltölteni a fájlokat");
+        setUploading(false);
+        setActiveIndex(null);
+        setProgressByIndex({});
+        setFiles((prev) => prev.slice(completed));
+        return;
+      }
     }
+
+    setUploading(false);
+    setActiveIndex(null);
+    setProgressByIndex({});
+    setFiles([]);
+    if (lastProgress) onUploaded(lastProgress);
   }
 
   const previewNumbers =
@@ -91,26 +125,41 @@ export default function ClipUploadModal({ clientId, clientName, nextClipNumber, 
         >
           <input ref={fileInputRef} type="file" accept="video/*" multiple hidden onChange={handleFileInput} />
           <p>Húzd ide a kész videókat, vagy kattints a tallózáshoz</p>
-          <p className="chat-empty-hint">A fájlnevek automatikusan sorszámozódnak feltöltéskor</p>
+          <p className="chat-empty-hint">A fájlnevek automatikusan sorszámozódnak, sorban töltődnek fel</p>
         </div>
 
         {files.length > 0 && (
           <ul className="sm-clip-file-list">
-            {files.map((file, i) => (
-              <li key={`${file.name}-${i}`}>
-                <span className="sm-clip-file-number">{previewNumbers[i] ?? "?"}.</span>
-                <span className="sm-clip-file-name">{file.name}</span>
-                <button
-                  type="button"
-                  className="sm-clip-file-remove"
-                  onClick={() => removeFile(i)}
-                  disabled={uploading}
-                  aria-label="Eltávolítás"
-                >
-                  ×
-                </button>
-              </li>
-            ))}
+            {files.map((file, i) => {
+              const pct = progressByIndex[i] ?? 0;
+              const isActive = activeIndex === i;
+              const isDone = uploading && activeIndex != null && i < activeIndex;
+              return (
+                <li key={`${file.name}-${i}`} className="sm-clip-file-item">
+                  <div className="sm-clip-file-row">
+                    <span className="sm-clip-file-number">{previewNumbers[i] ?? "?"}.</span>
+                    <span className="sm-clip-file-name">{file.name}</span>
+                    {isDone && <span className="sm-clip-file-done">Kész</span>}
+                    {!uploading && (
+                      <button
+                        type="button"
+                        className="sm-clip-file-remove"
+                        onClick={() => removeFile(i)}
+                        aria-label="Eltávolítás"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                  {isActive && (
+                    <div className="sm-clip-progress-track">
+                      <div className="sm-clip-progress-fill" style={{ width: `${pct}%` }} />
+                      <span className="sm-clip-progress-label">{pct}%</span>
+                    </div>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         )}
 
@@ -121,7 +170,7 @@ export default function ClipUploadModal({ clientId, clientName, nextClipNumber, 
             Mégse
           </button>
           <button type="button" className="ob-submit-btn" onClick={() => void handleUpload()} disabled={uploading || files.length === 0}>
-            {uploading ? "Feltöltés..." : `Feltöltés (${files.length})`}
+            {uploading ? `Feltöltés... (${(activeIndex ?? 0) + 1}/${files.length})` : `Feltöltés (${files.length})`}
           </button>
         </div>
       </div>
