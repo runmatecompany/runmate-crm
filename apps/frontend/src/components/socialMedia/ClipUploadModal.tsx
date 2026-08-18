@@ -36,7 +36,13 @@ export default function ClipUploadModal({
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [progressByIndex, setProgressByIndex] = useState<Record<number, number>>({});
   const [error, setError] = useState<string | null>(null);
+  // Ha egy köteg félbeszakad (egy fájl hibázik), a sikeresen feltöltött
+  // fájlok kikerülnek a listából, de az induláskori nextClipNumber prop
+  // nem frissül — enélkül egy újrapróbálkozás ütköző sorszámokat küldene.
+  const [uploadedInSession, setUploadedInSession] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const effectiveNextNumber = nextClipNumber != null ? nextClipNumber + uploadedInSession : null;
 
   function addFiles(newFiles: File[]) {
     const videos = newFiles.filter((f) => f.type.startsWith("video/"));
@@ -84,13 +90,15 @@ export default function ClipUploadModal({
     let completed = 0;
     for (let i = 0; i < files.length; i++) {
       setActiveIndex(i);
+      const number = effectiveNextNumber != null ? effectiveNextNumber + completed : null;
       try {
-        const result = await uploadClippingClip(token, clientId, files[i], (pct) => {
+        const result = await uploadClippingClip(token, clientId, files[i], number, (pct) => {
           setProgressByIndex((prev) => ({ ...prev, [i]: pct }));
         });
         lastProgress = result.progress;
         onProgressUpdate(result.progress);
         completed++;
+        setUploadedInSession((prev) => prev + 1);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Nem sikerült feltölteni a fájlokat");
         setUploading(false);
@@ -109,7 +117,7 @@ export default function ClipUploadModal({
   }
 
   const previewNumbers =
-    nextClipNumber != null ? files.map((_, i) => nextClipNumber + i) : files.map(() => null);
+    effectiveNextNumber != null ? files.map((_, i) => effectiveNextNumber + i) : files.map(() => null);
 
   return (
     <div className="chat-modal-backdrop">

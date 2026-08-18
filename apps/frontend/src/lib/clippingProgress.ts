@@ -33,10 +33,18 @@ export async function confirmClippingPayment(token: string, clientId: number): P
 // fájlonként hívja ezt, csak akkor indítva a következőt, ha az előző
 // teljesen lezárult. XHR kell a fetch helyett, mert csak az ad valódi
 // feltöltési progress-eseményt (%) a UI progress-csíkjához.
+// A "number" mezőt a hívó (ClipUploadModal) a getClippingProgress által
+// visszaadott nextClipNumber-ből számolja, és sikeres feltöltésenként
+// eggyel növeli — ezzel a szervernek nem kell fájlonként újra
+// átvizsgálnia a teljes Drive-mappát a következő szabad sorszámért, ami
+// a hónap végén (80-90+ fájlnál) érdemben lassította a feltöltést. A
+// "number" mezőnek a FormData-ban a "file" előtt kell szerepelnie — a
+// multipart stream csak egy irányba, sorban olvasható.
 export function uploadClippingClip(
   token: string,
   clientId: number,
   file: File,
+  number: number | null,
   onProgress: (percent: number) => void
 ): Promise<{ progress: ClippingProgress }> {
   return new Promise((resolve, reject) => {
@@ -61,6 +69,7 @@ export function uploadClippingClip(
     };
     xhr.onerror = () => reject(new Error("Hálózati hiba a feltöltés közben"));
     const formData = new FormData();
+    if (number != null) formData.append("number", String(number));
     formData.append("file", file);
     xhr.send(formData);
   });

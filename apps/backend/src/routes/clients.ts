@@ -307,11 +307,16 @@ export default async function clientsRoutes(fastify: FastifyInstance) {
     }
   );
 
-  // A vágó ide dobja be a kész klipeket (akár többet egyszerre) — a
-  // rendszer a mappa jelenlegi állása alapján automatikusan, sorban
-  // elnevezi és felírja őket a saját Drive-fiókjával, így garantáltan
-  // látható/számolható lesz a progress-számlálóban, függetlenül attól, ki
-  // kezdeményezte a feltöltést.
+  // A vágó a kész klipeket egyenként, szigorúan sorban tölti fel
+  // (ClipUploadModal.tsx) — minden fájl saját kérés, egy opcionális
+  // "number" mezővel, amit a frontend a getClippingProgress válaszából
+  // ismer és növel feltöltésenként. Ha ez megvan, a szerver nem kénytelen
+  // fájlonként újra átvizsgálni a teljes Drive-mappát a következő szabad
+  // sorszámért (ez sokat számít a hónap végén, amikor már 80-90 fájl van
+  // bent) — ez volt a fő oka annak, hogy a feltöltés lelassult, amikor
+  // fájlonként külön kérésre álltunk át a progress-csík kedvéért. A
+  // mappa-scan csak akkor fut le, ha a "number" mező hiányzik (régebbi
+  // kliens / fallback).
   fastify.post<{ Params: { id: string } }>(
     "/clients/:id/clipping-progress/upload",
     { onRequest: [fastify.authenticate] },
@@ -324,37 +329,33 @@ export default async function clientsRoutes(fastify: FastifyInstance) {
       const clientId = Number(request.params.id);
       if (!(await getClientById(clientId))) return reply.code(404).send({ error: "Client not found" });
 
-      let ctx;
+      let explicitNumber: number | undefined;
+      let uploaded = false;
       try {
-        ctx = await beginClippingUpload(clientId);
+        for await (const part of request.parts()) {
+          if (part.type === "field" && part.fieldname === "number") {
+            const n = Number(part.value);
+            if (Number.isFinite(n) && n > 0) explicitNumber = n;
+          } else if (part.type === "file" && part.fieldname === "file") {
+            const ctx = await beginClippingUpload(clientId, explicitNumber);
+            await uploadNumberedClip(ctx, ctx.nextNumber, part.filename, part.mimetype, part.file as Readable);
+            uploaded = true;
+          }
+        }
       } catch (err) {
         if (err instanceof ClippingUploadError) {
           return reply.code(400).send({ error: err.message });
         }
-        throw err;
+        request.log.error(err, "Clipping upload failed");
+        return reply.code(502).send({ error: err instanceof Error ? err.message : "Nem sikerült feltölteni a fájlt" });
       }
 
-      let uploadedCount = 0;
-      let currentNumber = ctx.nextNumber;
-      try {
-        for await (const part of request.files()) {
-          await uploadNumberedClip(ctx, currentNumber, part.filename, part.mimetype, part.file as Readable);
-          currentNumber++;
-          uploadedCount++;
-        }
-      } catch (err) {
-        request.log.error(err, "Clipping batch upload failed");
-        return reply
-          .code(502)
-          .send({ error: err instanceof Error ? err.message : "Nem sikerült feltölteni a fájlokat" });
-      }
-
-      if (uploadedCount === 0) {
+      if (!uploaded) {
         return reply.code(400).send({ error: "Nincs kiválasztott fájl" });
       }
 
       const progress = await getClippingProgress(clientId);
-      return reply.code(201).send({ progress, uploaded: uploadedCount });
+      return reply.code(201).send({ progress, uploaded: 1 });
     }
   );
 }

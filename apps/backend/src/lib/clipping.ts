@@ -116,12 +116,19 @@ export interface ClippingUploadContext {
   nextNumber: number;
 }
 
-// A vágó egyszerre több kész klipet dob be egy üres pop-up ablakba — a
-// mappa jelenlegi állása alapján itt derül ki, honnantól kezdve szabadok a
-// sorszámok, mielőtt a fájlok tényleges feltöltése (uploadNumberedClip,
-// egyenként, streamelve) elkezdődne.
-export async function beginClippingUpload(clientId: number): Promise<ClippingUploadContext> {
+// A vágó a kész klipeket egyenként, szigorúan sorban tölti fel (lásd
+// ClipUploadModal.tsx) — a frontend maga is tudja a következő sorszámot
+// (a getClippingProgress válaszából, majd minden sikeres feltöltés után
+// eggyel növelve), és elküldi explicit "number" mezőként. Ha ez megvan,
+// nem kell a teljes mappát újra átvizsgálni fájlonként (ez sok Drive
+// API-hívást és DB-lekérdezést takarít meg a hónap végére, amikor már
+// sok fájl van a mappában) — a mappa-scan csak fallback, ha valamiért
+// nincs explicit szám (pl. régebbi kliens, vagy hibás válasz).
+export async function beginClippingUpload(clientId: number, explicitNumber?: number): Promise<ClippingUploadContext> {
   const { oauth, folderId } = await getReadyClippingContext(clientId);
+  if (explicitNumber != null) {
+    return { oauth, folderId, nextNumber: explicitNumber };
+  }
   const existing = await listFolderChildren(oauth, folderId);
   const doneNumbers = existing.map((f) => parseClipNumber(f.name)).filter((n): n is number => n != null);
   const nextNumber = doneNumbers.length > 0 ? Math.max(...doneNumbers) + 1 : 1;
