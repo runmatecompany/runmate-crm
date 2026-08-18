@@ -1,9 +1,12 @@
+import type { Readable } from "node:stream";
 import { getClientById } from "../db/clients.js";
 import { getClientOnboarding } from "../db/clientOnboarding.js";
 import { confirmClippingPayment, isClippingPaymentConfirmed } from "../db/clippingPeriods.js";
 import { getAuthorizedClient } from "./googleCalendar/oauth.js";
 import { driveFolderLink, listFolderChildren } from "./googleDrive/api.js";
-import { ensureVideoSubfolder } from "./googleDrive/upload.js";
+import { ensureVideoSubfolder, uploadStreamToFolder } from "./googleDrive/upload.js";
+
+export class ClippingUploadError extends Error {}
 
 function currentYearMonth(): string {
   const d = new Date();
@@ -93,4 +96,46 @@ export async function getClippingProgress(clientId: number): Promise<ClippingPro
 
 export async function confirmCurrentMonthClippingPayment(clientId: number): Promise<void> {
   await confirmClippingPayment(clientId, currentYearMonth());
+}
+
+// A vágó az appon keresztül tölti fel a kész klipet — a szerver a saját
+// (RunMate) Drive-fiókjával írja fel, így garantáltan látható/számolható
+// lesz, függetlenül attól, ki kezdeményezte a feltöltést a szoftverben.
+// Ez pontosan azért kellett, mert a korábbi "bárki linkkel" megosztásos
+// feltöltésnél a fájlok más Google-fiók alá kerültek, és a RunMate-fiók
+// Drive API-ja egyáltalán nem látta őket.
+export async function uploadClippingClip(
+  clientId: number,
+  clipNumber: number,
+  version: number | null,
+  originalFilename: string,
+  mimetype: string,
+  fileStream: Readable
+): Promise<void> {
+  const profile = await getClientOnboarding(clientId);
+  if (!profile?.service_clipping) {
+    throw new ClippingUploadError("Ennél az ügyfélnél nincs beállítva Clippelés szolgáltatás");
+  }
+
+  const yearMonth = currentYearMonth();
+  const paymentConfirmed = await isClippingPaymentConfirmed(clientId, yearMonth);
+  if (!paymentConfirmed) {
+    throw new ClippingUploadError("A fizetés még nincs jóváhagyva erre a hónapra — a feltöltés nem indítható");
+  }
+
+  const client = await getClientById(clientId);
+  if (!client?.drive_folder_id) {
+    throw new ClippingUploadError("Az ügyfélnek nincs Drive-mappája");
+  }
+  const oauth = await getAuthorizedClient();
+  if (!oauth) {
+    throw new ClippingUploadError("Nincs Google Drive kapcsolat beállítva");
+  }
+
+  const extensionMatch = originalFilename.match(/\.[^./]+$/);
+  const extension = extensionMatch ? extensionMatch[0] : "";
+  const filename = `${clipNumber}${version ? `v${version}` : ""}${extension}`;
+
+  const folderId = await ensureVideoSubfolder(oauth, clientId, client.drive_folder_id, yearMonth, "edited");
+  await uploadStreamToFolder(oauth, folderId, filename, mimetype, fileStream);
 }

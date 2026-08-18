@@ -23,6 +23,11 @@ async function driveFetch<T>(client: OAuth2Client, url: string | URL, init: Requ
   return res.json();
 }
 
+// supportsAllDrives/includeItemsFromAllDrives kötelező mindenhol, ahol egy
+// mappa (vagy a benne lévő fájlok) esetleg egy Megosztott meghajtóban
+// (Shared Drive) van/lett áthelyezve — enélkül a Drive API csendben, hiba
+// nélkül üres találati listát ad vissza az ottani tartalomra, miközben a
+// böngészőben az adott mappa tartalma teljesen normálisan látszik.
 export async function findFolderByName(
   client: OAuth2Client,
   parentId: string | null,
@@ -36,12 +41,14 @@ export async function findFolderByName(
     `${parentClause} and name = '${escapedName}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`
   );
   url.searchParams.set("fields", "files(id,name)");
+  url.searchParams.set("supportsAllDrives", "true");
+  url.searchParams.set("includeItemsFromAllDrives", "true");
   const data = await driveFetch<{ files?: DriveFolder[] }>(client, url);
   return data.files?.[0] ?? null;
 }
 
 export async function createFolder(client: OAuth2Client, parentId: string | null, name: string): Promise<DriveFolder> {
-  return driveFetch<DriveFolder>(client, `${DRIVE_FILES_URL}?fields=id,name`, {
+  return driveFetch<DriveFolder>(client, `${DRIVE_FILES_URL}?fields=id,name&supportsAllDrives=true`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -68,7 +75,7 @@ export async function startResumableUpload(
 ): Promise<string> {
   const { token: accessToken } = await client.getAccessToken();
   if (!accessToken) throw new Error("Nincs érvényes Google access token");
-  const res = await fetch(`${DRIVE_UPLOAD_URL}?uploadType=resumable`, {
+  const res = await fetch(`${DRIVE_UPLOAD_URL}?uploadType=resumable&supportsAllDrives=true`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -110,6 +117,8 @@ export async function listFolderChildren(client: OAuth2Client, folderId: string)
   url.searchParams.set("fields", "files(id,name,mimeType)");
   url.searchParams.set("orderBy", "folder,name");
   url.searchParams.set("pageSize", "1000");
+  url.searchParams.set("supportsAllDrives", "true");
+  url.searchParams.set("includeItemsFromAllDrives", "true");
   const data = await driveFetch<{ files?: DriveItem[] }>(client, url);
   return data.files ?? [];
 }
@@ -134,7 +143,7 @@ export async function createGoogleFile(
   name: string,
   kind: CreatableKind
 ): Promise<DriveItem> {
-  return driveFetch<DriveItem>(client, `${DRIVE_FILES_URL}?fields=id,name,mimeType`, {
+  return driveFetch<DriveItem>(client, `${DRIVE_FILES_URL}?fields=id,name,mimeType&supportsAllDrives=true`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name, mimeType: CREATABLE_MIME_TYPES[kind], parents: [parentId] }),
@@ -165,7 +174,7 @@ export async function createGoogleDocFromText(
     `${textContent}\r\n` +
     `--${boundary}--`;
 
-  const res = await fetch(`${DRIVE_UPLOAD_URL}?uploadType=multipart&fields=id,name,mimeType`, {
+  const res = await fetch(`${DRIVE_UPLOAD_URL}?uploadType=multipart&fields=id,name,mimeType&supportsAllDrives=true`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -181,7 +190,7 @@ export async function createGoogleDocFromText(
 }
 
 export async function renameItem(client: OAuth2Client, itemId: string, name: string): Promise<DriveItem> {
-  return driveFetch<DriveItem>(client, `${DRIVE_FILES_URL}/${itemId}?fields=id,name,mimeType`, {
+  return driveFetch<DriveItem>(client, `${DRIVE_FILES_URL}/${itemId}?fields=id,name,mimeType&supportsAllDrives=true`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name }),
@@ -191,7 +200,7 @@ export async function renameItem(client: OAuth2Client, itemId: string, name: str
 // Kukába dobás (nem végleges törlés) — ugyanaz, mint amit a Drive saját
 // kuka-ikonja csinál, a Drive-on belül vissza is állítható.
 export async function trashItem(client: OAuth2Client, itemId: string): Promise<void> {
-  await driveFetch<{ id: string }>(client, `${DRIVE_FILES_URL}/${itemId}?fields=id`, {
+  await driveFetch<{ id: string }>(client, `${DRIVE_FILES_URL}/${itemId}?fields=id&supportsAllDrives=true`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ trashed: true }),
@@ -215,7 +224,7 @@ export async function resolveBreadcrumb(
     try {
       info = await driveFetch<{ id: string; name: string; parents?: string[] }>(
         client,
-        `${DRIVE_FILES_URL}/${currentId}?fields=id,name,parents`
+        `${DRIVE_FILES_URL}/${currentId}?fields=id,name,parents&supportsAllDrives=true`
       );
     } catch {
       // A lánc egy nem elérhető/nem hagyományos fájl-azonosítóba futott

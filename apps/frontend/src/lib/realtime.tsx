@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import { useAuth } from "./auth";
 import { authFetch } from "./api";
 import { getApiUrl } from "./serverConfig";
-import type { ChatMessage } from "./chat";
+import { getUnreadCount, type ChatMessage } from "./chat";
 
 interface RealtimeValue {
   connected: boolean;
@@ -14,6 +14,8 @@ interface RealtimeValue {
   names: Record<number, string>;
   bumpAvatar: (userId: number) => void;
   onlineUserIds: Set<number>;
+  unreadCount: number;
+  refreshUnreadCount: () => void;
 }
 
 const RealtimeContext = createContext<RealtimeValue | undefined>(undefined);
@@ -28,6 +30,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
   const [avatarVersions, setAvatarVersions] = useState<Record<number, number>>({});
   const [names, setNames] = useState<Record<number, string>>({});
   const [onlineUserIds, setOnlineUserIds] = useState<Set<number>>(new Set());
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     if (!token) return;
@@ -46,6 +49,11 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
           .then((res) => res.json())
           .then((data) => {
             if (!cancelled) setOnlineUserIds(new Set<number>(data.onlineUserIds ?? []));
+          })
+          .catch(() => {});
+        getUnreadCount(token as string)
+          .then((count) => {
+            if (!cancelled) setUnreadCount(count);
           })
           .catch(() => {});
       };
@@ -87,6 +95,10 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
           ws.send(
             JSON.stringify({ type: "delivered", messageId: frame.message.id, roomId: frame.message.room_id })
           );
+          // Optimista növelés — ha épp az adott szobát nézzük, a ChatPage
+          // úgyis azonnal elolvasottnak jelöli és refreshUnreadCount()-tal
+          // korrigál, itt nem tudjuk (és nem is kell) ezt megkülönböztetni.
+          setUnreadCount((prev) => prev + 1);
         }
 
         frameListenersRef.current.get(frame.type)?.forEach((cb) => cb(frame));
@@ -130,6 +142,15 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     setAvatarVersions((prev) => ({ ...prev, [userId]: (prev[userId] ?? 0) + 1 }));
   }, []);
 
+  // A ChatPage minden alkalommal meghívja, amikor egy szobát olvasottnak
+  // jelöl (megnyitáskor, vagy új üzenetnél ha épp az a szoba aktív) — a
+  // pontos szám a szerverről jön vissza, nem próbálunk helyi számolással
+  // szinkronban maradni azzal, hány üzenet lett épp elolvasva.
+  const refreshUnreadCount = useCallback(() => {
+    if (!token) return;
+    getUnreadCount(token).then(setUnreadCount).catch(() => {});
+  }, [token]);
+
   return (
     <RealtimeContext.Provider
       value={{
@@ -142,6 +163,8 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
         names,
         bumpAvatar,
         onlineUserIds,
+        unreadCount,
+        refreshUnreadCount,
       }}
     >
       {children}

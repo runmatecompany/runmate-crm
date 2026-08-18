@@ -1,6 +1,7 @@
 import { useState } from "react";
 import logo from "../assets/logo.png";
 import { useUpdater } from "../lib/updater";
+import { useRealtime } from "../lib/realtime";
 import { MENU_ITEMS } from "../lib/menuItems";
 import Avatar from "./Avatar";
 
@@ -14,6 +15,7 @@ interface SidebarProps {
 
 export default function Sidebar({ activeId, onSelect, userId, userName, onLogout }: SidebarProps) {
   const { status, installAndRestart } = useUpdater();
+  const { unreadCount } = useRealtime();
   const updateAvailable = status === "available" || status === "installing";
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
 
@@ -63,7 +65,10 @@ export default function Sidebar({ activeId, onSelect, userId, userName, onLogout
                     onSelect(item.children ? item.children[0].id : item.id);
                   }}
                 >
-                  {item.label}
+                  <span>{item.label}</span>
+                  {item.id === "chat" && unreadCount > 0 && (
+                    <span className="sidebar-unread-badge">{unreadCount > 99 ? "99+" : unreadCount}</span>
+                  )}
                 </button>
               </div>
               {item.children && !isCollapsed && (

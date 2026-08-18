@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import type { Readable } from "node:stream";
 import {
   createClient,
   deleteClient,
@@ -10,7 +11,7 @@ import {
 import { getClientAiProfile, upsertClientAiProfile } from "../db/clientAiProfiles.js";
 import { getClientOnboarding, upsertClientOnboarding } from "../db/clientOnboarding.js";
 import { hasSocialMediaAccess } from "../db/contentItems.js";
-import { confirmCurrentMonthClippingPayment, getClippingProgress } from "../lib/clipping.js";
+import { ClippingUploadError, confirmCurrentMonthClippingPayment, getClippingProgress, uploadClippingClip } from "../lib/clipping.js";
 import { provisionClientDriveFolders } from "../lib/googleDrive/onboarding.js";
 
 const clientDetailsSchema = {
@@ -297,6 +298,64 @@ export default async function clientsRoutes(fastify: FastifyInstance) {
       await confirmCurrentMonthClippingPayment(clientId);
       const progress = await getClippingProgress(clientId);
       return { progress };
+    }
+  );
+
+  // A vágó ide tölti fel a kész klipeket — a szerver a saját Drive-
+  // fiókjával írja fel a fájlt, így garantáltan látható/számolható lesz a
+  // progress-számlálóban, függetlenül attól, ki kezdeményezte a feltöltést.
+  fastify.post<{ Params: { id: string } }>(
+    "/clients/:id/clipping-progress/upload",
+    { onRequest: [fastify.authenticate] },
+    async (request, reply) => {
+      const { sub: userId, role } = request.user;
+      const access = role === "admin" || (await hasClientsAccess(userId)) || (await hasSocialMediaAccess(userId));
+      if (!access) {
+        return reply.code(403).send({ error: "Nincs hozzáférésed ehhez" });
+      }
+      const clientId = Number(request.params.id);
+      if (!(await getClientById(clientId))) return reply.code(404).send({ error: "Client not found" });
+
+      let clipNumber: number | null = null;
+      let version: number | null = null;
+      let fileInfo: { filename: string; mimetype: string; file: NodeJS.ReadableStream } | null = null;
+
+      for await (const part of request.parts()) {
+        if (part.type === "file" && part.fieldname === "file") {
+          fileInfo = { filename: part.filename, mimetype: part.mimetype, file: part.file };
+        } else if (part.type === "field" && part.fieldname === "clipNumber") {
+          clipNumber = Number(part.value);
+        } else if (part.type === "field" && part.fieldname === "version") {
+          version = part.value ? Number(part.value) : null;
+        }
+      }
+
+      if (!clipNumber || clipNumber < 1) {
+        return reply.code(400).send({ error: "Add meg, hányadik videóról van szó" });
+      }
+      if (!fileInfo) {
+        return reply.code(400).send({ error: "Nincs kiválasztott fájl" });
+      }
+
+      try {
+        await uploadClippingClip(
+          clientId,
+          clipNumber,
+          version,
+          fileInfo.filename,
+          fileInfo.mimetype,
+          fileInfo.file as Readable
+        );
+      } catch (err) {
+        if (err instanceof ClippingUploadError) {
+          return reply.code(400).send({ error: err.message });
+        }
+        request.log.error(err, "Clipping upload failed");
+        return reply.code(502).send({ error: err instanceof Error ? err.message : "Nem sikerült feltölteni a fájlt" });
+      }
+
+      const progress = await getClippingProgress(clientId);
+      return reply.code(201).send({ progress });
     }
   );
 }

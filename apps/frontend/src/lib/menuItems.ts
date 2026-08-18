@@ -13,6 +13,7 @@ export const MENU_ITEMS: MenuItem[] = [
   { id: "leadgen", label: "Lead Gen" },
   { id: "clients", label: "Ügyfelek" },
   { id: "tasks", label: "Feladatok" },
+  { id: "chat", label: "Chat" },
   {
     id: "social",
     label: "Social Media",
@@ -25,7 +26,6 @@ export const MENU_ITEMS: MenuItem[] = [
       { id: "social-drive", label: "Drive" },
     ],
   },
-  { id: "chat", label: "Chat" },
   { id: "settings", label: "Beállítások" },
 ];
 

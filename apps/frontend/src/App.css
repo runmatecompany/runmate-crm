@@ -531,6 +531,10 @@ button:hover {
 }
 
 .sidebar-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5em;
   text-align: left;
   background: transparent;
   color: var(--text-muted);
@@ -538,6 +542,22 @@ button:hover {
   box-shadow: none;
   padding: 0.6em 0.6em;
   border-radius: 6px;
+}
+
+.sidebar-unread-badge {
+  flex-shrink: 0;
+  background-color: var(--danger);
+  color: #ffffff;
+  font-size: 0.72em;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0.3em 0.5em;
+  border-radius: 6px;
+}
+
+.sidebar-link.active .sidebar-unread-badge {
+  background-color: #ffffff;
+  color: var(--accent);
 }
 
 .sidebar-link:hover {
@@ -804,10 +824,32 @@ button:hover {
 }
 
 .chat-main {
+  position: relative;
   flex: 1;
   display: flex;
   flex-direction: column;
   min-width: 0;
+}
+
+.chat-main-dragover {
+  outline: 2px dashed var(--accent);
+  outline-offset: -4px;
+  background-color: rgba(47, 127, 224, 0.06);
+}
+
+.chat-dropzone-hint {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  background-color: rgba(0, 0, 0, 0.35);
+  border-radius: 8px;
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 1.1em;
 }
 
 .chat-main-header {

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { useAuth } from "../../lib/auth";
 import type { Client } from "../../lib/clients";
 import { confirmClippingPayment, getClippingProgress, type ClippingProgress } from "../../lib/clippingProgress";
+import ClipUploadModal from "./ClipUploadModal";
 import {
   CONTENT_STATUS_LABELS,
   IMAGE_POST_STATUSES,
@@ -34,6 +35,7 @@ export default function KanbanBoard({ items, clients, onOpen, onChanged }: Kanba
   const [uploadingItemId, setUploadingItemId] = useState<number | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [clipProgress, setClipProgress] = useState<Record<number, ClippingProgress>>({});
+  const [uploadTarget, setUploadTarget] = useState<Client | null>(null);
 
   // A Clippelés-ügyfeleknek nincs egyenkénti tartalom-kártyájuk (a kész
   // klipek számát a rendszer élőben a Drive-mappából olvassa, lásd
@@ -205,6 +207,11 @@ export default function KanbanBoard({ items, clients, onOpen, onChanged }: Kanba
                           Fizetés jóváhagyása
                         </button>
                       )}
+                      {clip?.paymentConfirmed && (
+                        <button type="button" className="sm-kanban-card-action" onClick={() => setUploadTarget(client)}>
+                          Klip feltöltése
+                        </button>
+                      )}
                     </div>
                   );
                 })}
@@ -315,6 +322,18 @@ export default function KanbanBoard({ items, clients, onOpen, onChanged }: Kanba
           })}
         </div>
       </>
+    )}
+
+    {uploadTarget && (
+      <ClipUploadModal
+        clientId={uploadTarget.id}
+        clientName={uploadTarget.company_name}
+        onClose={() => setUploadTarget(null)}
+        onUploaded={(progress) => {
+          setClipProgress((prev) => ({ ...prev, [uploadTarget.id]: progress }));
+          setUploadTarget(null);
+        }}
+      />
     )}
     </div>
   );

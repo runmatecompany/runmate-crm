@@ -298,6 +298,27 @@ export async function markRoomRead(roomId: number, userId: number): Promise<Room
   return toMark.map((row) => ({ messageId: row.id, senderId: row.sender_id }));
 }
 
+// Az összes, a felhasználóhoz elérhető szobában (csoportos szoba: mindenki
+// tagja; DM: csak ha ő is résztvevő) még nem elolvasott üzenetek száma —
+// ez adja a Chat menüpont oldalsávi jelvényét.
+export async function getUnreadMessageCount(userId: number): Promise<number> {
+  const { rows } = await pool.query<{ count: string }>(
+    `SELECT count(*) FROM chat_messages m
+     JOIN chat_rooms r ON r.id = m.room_id
+     WHERE m.sender_id != $1
+       AND (
+         r.is_dm = false
+         OR EXISTS (SELECT 1 FROM chat_room_members rm WHERE rm.room_id = r.id AND rm.user_id = $1)
+       )
+       AND NOT EXISTS (
+         SELECT 1 FROM chat_message_receipts rec
+         WHERE rec.message_id = m.id AND rec.user_id = $1 AND rec.read_at IS NOT NULL
+       )`,
+    [userId]
+  );
+  return Number(rows[0]?.count ?? 0);
+}
+
 export async function listColleagues(): Promise<Colleague[]> {
   const { rows } = await pool.query<Colleague>(`SELECT id, name, email, role FROM users ORDER BY name`);
   return rows;

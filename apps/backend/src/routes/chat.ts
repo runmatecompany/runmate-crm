@@ -9,6 +9,7 @@ import {
   getOtherDmMember,
   getRoomBroadcastUserIds,
   getRoomMeta,
+  getUnreadMessageCount,
   insertMessage,
   listColleagues,
   listMessages,
@@ -81,6 +82,14 @@ export default async function chatRoutes(fastify: FastifyInstance) {
 
   fastify.get("/chat/presence", { onRequest: [fastify.authenticate] }, async () => {
     return { onlineUserIds: getOnlineUserIds() };
+  });
+
+  // Az oldalsávi Chat menüpont jelvényéhez — kapcsolódáskor/reconnectkor
+  // ez adja a kezdőértéket, utána a WS "message"/olvasottság-frame-ek
+  // tartják élőben (lásd lib/realtime.tsx).
+  fastify.get("/chat/unread-count", { onRequest: [fastify.authenticate] }, async (request) => {
+    const count = await getUnreadMessageCount(request.user.sub);
+    return { count };
   });
 
   // Snapshot az összes, a felhasználó számára látható szoba aktív hívásairól —

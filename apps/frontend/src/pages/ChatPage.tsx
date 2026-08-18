@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type ChangeEvent, type DragEvent, type FormEvent } from "react";
 import { useAuth } from "../lib/auth";
 import { useRealtime } from "../lib/realtime";
 import { useCall } from "../lib/call";
@@ -31,7 +31,7 @@ export default function ChatPage() {
   const { auth } = useAuth();
   const token = auth?.token ?? null;
   const isAdmin = auth?.user.role === "admin";
-  const { onChatMessage, sendChatMessage, sendFrame, onFrame, names } = useRealtime();
+  const { onChatMessage, sendChatMessage, sendFrame, onFrame, names, refreshUnreadCount } = useRealtime();
   const { status: callStatus, roomId: callRoomId, roomRosters, joinCall } = useCall();
   const { requestedRoomId, clearRequestedRoom, setViewingRoomId } = useNavigation();
 
@@ -44,6 +44,7 @@ export default function ChatPage() {
   const [showNewDm, setShowNewDm] = useState(false);
   const [typingUserId, setTypingUserId] = useState<number | null>(null);
   const [sendingImage, setSendingImage] = useState(false);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
 
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTypingSentRef = useRef(0);
@@ -69,8 +70,12 @@ export default function ChatPage() {
     listMessages(token, activeRoomId).then((msgs) => {
       setMessages(msgs);
       sendFrame({ type: "read-room", roomId: activeRoomId });
+      // Kis késleltetés, hogy a szerver a WS "read-room" keretet a
+      // számláló friss lekérdezése előtt biztosan feldolgozza — a HTTP és
+      // a WS-kapcsolat sorrendje egyébként nem garantált.
+      setTimeout(refreshUnreadCount, 300);
     });
-  }, [token, activeRoomId, sendFrame]);
+  }, [token, activeRoomId, sendFrame, refreshUnreadCount]);
 
   // Ha egy toast értesítésre kattintva kértek megnyitni egy szobát, azt
   // választjuk aktívvá.
@@ -106,10 +111,11 @@ export default function ChatPage() {
         setMessages((prev) => [...prev, message]);
         if (message.sender_id !== auth?.user.id) {
           sendFrame({ type: "read-room", roomId: activeRoomId });
+          setTimeout(refreshUnreadCount, 300);
         }
       }
     });
-  }, [onChatMessage, activeRoomId, auth, sendFrame]);
+  }, [onChatMessage, activeRoomId, auth, sendFrame, refreshUnreadCount]);
 
   useEffect(() => {
     return onFrame("typing", (frame) => {
@@ -227,11 +233,8 @@ export default function ChatPage() {
     setDraft("");
   }
 
-  async function handleImageSelected(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.currentTarget.files?.[0];
-    e.currentTarget.value = "";
-    if (!file || !token || activeRoomId == null) return;
-
+  async function sendImageFile(file: File) {
+    if (!token || activeRoomId == null) return;
     setSendingImage(true);
     try {
       const dataUrl = await resizeImageToDataUrl(file, 1600, 0.82);
@@ -242,6 +245,37 @@ export default function ChatPage() {
     } finally {
       setSendingImage(false);
     }
+  }
+
+  async function handleImageSelected(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.currentTarget.files?.[0];
+    e.currentTarget.value = "";
+    if (!file) return;
+    await sendImageFile(file);
+  }
+
+  // A Tauri ablak dragDropEnabled beállítása false — enélkül a natív
+  // ablak-réteg elkapná a fájl-dobást, mielőtt a webview HTML5 drag/drop
+  // eseményei egyáltalán lefutnának (ugyanaz a minta, mint a Drive-
+  // böngészőnél).
+  function handleDragOver(e: DragEvent) {
+    e.preventDefault();
+    if (activeRoomId == null) return;
+    setIsDraggingOver(true);
+  }
+
+  function handleDragLeave(e: DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsDraggingOver(false);
+  }
+
+  function handleDrop(e: DragEvent) {
+    e.preventDefault();
+    setIsDraggingOver(false);
+    if (activeRoomId == null) return;
+    const file = Array.from(e.dataTransfer.files).find((f) => f.type.startsWith("image/"));
+    if (!file) return;
+    void sendImageFile(file);
   }
 
   async function handleCreateRoom(name: string) {
@@ -283,7 +317,13 @@ export default function ChatPage() {
         onNewDm={() => setShowNewDm(true)}
       />
 
-      <div className="chat-main">
+      <div
+        className={`chat-main${isDraggingOver ? " chat-main-dragover" : ""}`}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
+        {isDraggingOver && <div className="chat-dropzone-hint">Engedd el a képet a küldéshez</div>}
         {activeRoom ? (
           <>
             <div className="chat-main-header">

@@ -53,6 +53,12 @@ export async function listColleagues(token: string): Promise<Colleague[]> {
   return data.users;
 }
 
+export async function getUnreadCount(token: string): Promise<number> {
+  const res = await authFetch(token, "/chat/unread-count");
+  const data = await res.json();
+  return data.count;
+}
+
 export async function listMessages(token: string, roomId: number): Promise<ChatMessage[]> {
   const res = await authFetch(token, `/chat/rooms/${roomId}/messages`);
   const data = await res.json();
