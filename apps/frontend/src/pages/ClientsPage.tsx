@@ -6,12 +6,25 @@ import {
   deleteClient,
   listClients,
   updateClient,
+  updateClientStatus,
   type Client,
   type ClientFormInput,
+  type ClientStatus,
 } from "../lib/clients";
 import ClientFormModal from "../components/clients/ClientFormModal";
 import ClientAiProfileModal from "../components/clients/ClientAiProfileModal";
 import ClientOnboardingModal from "../components/clients/ClientOnboardingModal";
+
+const STATUS_LABELS: Record<ClientStatus, string> = {
+  active: "Aktív",
+  paused: "Szüneteltetve",
+  closed: "Lezárva",
+};
+
+const CLIENT_TYPE_LABELS: Record<string, string> = {
+  monthly: "Havi megújuló",
+  one_off: "Alkalmi",
+};
 
 export default function ClientsPage() {
   const { auth } = useAuth();
@@ -76,6 +89,17 @@ export default function ClientsPage() {
     refresh();
   }
 
+  async function handleStatusChange(client: Client, status: ClientStatus) {
+    if (!token) return;
+    setError(null);
+    try {
+      await updateClientStatus(token, client.id, status);
+      refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Nem sikerült frissíteni az ügyfél állapotát");
+    }
+  }
+
   if (!loading && !hasAccess) {
     return (
       <main className="leads-page">
@@ -85,6 +109,95 @@ export default function ClientsPage() {
         </p>
       </main>
     );
+  }
+
+  const activeClients = clients.filter((c) => c.status === "active");
+  const passiveClients = clients.filter((c) => c.status !== "active");
+
+  function renderTable(list: Client[]) {
+    return (
+      <table className="leads-table">
+        <thead>
+          <tr>
+            <th>Cég</th>
+            <th>Típus</th>
+            <th>Állapot</th>
+            <th>Kapcsolattartó</th>
+            <th>Telefon</th>
+            <th>Email</th>
+            <th>Drive</th>
+            <th>Onboarding</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {list.map((client) => {
+            const onboarded = client.onboarding_completed_at != null;
+            return (
+              <tr key={client.id}>
+                <td>{client.company_name}</td>
+                <td>{client.client_type ? CLIENT_TYPE_LABELS[client.client_type] : "—"}</td>
+                <td>
+                  <select
+                    value={client.status}
+                    onChange={(e) => handleStatusChange(client, e.currentTarget.value as ClientStatus)}
+                  >
+                    {(Object.keys(STATUS_LABELS) as ClientStatus[]).map((status) => (
+                      <option key={status} value={status}>
+                        {STATUS_LABELS[status]}
+                      </option>
+                    ))}
+                  </select>
+                </td>
+                <td>{client.contact_name}</td>
+                <td>{client.phone}</td>
+                <td>{client.email}</td>
+                <td>
+                  {client.drive_folder_id ? (
+                    <a
+                      href={`https://drive.google.com/drive/folders/${client.drive_folder_id}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Mappa megnyitása
+                    </a>
+                  ) : (
+                    "—"
+                  )}
+                </td>
+                <td>
+                  <span
+                    className={`sm-kanban-card-badge ${onboarded ? "sm-kanban-card-badge-sent" : "sm-kanban-card-badge-not_started"}`}
+                  >
+                    {onboarded ? "Kész" : "Hiányzik"}
+                  </span>
+                </td>
+                <td>
+                  <div className="leads-row-actions">
+                    <button type="button" onClick={() => setEditingClient(client)}>
+                      Szerkesztés
+                    </button>
+                    <button type="button" onClick={() => setOnboardingClient(client)}>
+                      {onboarded ? "Onboarding szerkesztése" : "Onboarding"}
+                    </button>
+                    {isAdmin && (
+                      <button type="button" onClick={() => setAiProfileClient(client)}>
+                        AI-profil
+                      </button>
+                    )}
+                    {isAdmin && (
+                      <button type="button" onClick={() => handleDelete(client)}>
+                        Törlés
+                      </button>
+                    )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      );
   }
 
   return (
@@ -98,72 +211,21 @@ export default function ClientsPage() {
       {!loading && clients.length === 0 && <p className="chat-empty-hint">Nincs még felvett ügyfél.</p>}
 
       {!loading && clients.length > 0 && (
-        <table className="leads-table">
-          <thead>
-            <tr>
-              <th>Cég</th>
-              <th>Kapcsolattartó</th>
-              <th>Telefon</th>
-              <th>Email</th>
-              <th>Drive</th>
-              <th>Onboarding</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {clients.map((client) => {
-              const onboarded = client.onboarding_completed_at != null;
-              return (
-                <tr key={client.id}>
-                  <td>{client.company_name}</td>
-                  <td>{client.contact_name}</td>
-                  <td>{client.phone}</td>
-                  <td>{client.email}</td>
-                  <td>
-                    {client.drive_folder_id ? (
-                      <a
-                        href={`https://drive.google.com/drive/folders/${client.drive_folder_id}`}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        Mappa megnyitása
-                      </a>
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-                  <td>
-                    <span
-                      className={`sm-kanban-card-badge ${onboarded ? "sm-kanban-card-badge-sent" : "sm-kanban-card-badge-not_started"}`}
-                    >
-                      {onboarded ? "Kész" : "Hiányzik"}
-                    </span>
-                  </td>
-                  <td>
-                    <div className="leads-row-actions">
-                      <button type="button" onClick={() => setEditingClient(client)}>
-                        Szerkesztés
-                      </button>
-                      <button type="button" onClick={() => setOnboardingClient(client)}>
-                        {onboarded ? "Onboarding szerkesztése" : "Onboarding"}
-                      </button>
-                      {isAdmin && (
-                        <button type="button" onClick={() => setAiProfileClient(client)}>
-                          AI-profil
-                        </button>
-                      )}
-                      {isAdmin && (
-                        <button type="button" onClick={() => handleDelete(client)}>
-                          Törlés
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        <>
+          <h2 className="sm-section-title">Aktív ügyfelek ({activeClients.length})</h2>
+          {activeClients.length === 0 ? (
+            <p className="chat-empty-hint">Nincs aktív ügyfél.</p>
+          ) : (
+            renderTable(activeClients)
+          )}
+
+          <h2 className="sm-section-title">Passzív ügyfelek ({passiveClients.length})</h2>
+          {passiveClients.length === 0 ? (
+            <p className="chat-empty-hint">Nincs passzív ügyfél.</p>
+          ) : (
+            renderTable(passiveClients)
+          )}
+        </>
       )}
 
       {editingClient && token && (

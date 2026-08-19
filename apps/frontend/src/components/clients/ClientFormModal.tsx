@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import type { Client, ClientFormInput } from "../../lib/clients";
+import type { Client, ClientFormInput, ClientType } from "../../lib/clients";
 import { useEscapeToClose } from "../../lib/useEscapeToClose";
 
 interface ClientFormModalProps {
@@ -16,6 +16,7 @@ export default function ClientFormModal({ client, onClose, onSave }: ClientFormM
   const [email, setEmail] = useState(client?.email ?? "");
   const [address, setAddress] = useState(client?.address ?? "");
   const [notes, setNotes] = useState(client?.notes ?? "");
+  const [clientType, setClientType] = useState<ClientType | "">(client?.client_type ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,6 +33,7 @@ export default function ClientFormModal({ client, onClose, onSave }: ClientFormM
         email: email.trim() || undefined,
         address: address.trim() || undefined,
         notes: notes.trim() || undefined,
+        clientType: clientType || undefined,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Nem sikerült menteni az ügyfelet");
@@ -74,6 +76,13 @@ export default function ClientFormModal({ client, onClose, onSave }: ClientFormM
 
         <label htmlFor="client-address">Cím</label>
         <input id="client-address" value={address} onChange={(e) => setAddress(e.currentTarget.value)} />
+
+        <label htmlFor="client-type">Ügyfél típusa</label>
+        <select id="client-type" value={clientType} onChange={(e) => setClientType(e.currentTarget.value as ClientType | "")}>
+          <option value="">— Nincs megadva —</option>
+          <option value="monthly">Havi megújuló</option>
+          <option value="one_off">Alkalmi</option>
+        </select>
 
         <label htmlFor="client-notes">Jegyzet</label>
         <textarea id="client-notes" rows={3} value={notes} onChange={(e) => setNotes(e.currentTarget.value)} />

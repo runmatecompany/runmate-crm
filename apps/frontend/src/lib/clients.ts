@@ -1,5 +1,8 @@
 import { authFetch } from "./api";
 
+export type ClientStatus = "active" | "paused" | "closed";
+export type ClientType = "monthly" | "one_off";
+
 export interface Client {
   id: number;
   company_name: string;
@@ -17,6 +20,8 @@ export interface Client {
   monthly_video_target: number | null;
   monthly_post_target: number | null;
   service_clipping: boolean;
+  status: ClientStatus;
+  client_type: ClientType | null;
   created_at: string;
   updated_at: string;
 }
@@ -28,6 +33,7 @@ export interface ClientFormInput {
   email?: string;
   address?: string;
   notes?: string;
+  clientType?: ClientType;
 }
 
 export interface ClientsListResult {
@@ -62,6 +68,16 @@ export async function updateClient(token: string, id: number, input: ClientFormI
 
 export async function deleteClient(token: string, id: number): Promise<void> {
   await authFetch(token, `/clients/${id}`, { method: "DELETE" });
+}
+
+export async function updateClientStatus(token: string, id: number, status: ClientStatus): Promise<Client> {
+  const res = await authFetch(token, `/clients/${id}/status`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ status }),
+  });
+  const data = await res.json();
+  return data.client;
 }
 
 // Kreatív/tartalmi stílus-döntések — a "mit vállalunk nekik" és a

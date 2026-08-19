@@ -1,5 +1,8 @@
 import { pool } from "./pool.js";
 
+export type ClientStatus = "active" | "paused" | "closed";
+export type ClientType = "monthly" | "one_off";
+
 export interface ClientRow {
   id: number;
   company_name: string;
@@ -17,6 +20,8 @@ export interface ClientRow {
   monthly_video_target: number | null;
   monthly_post_target: number | null;
   service_clipping: boolean;
+  status: ClientStatus;
+  client_type: ClientType | null;
   created_at: string;
   updated_at: string;
 }
@@ -34,6 +39,7 @@ const CLIENT_SELECT = `
     c.created_by, cu.name AS created_by_name,
     op.completed_at AS onboarding_completed_at, op.monthly_video_target, op.monthly_post_target,
     COALESCE(op.service_clipping, false) AS service_clipping,
+    c.status, c.client_type,
     c.created_at, c.updated_at
   FROM clients c
   LEFT JOIN users cu ON cu.id = c.created_by
@@ -57,13 +63,14 @@ export interface CreateClientInput {
   email?: string;
   address?: string;
   notes?: string;
+  clientType?: ClientType;
   createdBy: number;
 }
 
 export async function createClient(input: CreateClientInput): Promise<ClientRow> {
   const { rows } = await pool.query<{ id: number }>(
-    `INSERT INTO clients (company_name, contact_name, phone, email, address, notes, created_by)
-     VALUES ($1,$2,$3,$4,$5,$6,$7)
+    `INSERT INTO clients (company_name, contact_name, phone, email, address, notes, client_type, created_by)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
      RETURNING id`,
     [
       input.companyName,
@@ -72,6 +79,7 @@ export async function createClient(input: CreateClientInput): Promise<ClientRow>
       input.email ?? null,
       input.address ?? null,
       input.notes ?? null,
+      input.clientType ?? null,
       input.createdBy,
     ]
   );
@@ -86,6 +94,7 @@ export interface UpdateClientDetailsInput {
   email?: string;
   address?: string;
   notes?: string;
+  clientType?: ClientType;
 }
 
 export async function updateClientDetails(
@@ -95,6 +104,7 @@ export async function updateClientDetails(
   const { rowCount } = await pool.query(
     `UPDATE clients SET
        company_name = $2, contact_name = $3, phone = $4, email = $5, address = $6, notes = $7,
+       client_type = $8,
        updated_at = now()
      WHERE id = $1`,
     [
@@ -105,8 +115,18 @@ export async function updateClientDetails(
       input.email ?? null,
       input.address ?? null,
       input.notes ?? null,
+      input.clientType ?? null,
     ]
   );
+  if (!rowCount) return undefined;
+  return getClientById(id);
+}
+
+export async function updateClientStatus(id: number, status: ClientStatus): Promise<ClientRow | undefined> {
+  const { rowCount } = await pool.query(`UPDATE clients SET status = $2, updated_at = now() WHERE id = $1`, [
+    id,
+    status,
+  ]);
   if (!rowCount) return undefined;
   return getClientById(id);
 }

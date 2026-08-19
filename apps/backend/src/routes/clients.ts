@@ -7,6 +7,8 @@ import {
   hasClientsAccess,
   listAllClients,
   updateClientDetails,
+  updateClientStatus,
+  type ClientStatus,
 } from "../db/clients.js";
 import { getClientAiProfile, upsertClientAiProfile } from "../db/clientAiProfiles.js";
 import { getClientOnboarding, upsertClientOnboarding } from "../db/clientOnboarding.js";
@@ -30,6 +32,7 @@ const clientDetailsSchema = {
   email: { type: "string" },
   address: { type: "string" },
   notes: { type: "string" },
+  clientType: { type: "string", enum: ["monthly", "one_off"] },
 };
 
 const createClientBodySchema = {
@@ -51,7 +54,16 @@ interface ClientDetailsBody {
   email?: string;
   address?: string;
   notes?: string;
+  clientType?: "monthly" | "one_off";
 }
+
+const clientStatusBodySchema = {
+  type: "object",
+  required: ["status"],
+  properties: {
+    status: { type: "string", enum: ["active", "paused", "closed"] },
+  },
+} as const;
 
 const aiProfileBodySchema = {
   type: "object",
@@ -202,6 +214,22 @@ export default async function clientsRoutes(fastify: FastifyInstance) {
     if (!deleted) return reply.code(404).send({ error: "Client not found" });
     return { ok: true };
   });
+
+  // Az aktív/passzív (szüneteltetve/lezárva) állapotváltás külön, gyors
+  // művelet — nem kell a teljes szerkesztő-formot megnyitni hozzá, ugyanaz
+  // a minta, mint a manual_tasks állapot-váltása (routes/tasks.ts).
+  fastify.patch<{ Params: { id: string }; Body: { status: ClientStatus } }>(
+    "/clients/:id/status",
+    { onRequest: [fastify.authenticate], schema: { body: clientStatusBodySchema } },
+    async (request, reply) => {
+      if (!(await canAccessClientsModule(request.user.sub, request.user.role))) {
+        return reply.code(403).send({ error: "Nincs hozzáférésed az Ügyfelek modulhoz" });
+      }
+      const client = await updateClientStatus(Number(request.params.id), request.body.status);
+      if (!client) return reply.code(404).send({ error: "Client not found" });
+      return { client };
+    }
+  );
 
   // Az AI-profilt az Ügyfelek modul VAGY a Social Media modul hozzáférésével
   // rendelkezők olvashatják (a script-írás nézet emlékeztető panelje is ezt
