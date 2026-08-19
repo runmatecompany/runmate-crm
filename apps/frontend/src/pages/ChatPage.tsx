@@ -45,8 +45,7 @@ export default function ChatPage() {
   const [typingUserId, setTypingUserId] = useState<number | null>(null);
   const [sendingImage, setSendingImage] = useState(false);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
-  const [pendingImage, setPendingImage] = useState<File | null>(null);
-  const [pendingImagePreview, setPendingImagePreview] = useState<string | null>(null);
+  const [pendingImages, setPendingImages] = useState<{ file: File; previewUrl: string }[]>([]);
 
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTypingSentRef = useRef(0);
@@ -63,13 +62,12 @@ export default function ChatPage() {
     listColleagues(token).then(setColleagues);
   }, [token, refreshRooms]);
 
-  // Szoba-váltáskor a függőben lévő kép-előnézetet is töröljük, nehogy
+  // Szoba-váltáskor a függőben lévő kép-előnézeteket is töröljük, nehogy
   // véletlenül egy másik szobának küldjük el.
   useEffect(() => {
-    setPendingImage(null);
-    setPendingImagePreview((prev) => {
-      if (prev) URL.revokeObjectURL(prev);
-      return null;
+    setPendingImages((prev) => {
+      prev.forEach((p) => URL.revokeObjectURL(p.previewUrl));
+      return [];
     });
   }, [activeRoomId]);
 
@@ -223,36 +221,49 @@ export default function ChatPage() {
     }
   }
 
-  // Egy képet (fájlválasztóból vagy drag&drop-ból) nem küldünk el rögtön —
-  // előnézetként megmarad a beviteli sor felett, hogy még lehessen hozzá
-  // szöveget írni, vagy meggondolhassa magát a felhasználó és X-szel
-  // eltávolíthassa, mielőtt ténylegesen elküldi.
+  // Egy vagy több képet (fájlválasztóból vagy drag&drop-ból) nem küldünk el
+  // rögtön — előnézetként megmaradnak a beviteli sor felett (egymás mellett
+  // felsorolva, HOZZÁADVA a már ott lévőkhöz, nem lecserélve őket), hogy
+  // még lehessen hozzájuk szöveget írni, vagy meggondolhassa magát a
+  // felhasználó és X-szel egyenként eltávolíthassa, mielőtt ténylegesen
+  // elküldi.
   function stageImage(file: File) {
-    setPendingImage(file);
-    setPendingImagePreview((prev) => {
-      if (prev) URL.revokeObjectURL(prev);
-      return URL.createObjectURL(file);
+    setPendingImages((prev) => [...prev, { file, previewUrl: URL.createObjectURL(file) }]);
+  }
+
+  function removePendingImage(index: number) {
+    setPendingImages((prev) => {
+      const target = prev[index];
+      if (target) URL.revokeObjectURL(target.previewUrl);
+      return prev.filter((_, i) => i !== index);
     });
   }
 
-  function clearPendingImage() {
-    setPendingImage(null);
-    setPendingImagePreview((prev) => {
-      if (prev) URL.revokeObjectURL(prev);
-      return null;
+  function clearPendingImages() {
+    setPendingImages((prev) => {
+      prev.forEach((p) => URL.revokeObjectURL(p.previewUrl));
+      return [];
     });
   }
 
-  async function sendPendingImage() {
-    if (!token || activeRoomId == null || !pendingImage) return;
+  // A backend egy üzenet = egy kép modellt használ, ezért több staged kép
+  // esetén egymás után, külön üzenetként megy mindegyik — a beírt szöveg
+  // (ha van) az utolsó képhez kerül képaláírásként, hogy az olvasáskor a
+  // szöveg közvetlenül a köteg után, természetes sorrendben jelenjen meg.
+  async function sendPendingImages() {
+    if (!token || activeRoomId == null || pendingImages.length === 0) return;
     setSendingImage(true);
     try {
-      const dataUrl = await resizeImageToDataUrl(pendingImage, 1600, 0.82);
-      await sendChatImage(token, activeRoomId, dataUrl, draft.trim() || undefined);
+      const caption = draft.trim() || undefined;
+      for (let i = 0; i < pendingImages.length; i++) {
+        const dataUrl = await resizeImageToDataUrl(pendingImages[i].file, 1600, 0.82);
+        const isLast = i === pendingImages.length - 1;
+        await sendChatImage(token, activeRoomId, dataUrl, isLast ? caption : undefined);
+      }
       setDraft("");
-      clearPendingImage();
+      clearPendingImages();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Nem sikerült elküldeni a képet");
+      alert(err instanceof Error ? err.message : "Nem sikerült elküldeni a képeket");
     } finally {
       setSendingImage(false);
     }
@@ -262,8 +273,8 @@ export default function ChatPage() {
     e.preventDefault();
     if (activeRoomId == null) return;
 
-    if (pendingImage) {
-      await sendPendingImage();
+    if (pendingImages.length > 0) {
+      await sendPendingImages();
       return;
     }
 
@@ -288,10 +299,9 @@ export default function ChatPage() {
   }
 
   function handleImageSelected(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.currentTarget.files?.[0];
+    const files = Array.from(e.currentTarget.files ?? []);
     e.currentTarget.value = "";
-    if (!file) return;
-    stageImage(file);
+    files.forEach(stageImage);
   }
 
   // A Tauri ablak dragDropEnabled beállítása false — enélkül a natív
@@ -313,9 +323,8 @@ export default function ChatPage() {
     e.preventDefault();
     setIsDraggingOver(false);
     if (activeRoomId == null) return;
-    const file = Array.from(e.dataTransfer.files).find((f) => f.type.startsWith("image/"));
-    if (!file) return;
-    stageImage(file);
+    const files = Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith("image/"));
+    files.forEach(stageImage);
   }
 
   async function handleCreateRoom(name: string) {
@@ -398,19 +407,23 @@ export default function ChatPage() {
             </div>
             <MessageThread messages={messages} currentUserId={auth?.user.id ?? -1} />
             {typingUserName && <div className="chat-typing-indicator">{typingUserName} éppen ír...</div>}
-            {pendingImage && (
-              <div className="chat-pending-image">
-                {pendingImagePreview && <img src={pendingImagePreview} alt="" />}
-                <span className="chat-pending-image-name">{pendingImage.name}</span>
-                <button
-                  type="button"
-                  className="chat-pending-image-remove"
-                  onClick={clearPendingImage}
-                  disabled={sendingImage}
-                  aria-label="Kép eltávolítása"
-                >
-                  ×
-                </button>
+            {pendingImages.length > 0 && (
+              <div className="chat-pending-images">
+                {pendingImages.map((p, i) => (
+                  <div className="chat-pending-image" key={p.previewUrl}>
+                    <img src={p.previewUrl} alt="" />
+                    <span className="chat-pending-image-name">{p.file.name}</span>
+                    <button
+                      type="button"
+                      className="chat-pending-image-remove"
+                      onClick={() => removePendingImage(i)}
+                      disabled={sendingImage}
+                      aria-label="Kép eltávolítása"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
               </div>
             )}
             <form className="chat-input-row" onSubmit={handleSend}>
@@ -418,6 +431,7 @@ export default function ChatPage() {
                 ref={imageInputRef}
                 type="file"
                 accept="image/png,image/jpeg,image/webp"
+                multiple
                 className="chat-image-input"
                 onChange={handleImageSelected}
               />
@@ -433,9 +447,9 @@ export default function ChatPage() {
               <input
                 value={draft}
                 onChange={handleDraftChange}
-                placeholder={pendingImage ? "Írhatsz hozzá szöveget (nem kötelező)..." : "Írj üzenetet..."}
+                placeholder={pendingImages.length > 0 ? "Írhatsz hozzá szöveget (nem kötelező)..." : "Írj üzenetet..."}
               />
-              <button type="submit" disabled={sendingImage || (!draft.trim() && !pendingImage)}>
+              <button type="submit" disabled={sendingImage || (!draft.trim() && pendingImages.length === 0)}>
                 {sendingImage ? "Küldés..." : "Küldés"}
               </button>
             </form>

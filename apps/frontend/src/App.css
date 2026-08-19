@@ -995,13 +995,24 @@ button:hover {
   font-style: italic;
 }
 
+.chat-pending-images {
+  display: flex;
+  flex-direction: column;
+  max-height: 260px;
+  overflow-y: auto;
+  border-top: 1px solid var(--border);
+  background-color: var(--surface-alt);
+}
+
 .chat-pending-image {
   display: flex;
   align-items: center;
   gap: 0.6em;
   padding: 0.6em 1.5em;
+}
+
+.chat-pending-image + .chat-pending-image {
   border-top: 1px solid var(--border);
-  background-color: var(--surface-alt);
 }
 
 .chat-pending-image img {

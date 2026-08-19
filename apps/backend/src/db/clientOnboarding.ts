@@ -85,18 +85,18 @@ export async function upsertClientOnboarding(
        (client_id, industry, business_description, website_url, brand_assets_location,
         platform_facebook, platform_instagram, platform_tiktok, platform_youtube,
         service_website_build, service_landing_page, service_clipping, clipping_source_folder_url,
-        monthly_video_target, monthly_post_target,
+        clipping_daily_target, monthly_video_target, monthly_post_target,
         collaboration_goals, approval_process_notes, approver_name, approver_email, other_notes,
         completed_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, now())
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, now())
      ON CONFLICT (client_id) DO UPDATE SET
        industry = $2, business_description = $3, website_url = $4, brand_assets_location = $5,
        platform_facebook = $6, platform_instagram = $7, platform_tiktok = $8, platform_youtube = $9,
        service_website_build = $10, service_landing_page = $11, service_clipping = $12,
        clipping_source_folder_url = $13,
-       monthly_video_target = $14, monthly_post_target = $15,
-       collaboration_goals = $16, approval_process_notes = $17, approver_name = $18, approver_email = $19,
-       other_notes = $20,
+       clipping_daily_target = $14, monthly_video_target = $15, monthly_post_target = $16,
+       collaboration_goals = $17, approval_process_notes = $18, approver_name = $19, approver_email = $20,
+       other_notes = $21,
        completed_at = COALESCE(client_onboarding_profiles.completed_at, now()),
        updated_at = now()`,
     [
@@ -113,6 +113,7 @@ export async function upsertClientOnboarding(
       input.serviceLandingPage ?? false,
       input.serviceClipping ?? false,
       input.clippingSourceFolderUrl ?? null,
+      input.clippingDailyTarget ?? null,
       input.monthlyVideoTarget ?? null,
       input.monthlyPostTarget ?? null,
       input.collaborationGoals ?? null,

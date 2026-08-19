@@ -87,14 +87,15 @@ export default function ClientOnboardingModal({ clientId, clientName, onClose }:
       .finally(() => setLoading(false));
   }, [token, clientId]);
 
+  const anyPlatformSelected = platformFacebook || platformInstagram || platformTiktok || platformYoutube;
   const anyServiceSelected =
-    platformFacebook ||
-    platformInstagram ||
-    platformTiktok ||
-    platformYoutube ||
-    serviceWebsiteBuild ||
-    serviceLandingPage ||
-    serviceClipping;
+    anyPlatformSelected || serviceWebsiteBuild || serviceLandingPage || serviceClipping;
+  // A "Havi videó mennyiség" a rendes tartalom-pipeline-on (nem bulk
+  // Clippelésen) készülő videókat számolja — csak akkor releváns, ha van
+  // platform, ahova ezek felkerülnek, ÉS nincs Clippelés (annak saját,
+  // napi rátából számolt célja van, lásd lib/clipping.ts).
+  const showVideoTarget = anyPlatformSelected && !serviceClipping;
+  const showPostTarget = anyPlatformSelected;
 
   const progress = useMemo(() => {
     const checks = [
@@ -103,14 +104,17 @@ export default function ClientOnboardingModal({ clientId, clientName, onClose }:
       websiteUrl.trim(),
       brandAssetsLocation.trim(),
       anyServiceSelected ? "x" : "",
-      serviceClipping ? clippingDailyTarget.trim() : monthlyVideoTarget.trim(),
-      monthlyPostTarget.trim(),
+    ];
+    if (serviceClipping) checks.push(clippingDailyTarget.trim());
+    if (showVideoTarget) checks.push(monthlyVideoTarget.trim());
+    if (showPostTarget) checks.push(monthlyPostTarget.trim());
+    checks.push(
       collaborationGoals.trim(),
       approvalProcessNotes.trim(),
       approverName.trim(),
       approverEmail.trim(),
-      otherNotes.trim(),
-    ];
+      otherNotes.trim()
+    );
     const filled = checks.filter(Boolean).length;
     return { filled, total: checks.length, pct: Math.round((filled / checks.length) * 100) };
   }, [
@@ -120,6 +124,8 @@ export default function ClientOnboardingModal({ clientId, clientName, onClose }:
     brandAssetsLocation,
     anyServiceSelected,
     serviceClipping,
+    showVideoTarget,
+    showPostTarget,
     clippingDailyTarget,
     monthlyVideoTarget,
     monthlyPostTarget,
@@ -138,12 +144,9 @@ export default function ClientOnboardingModal({ clientId, clientName, onClose }:
     if (serviceClipping && !clippingSourceFolderUrl.trim()) {
       return "Clippeléshez kötelező megadni a forrás mappát.";
     }
-    if (serviceClipping) {
-      if (!clippingDailyTarget.trim()) return "A napi klip mennyiség kitöltése kötelező.";
-    } else if (!monthlyVideoTarget.trim()) {
-      return "A havi videó mennyiség kitöltése kötelező.";
-    }
-    if (!monthlyPostTarget.trim()) return "A havi poszt mennyiség kitöltése kötelező.";
+    if (serviceClipping && !clippingDailyTarget.trim()) return "A napi klip mennyiség kitöltése kötelező.";
+    if (showVideoTarget && !monthlyVideoTarget.trim()) return "A havi videó mennyiség kitöltése kötelező.";
+    if (showPostTarget && !monthlyPostTarget.trim()) return "A havi poszt mennyiség kitöltése kötelező.";
     return null;
   }
 
@@ -172,8 +175,8 @@ export default function ClientOnboardingModal({ clientId, clientName, onClose }:
         serviceClipping,
         clippingSourceFolderUrl: serviceClipping ? clippingSourceFolderUrl.trim() : undefined,
         clippingDailyTarget: serviceClipping ? Number(clippingDailyTarget) : undefined,
-        monthlyVideoTarget: serviceClipping ? undefined : Number(monthlyVideoTarget),
-        monthlyPostTarget: Number(monthlyPostTarget),
+        monthlyVideoTarget: showVideoTarget ? Number(monthlyVideoTarget) : undefined,
+        monthlyPostTarget: showPostTarget ? Number(monthlyPostTarget) : undefined,
         collaborationGoals: collaborationGoals.trim() || undefined,
         approvalProcessNotes: approvalProcessNotes.trim() || undefined,
         approverName: approverName.trim() || undefined,
@@ -379,7 +382,7 @@ export default function ClientOnboardingModal({ clientId, clientName, onClose }:
                   )}
 
                   <div className="ob-grid">
-                    {!serviceClipping && (
+                    {showVideoTarget && (
                       <div className="ob-field">
                         <label htmlFor="ob-monthly-video-target">Havi videó mennyiség</label>
                         <input
@@ -392,17 +395,19 @@ export default function ClientOnboardingModal({ clientId, clientName, onClose }:
                         />
                       </div>
                     )}
-                    <div className="ob-field">
-                      <label htmlFor="ob-monthly-post-target">Havi poszt mennyiség</label>
-                      <input
-                        id="ob-monthly-post-target"
-                        type="number"
-                        min={0}
-                        value={monthlyPostTarget}
-                        onChange={(e) => setMonthlyPostTarget(e.currentTarget.value)}
-                        placeholder="Pl. 8"
-                      />
-                    </div>
+                    {showPostTarget && (
+                      <div className="ob-field">
+                        <label htmlFor="ob-monthly-post-target">Havi poszt mennyiség</label>
+                        <input
+                          id="ob-monthly-post-target"
+                          type="number"
+                          min={0}
+                          value={monthlyPostTarget}
+                          onChange={(e) => setMonthlyPostTarget(e.currentTarget.value)}
+                          placeholder="Pl. 8"
+                        />
+                      </div>
+                    )}
                   </div>
                 </section>
 
