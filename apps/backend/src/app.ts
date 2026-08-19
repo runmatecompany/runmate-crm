@@ -25,6 +25,7 @@ import calendarFileRoutes from "./routes/calendarFile.js";
 import googleDriveRoutes from "./routes/googleDrive.js";
 import adminUserAccessRoutes from "./routes/admin/userAccess.js";
 import leadGenRoutes from "./routes/leadgen.js";
+import webRoutes from "./routes/web.js";
 
 export function buildApp() {
   // Az alapértelmezett 1 MB-os body limit kevés lenne egy base64-kódolt
@@ -67,6 +68,7 @@ export function buildApp() {
   app.register(googleDriveRoutes);
   app.register(adminUserAccessRoutes);
   app.register(leadGenRoutes);
+  app.register(webRoutes);
 
   app.get("/health", async () => ({ status: "ok" }));
 

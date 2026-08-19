@@ -14,6 +14,7 @@ export const MENU_ITEMS: MenuItem[] = [
   { id: "leadgen", label: "Lead Gen" },
   { id: "clients", label: "Ügyfelek" },
   { id: "tasks", label: "Feladatok" },
+  { id: "web", label: "Web" },
   {
     id: "social",
     label: "Social Media",

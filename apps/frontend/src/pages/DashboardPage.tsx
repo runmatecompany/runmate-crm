@@ -9,6 +9,7 @@ import LeadsPage from "./LeadsPage";
 import LeadGenPage from "./LeadGenPage";
 import ClientsPage from "./ClientsPage";
 import TasksPage from "./TasksPage";
+import WebPage from "./WebPage";
 import SocialMediaPage, { type SocialMediaTab } from "./SocialMediaPage";
 import SettingsPage from "./SettingsPage";
 
@@ -61,6 +62,8 @@ export default function DashboardPage() {
         <ClientsPage />
       ) : activeId === "tasks" ? (
         <TasksPage />
+      ) : activeId === "web" ? (
+        <WebPage />
       ) : activeId in SOCIAL_MEDIA_TABS ? (
         <SocialMediaPage tab={SOCIAL_MEDIA_TABS[activeId]} />
       ) : activeId === "settings" ? (

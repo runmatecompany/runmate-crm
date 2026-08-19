@@ -20,6 +20,7 @@ export default function UserAccessModal({ user, onClose }: UserAccessModalProps)
   const [socialMediaAccess, setSocialMediaAccessState] = useState(false);
   const [tasksAccess, setTasksAccessState] = useState(false);
   const [leadGenAccess, setLeadGenAccessState] = useState(false);
+  const [webAccess, setWebAccessState] = useState(false);
   const [emailModuleAccess, setEmailModuleAccessState] = useState(false);
   const [selectedAccountIds, setSelectedAccountIds] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -36,6 +37,7 @@ export default function UserAccessModal({ user, onClose }: UserAccessModalProps)
         setSocialMediaAccessState(access.socialMediaAccess);
         setTasksAccessState(access.tasksAccess);
         setLeadGenAccessState(access.leadGenAccess);
+        setWebAccessState(access.webAccess);
         setEmailModuleAccessState(access.emailModuleAccess);
         setSelectedAccountIds(new Set(access.emailAccountIds));
         setLoading(false);
@@ -66,6 +68,7 @@ export default function UserAccessModal({ user, onClose }: UserAccessModalProps)
         socialMediaAccess,
         tasksAccess,
         leadGenAccess,
+        webAccess,
         emailModuleAccess,
         emailAccountIds: Array.from(selectedAccountIds),
       });
@@ -132,6 +135,15 @@ export default function UserAccessModal({ user, onClose }: UserAccessModalProps)
                 onChange={(e) => setLeadGenAccessState(e.currentTarget.checked)}
               />
               {menuItemLabel("leadgen", "Lead Gen")} modul
+            </label>
+
+            <label className="chat-colleague-pick email-account-access-option user-access-module">
+              <input
+                type="checkbox"
+                checked={webAccess}
+                onChange={(e) => setWebAccessState(e.currentTarget.checked)}
+              />
+              {menuItemLabel("web", "Web")} modul
             </label>
 
             <label className="chat-colleague-pick email-account-access-option user-access-module">
