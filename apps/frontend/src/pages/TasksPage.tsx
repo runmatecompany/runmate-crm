@@ -303,12 +303,15 @@ export default function TasksPage() {
                               ) : (
                                 <span className="mt-avatar mt-avatar--empty">?</span>
                               )}
-                              <span>
-                                {task.assigned_to_name ?? "Nincs kiosztva"}
-                                {task.last_actor_name && task.last_actor_name !== task.assigned_to_name
-                                  ? ` · utoljára: ${task.last_actor_name}`
-                                  : ""}
-                              </span>
+                              <span>{task.assigned_to_name ?? "Nincs kiosztva"}</span>
+                            </div>
+                            <div className="mt-card-meta">
+                              Létrehozta: {task.created_by_name}
+                              {task.last_actor_name &&
+                              task.last_actor_name !== task.created_by_name &&
+                              task.last_actor_name !== task.assigned_to_name
+                                ? ` · utoljára: ${task.last_actor_name}`
+                                : ""}
                             </div>
                           </button>
                           <div className="mt-card-actions">

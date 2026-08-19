@@ -3151,6 +3151,13 @@ button:hover {
   color: var(--text-muted);
 }
 
+.mt-card-meta {
+  font-size: 0.72em;
+  color: var(--text-muted);
+  opacity: 0.8;
+  margin-top: 0.2em;
+}
+
 .mt-avatar {
   flex-shrink: 0;
   width: 1.5em;
