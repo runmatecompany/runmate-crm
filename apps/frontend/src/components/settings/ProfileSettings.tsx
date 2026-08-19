@@ -3,6 +3,7 @@ import { useAuth } from "../../lib/auth";
 import { useRealtime } from "../../lib/realtime";
 import { resizeImageToDataUrl, uploadMyAvatar } from "../../lib/profile";
 import Avatar from "../Avatar";
+import PersonalGoogleDriveSettings from "./PersonalGoogleDriveSettings";
 
 export default function ProfileSettings() {
   const { auth, updateName } = useAuth();
@@ -84,6 +85,8 @@ export default function ProfileSettings() {
       </form>
 
       {error && <p className="login-error">{error}</p>}
+
+      <PersonalGoogleDriveSettings />
     </div>
   );
 }

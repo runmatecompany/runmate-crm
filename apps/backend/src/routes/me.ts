@@ -1,5 +1,8 @@
 import type { FastifyInstance } from "fastify";
 import { getUserAvatar, getUserById, setUserAvatar, updateUserName } from "../db/users.js";
+import { disconnectUserDrive, getUserDriveConnectionStatus } from "../db/userGoogleDrive.js";
+import { getPersonalAuthUrl } from "../lib/googleDrive/personalOauth.js";
+import { GoogleCalendarNotConfiguredError } from "../lib/googleCalendar/oauth.js";
 import { broadcastToAll } from "../realtime/connections.js";
 
 const updateNameBodySchema = {
@@ -59,6 +62,30 @@ export default async function meRoutes(fastify: FastifyInstance) {
       return { ok: true };
     }
   );
+
+  // Vágónkénti, önálló Google Drive-kapcsolat — nem admin-funkció, bárki
+  // önkiszolgáló módon összekötheti a saját fiókját a Profilom oldalon,
+  // hogy gyorsabban (a RunMate szerver megkerülésével) tudjon klipeket
+  // feltölteni a Content Kanbanban.
+  fastify.get("/me/google-drive/status", { onRequest: [fastify.authenticate] }, async (request) => {
+    return getUserDriveConnectionStatus(request.user.sub);
+  });
+
+  fastify.get("/me/google-drive/auth-url", { onRequest: [fastify.authenticate] }, async (request, reply) => {
+    try {
+      return { url: getPersonalAuthUrl(request.user.sub) };
+    } catch (err) {
+      if (err instanceof GoogleCalendarNotConfiguredError) {
+        return reply.code(503).send({ error: err.message });
+      }
+      throw err;
+    }
+  });
+
+  fastify.post("/me/google-drive/disconnect", { onRequest: [fastify.authenticate] }, async (request) => {
+    await disconnectUserDrive(request.user.sub);
+    return { ok: true };
+  });
 
   fastify.get<{ Params: { id: string } }>("/users/:id/avatar", { onRequest: [fastify.authenticate] }, async (
     request,

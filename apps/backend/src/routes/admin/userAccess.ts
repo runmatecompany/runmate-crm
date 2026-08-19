@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { grantLeadsAccess, hasLeadsAccess, revokeLeadsAccess } from "../../db/leads.js";
 import { grantClientsAccess, hasClientsAccess, revokeClientsAccess } from "../../db/clients.js";
 import { grantSocialMediaAccess, hasSocialMediaAccess, revokeSocialMediaAccess } from "../../db/contentItems.js";
+import { revokeAllDriveFolderGrants } from "../../lib/clipping.js";
 import { grantTasksAccess, hasTasksAccess, revokeTasksAccess } from "../../db/tasks.js";
 import { grantLeadGenAccess, hasLeadGenAccess, revokeLeadGenAccess } from "../../db/leadgenAccess.js";
 import {
@@ -85,6 +86,14 @@ export default async function adminUserAccessRoutes(fastify: FastifyInstance) {
       await grantSocialMediaAccess(userId, request.user.sub);
     } else {
       await revokeSocialMediaAccess(userId);
+    }
+
+    // A klip-feltöltéshez a Content Kanbanban Ügyfelek VAGY Social Media
+    // hozzáférés is elég — csak akkor vonjuk vissza a korábban a saját
+    // Google-fiókjának adott Drive-mappa jogokat, ha EGYIK sem maradt meg
+    // (különben jogosan feltölthetne még, feleslegesen szednénk el a jogát).
+    if (!clientsAccess && !socialMediaAccess) {
+      await revokeAllDriveFolderGrants(userId);
     }
 
     if (tasksAccess) {

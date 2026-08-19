@@ -93,6 +93,40 @@ export async function startResumableUpload(
   return sessionUrl;
 }
 
+// Névre szóló (nem "bárki, akinél a link van") szerkesztői jog adása egy
+// vágó saját Google-fiókjának egy ügyfél-mappára — ez NEM ütközik a
+// korábban felfedezett láthatatlansági hibába (az kifejezetten a "bárki
+// linkkel" megosztásnál jelentkezett). A visszaadott permission ID kell a
+// később esetleges visszavonáshoz (revokePermission).
+export async function grantPermission(client: OAuth2Client, fileId: string, email: string): Promise<string> {
+  const result = await driveFetch<{ id: string }>(
+    client,
+    `${DRIVE_FILES_URL}/${fileId}/permissions?sendNotificationEmail=false&supportsAllDrives=true&fields=id`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ role: "writer", type: "user", emailAddress: email }),
+    }
+  );
+  return result.id;
+}
+
+// A DELETE válasza üres (204), ezért nem a driveFetch-en megy (az mindig
+// JSON-t vár) — sima fetch, mint a resumable-upload indításnál.
+export async function revokePermission(client: OAuth2Client, fileId: string, permissionId: string): Promise<void> {
+  const { token: accessToken } = await client.getAccessToken();
+  if (!accessToken) throw new Error("Nincs érvényes Google access token");
+  const res = await fetch(`${DRIVE_FILES_URL}/${fileId}/permissions/${permissionId}?supportsAllDrives=true`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  // 404: a jog már úgyis nincs meg (pl. valaki kézzel törölte a Drive-on) — nem hiba.
+  if (!res.ok && res.status !== 404) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`Nem sikerült visszavonni a Drive-jogosultságot (${res.status}): ${body.slice(0, 300)}`);
+  }
+}
+
 export function driveFolderLink(folderId: string): string {
   return `https://drive.google.com/drive/folders/${folderId}`;
 }

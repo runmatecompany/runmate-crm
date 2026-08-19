@@ -1,6 +1,13 @@
-import { useRef, useState, type ChangeEvent, type DragEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent, type DragEvent } from "react";
 import { useAuth } from "../../lib/auth";
-import { uploadClippingClip, type ClippingProgress } from "../../lib/clippingProgress";
+import {
+  beginDirectClipUpload,
+  getClippingProgress,
+  uploadClipDirectToGoogle,
+  uploadClippingClip,
+  type ClippingProgress,
+} from "../../lib/clippingProgress";
+import { getPersonalGoogleDriveStatus } from "../../lib/googleDrivePersonal";
 import { useEscapeToClose } from "../../lib/useEscapeToClose";
 
 interface ClipUploadModalProps {
@@ -40,7 +47,16 @@ export default function ClipUploadModal({
   // fájlok kikerülnek a listából, de az induláskori nextClipNumber prop
   // nem frissül — enélkül egy újrapróbálkozás ütköző sorszámokat küldene.
   const [uploadedInSession, setUploadedInSession] = useState(0);
+  // Ha a vágó összekötötte a saját Google-fiókját, a feltöltés egyenesen a
+  // Drive-ra megy, a RunMate szerver megkerülésével (uploadClipDirectToGoogle)
+  // — sokkal gyorsabb, mint a szerveren átmenő tartalék út (uploadClippingClip).
+  const [hasOwnConnection, setHasOwnConnection] = useState<boolean | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!token) return;
+    getPersonalGoogleDriveStatus(token).then((status) => setHasOwnConnection(status.connected));
+  }, [token]);
 
   const effectiveNextNumber = nextClipNumber != null ? nextClipNumber + uploadedInSession : null;
 
@@ -92,11 +108,21 @@ export default function ClipUploadModal({
       setActiveIndex(i);
       const number = effectiveNextNumber != null ? effectiveNextNumber + completed : null;
       try {
-        const result = await uploadClippingClip(token, clientId, files[i], number, (pct) => {
-          setProgressByIndex((prev) => ({ ...prev, [i]: pct }));
-        });
-        lastProgress = result.progress;
-        onProgressUpdate(result.progress);
+        let progress: ClippingProgress;
+        if (hasOwnConnection) {
+          const session = await beginDirectClipUpload(token, clientId, number);
+          await uploadClipDirectToGoogle(session, files[i], (pct) => {
+            setProgressByIndex((prev) => ({ ...prev, [i]: pct }));
+          });
+          progress = await getClippingProgress(token, clientId);
+        } else {
+          const result = await uploadClippingClip(token, clientId, files[i], number, (pct) => {
+            setProgressByIndex((prev) => ({ ...prev, [i]: pct }));
+          });
+          progress = result.progress;
+        }
+        lastProgress = progress;
+        onProgressUpdate(progress);
         completed++;
         setUploadedInSession((prev) => prev + 1);
       } catch (err) {
@@ -123,6 +149,13 @@ export default function ClipUploadModal({
     <div className="chat-modal-backdrop">
       <div className="chat-modal sm-clip-upload-modal">
         <h2>Klipek feltöltése — {clientName}</h2>
+
+        {hasOwnConnection === false && (
+          <p className="chat-modal-hint">
+            Gyorsabb feltöltéshez köss össze egy saját Google-fiókot a Beállítások &gt; Profilom oldalon — most
+            a RunMate szerverén keresztül megy a feltöltés, ami lassabb.
+          </p>
+        )}
 
         <div
           className={`sm-clip-dropzone${isDraggingOver ? " sm-clip-dropzone-dragover" : ""}`}

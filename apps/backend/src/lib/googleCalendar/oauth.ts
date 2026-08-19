@@ -12,7 +12,12 @@ const SCOPES = [
 
 export class GoogleCalendarNotConfiguredError extends Error {}
 
-function requireOAuthClient(): OAuth2Client {
+// Exportálva — a personalOauth.ts (vágónkénti Drive-kapcsolat) ugyanezt a
+// Google Cloud OAuth klienst (Client ID/Secret/redirect_uri) használja
+// újra, csak más scope-okkal és egy "state" paraméterrel megkülönböztetve,
+// hogy ne kelljen egy második redirect_uri-t regisztrálni a Google Cloud
+// Console-ban.
+export function requireOAuthClient(): OAuth2Client {
   if (!config.googleClientId || !config.googleClientSecret || !config.publicUrl) {
     throw new GoogleCalendarNotConfiguredError(
       "A Google Naptár integráció nincs beállítva a szerveren (GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / PUBLIC_URL)"

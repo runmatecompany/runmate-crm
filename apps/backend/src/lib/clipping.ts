@@ -3,8 +3,14 @@ import type { OAuth2Client } from "google-auth-library";
 import { getClientById } from "../db/clients.js";
 import { getClientOnboarding } from "../db/clientOnboarding.js";
 import { confirmClippingPayment, isClippingPaymentConfirmed } from "../db/clippingPeriods.js";
+import {
+  deleteFolderGrant,
+  getFolderGrant,
+  listFolderGrantsForUser,
+  recordFolderGrant,
+} from "../db/userGoogleDrive.js";
 import { getAuthorizedClient } from "./googleCalendar/oauth.js";
-import { listFolderChildren } from "./googleDrive/api.js";
+import { grantPermission, listFolderChildren, revokePermission } from "./googleDrive/api.js";
 import { ensureVideoSubfolder, uploadStreamToFolder } from "./googleDrive/upload.js";
 
 export class ClippingUploadError extends Error {}
@@ -152,4 +158,56 @@ export async function uploadNumberedClip(
   const extension = extensionMatch ? extensionMatch[0] : "";
   const filename = `${number}${extension}`;
   await uploadStreamToFolder(ctx.oauth, ctx.folderId, filename, mimetype, stream);
+}
+
+// Az első alkalommal, amikor egy vágó a saját (összekötött) Google-
+// fiókjával akar feltölteni egy adott ügyfélnek, a RunMate szolgáltatás-
+// fiók (getAuthorizedClient) névre szólóan szerkesztői jogot ad neki az
+// ügyfél Drive-mappájára — ez a Drive-jogosultság-öröklés miatt az összes
+// almappára (Videók/Megvágva stb.) is érvényes lesz. Innentől a vágó saját
+// tokenjével közvetlenül tud feltölteni, a RunMate szerver megkerülésével.
+// Idempotens: ismételt hívásnál a user_drive_folder_grants tábla alapján
+// azonnal visszatér, nem hív Drive API-t feleslegesen.
+export async function ensureVagoFolderAccess(userId: number, clientId: number, vagoEmail: string): Promise<void> {
+  const existing = await getFolderGrant(userId, clientId);
+  if (existing) return;
+
+  const client = await getClientById(clientId);
+  if (!client?.drive_folder_id) {
+    throw new ClippingUploadError("Az ügyfélnek nincs Drive-mappája");
+  }
+  const serviceOauth = await getAuthorizedClient();
+  if (!serviceOauth) {
+    throw new ClippingUploadError("Nincs Google Drive kapcsolat beállítva");
+  }
+  const permissionId = await grantPermission(serviceOauth, client.drive_folder_id, vagoEmail);
+  await recordFolderGrant(userId, clientId, permissionId);
+}
+
+// Amikor egy vágó elveszti a klip-feltöltéshez szükséges hozzáférést
+// (Ügyfelek ÉS Social Media access is lekerül róla — lásd
+// routes/admin/userAccess.ts), a korábban névre szólóan megadott
+// Drive-mappa jogokat is visszavonjuk nála, hogy ne maradjon hozzáférése
+// olyan ügyfél-mappákhoz, amikhez a RunMate-en belül már nincs joga.
+// Best-effort: egy sikertelen visszavonás nem akasztja meg a többit.
+export async function revokeAllDriveFolderGrants(userId: number): Promise<void> {
+  const grants = await listFolderGrantsForUser(userId);
+  if (grants.length === 0) return;
+
+  const serviceOauth = await getAuthorizedClient();
+  if (!serviceOauth) return;
+
+  for (const grant of grants) {
+    try {
+      const client = await getClientById(grant.clientId);
+      if (client?.drive_folder_id) {
+        await revokePermission(serviceOauth, client.drive_folder_id, grant.drivePermissionId);
+      }
+    } catch {
+      // Best-effort — a DB-rekordot akkor is töröljük, hogy legközelebb
+      // (ha újra hozzáférést kap) friss jogot kapjon, ne akadjon el egy
+      // már amúgy is érvénytelen permission-ID miatt.
+    }
+    await deleteFolderGrant(userId, grant.clientId);
+  }
 }

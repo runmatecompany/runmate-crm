@@ -15,9 +15,12 @@ import {
   beginClippingUpload,
   ClippingUploadError,
   confirmCurrentMonthClippingPayment,
+  ensureVagoFolderAccess,
   getClippingProgress,
   uploadNumberedClip,
 } from "../lib/clipping.js";
+import { getUserDriveConnection } from "../db/userGoogleDrive.js";
+import { getUserAuthorizedClient } from "../lib/googleDrive/personalOauth.js";
 import { provisionClientDriveFolders } from "../lib/googleDrive/onboarding.js";
 
 const clientDetailsSchema = {
@@ -356,6 +359,60 @@ export default async function clientsRoutes(fastify: FastifyInstance) {
 
       const progress = await getClippingProgress(clientId);
       return reply.code(201).send({ progress, uploaded: 1 });
+    }
+  );
+
+  // Gyors feltöltési út: ha a vágó összekötötte a saját Google-fiókját
+  // (Beállítások > Profilom), ez az endpoint nem fogadja magát a fájlt —
+  // csak előkészíti a feltöltést (jogosultság-ellenőrzés, sorszám,
+  // a szükséges esetben névre szóló mappa-jog automatikus megadása a
+  // vágónak — ensureVagoFolderAccess), majd egy rövid élettartamú Google
+  // access tokent ad vissza. A tényleges videó-bájtok innentől a vágó
+  // gépéről MENNEK EGYENESEN a Google Drive-ra, a RunMate szervert
+  // megkerülve — ez oldja meg, hogy a feltöltés sebessége ne a szerver
+  // (mért ~10 Mbps) feltöltési sávszélességétől függjön.
+  fastify.post<{ Params: { id: string }; Body: { number?: number } }>(
+    "/clients/:id/clipping-progress/upload-session",
+    { onRequest: [fastify.authenticate] },
+    async (request, reply) => {
+      const { sub: userId, role } = request.user;
+      const access = role === "admin" || (await hasClientsAccess(userId)) || (await hasSocialMediaAccess(userId));
+      if (!access) {
+        return reply.code(403).send({ error: "Nincs hozzáférésed ehhez" });
+      }
+      const clientId = Number(request.params.id);
+      if (!(await getClientById(clientId))) return reply.code(404).send({ error: "Client not found" });
+
+      const connection = await getUserDriveConnection(userId);
+      if (!connection) {
+        return reply.code(400).send({
+          error: "Nincs összekötve a saját Google-fiókod — kösd össze a Beállítások > Profilom oldalon a gyors feltöltéshez",
+        });
+      }
+
+      let ctx;
+      try {
+        const explicitNumber =
+          typeof request.body?.number === "number" && request.body.number > 0 ? request.body.number : undefined;
+        ctx = await beginClippingUpload(clientId, explicitNumber);
+        await ensureVagoFolderAccess(userId, clientId, connection.connectedEmail);
+      } catch (err) {
+        if (err instanceof ClippingUploadError) {
+          return reply.code(400).send({ error: err.message });
+        }
+        throw err;
+      }
+
+      const userOauth = await getUserAuthorizedClient(userId);
+      if (!userOauth) {
+        return reply.code(400).send({ error: "A Google-kapcsolatod nem érhető el — kösd össze újra" });
+      }
+      const { token: accessToken } = await userOauth.getAccessToken();
+      if (!accessToken) {
+        return reply.code(502).send({ error: "Nem sikerült Google access tokent szerezni" });
+      }
+
+      return reply.send({ accessToken, folderId: ctx.folderId, nextNumber: ctx.nextNumber });
     }
   );
 }

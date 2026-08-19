@@ -74,3 +74,80 @@ export function uploadClippingClip(
     xhr.send(formData);
   });
 }
+
+export interface ClipUploadSession {
+  accessToken: string;
+  folderId: string;
+  nextNumber: number;
+}
+
+// Ha a vágó összekötötte a saját Google-fiókját (Beállítások > Profilom),
+// ez az endpoint nem fogad fájlt — csak előkészíti a feltöltést (jog-
+// ellenőrzés, a szükséges esetben automatikus névre szóló mappa-jog a
+// vágónak, sorszám-kiosztás), és egy rövid élettartamú Google access
+// tokent ad, amivel a fájl a RunMate szerver megkerülésével, egyenesen a
+// vágó gépéről megy a Drive-ra (lásd uploadClipDirectToGoogle).
+export async function beginDirectClipUpload(
+  token: string,
+  clientId: number,
+  number: number | null
+): Promise<ClipUploadSession> {
+  const res = await authFetch(token, `/clients/${clientId}/clipping-progress/upload-session`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ number: number ?? undefined }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error ?? "Nem sikerült előkészíteni a feltöltést");
+  }
+  return res.json();
+}
+
+// A tényleges bájtok innentől SOSEM érintik a RunMate szervert — a
+// resumable-upload session indítása és a fájl PUT-ja is közvetlenül a
+// Google API-ja felé megy, a vágó saját access tokenjével. Élőben tesztelve
+// ez a minta (Authorization fejléc minden kérésen) átmegy a Google CORS-
+// ellenőrzésén; egy korábbi, anonim session-es próbálkozás (a szerver
+// hozta létre a session-t, a böngésző csak PUT-olt bele) NEM ment át.
+export function uploadClipDirectToGoogle(
+  session: ClipUploadSession,
+  file: File,
+  onProgress: (percent: number) => void
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const extMatch = file.name.match(/\.[^./]+$/);
+    const filename = `${session.nextNumber}${extMatch ? extMatch[0] : ""}`;
+
+    const initXhr = new XMLHttpRequest();
+    initXhr.open("POST", "https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&supportsAllDrives=true");
+    initXhr.setRequestHeader("Authorization", `Bearer ${session.accessToken}`);
+    initXhr.setRequestHeader("Content-Type", "application/json; charset=UTF-8");
+    initXhr.setRequestHeader("X-Upload-Content-Type", file.type || "application/octet-stream");
+    initXhr.onload = () => {
+      if (initXhr.status < 200 || initXhr.status >= 300) {
+        reject(new Error("Nem sikerült elindítani a Drive feltöltést"));
+        return;
+      }
+      const sessionUrl = initXhr.getResponseHeader("Location");
+      if (!sessionUrl) {
+        reject(new Error("A Drive nem adott feltöltési session URL-t"));
+        return;
+      }
+      const putXhr = new XMLHttpRequest();
+      putXhr.open("PUT", sessionUrl);
+      putXhr.setRequestHeader("Authorization", `Bearer ${session.accessToken}`);
+      putXhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+      };
+      putXhr.onload = () => {
+        if (putXhr.status >= 200 && putXhr.status < 300) resolve();
+        else reject(new Error("Nem sikerült feltölteni a fájlt a Drive-ra"));
+      };
+      putXhr.onerror = () => reject(new Error("Hálózati hiba a feltöltés közben"));
+      putXhr.send(file);
+    };
+    initXhr.onerror = () => reject(new Error("Hálózati hiba a feltöltés indításakor"));
+    initXhr.send(JSON.stringify({ name: filename, parents: [session.folderId] }));
+  });
+}
