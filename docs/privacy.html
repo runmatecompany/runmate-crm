@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RunMate CRM — Adatvédelmi tájékoztató</title>
+  <style>
+    :root {
+      --bg: #14171e;
+      --surface: #1c212c;
+      --border: #2b3140;
+      --text: #e8eaf0;
+      --text-muted: #9aa1b2;
+      --accent: #2f7fe0;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
+      line-height: 1.6;
+    }
+    .wrap {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 3em 1.5em 5em;
+    }
+    .logo { width: 56px; height: 56px; margin-bottom: 1em; }
+    h1 { font-size: 1.6em; margin: 0 0 0.2em; }
+    p.updated { color: var(--text-muted); font-size: 0.85em; margin: 0 0 2em; }
+    h2 { font-size: 1.15em; margin: 2em 0 0.5em; }
+    p, li { color: var(--text); }
+    ul { padding-left: 1.3em; }
+    a { color: var(--accent); }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.2em 1.4em;
+      margin-top: 2em;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <img src="logo.png" alt="RunMate CRM" class="logo" />
+    <h1>RunMate CRM — Adatvédelmi tájékoztató</h1>
+    <p class="updated">Utolsó frissítés: 2026. augusztus</p>
+
+    <p>
+      A RunMate CRM egy belső ügyfélkezelő és tartalomgyártást támogató szoftver, amelyet a RunMate csapata
+      és annak munkatársai (adminok, közösségimédia-vágók) használnak. Ez az oldal azt írja le, hogyan
+      kezeljük a Google-fiók összekapcsolásakor megosztott adatokat.
+    </p>
+
+    <h2>Milyen Google-adatokhoz fér hozzá az app, és miért</h2>
+    <ul>
+      <li>
+        <strong>Google Drive (drive.file jogosultság)</strong> — az app kizárólag azokat a fájlokat és
+        mappákat éri el, amiket saját maga hozott létre (pl. egy ügyfél mappastruktúrája, feltöltött
+        nyersanyag- és klip-videók). Nem fér hozzá a fiók egyéb, az appon kívül létrehozott Drive-tartalmához.
+      </li>
+      <li>
+        <strong>Google Naptár (calendar.readonly jogosultság)</strong> — az app csak olvassa az összekötött
+        naptár eseményeit, hogy a forgatási időpontokat automatikusan felismerje és a megfelelő ügyfélhez
+        rendelje. Az app nem módosít és nem törül naptáresemény eket.
+      </li>
+      <li>
+        <strong>Fiók email címe (userinfo.email jogosultság)</strong> — kizárólag annak megjelenítésére
+        szolgál a beállításokban, hogy melyik Google-fiók van összekötve.
+      </li>
+    </ul>
+
+    <h2>Hogyan használjuk ezeket az adatokat</h2>
+    <p>
+      A hozzáférést kizárólag a RunMate belső munkafolyamatainak automatizálására használjuk: ügyfél
+      Drive-mappák létrehozására és rendben tartására, elkészült tartalmak feltöltésére, valamint a
+      forgatási időpontok naptárból való automatikus felismerésére. Az adatokat nem adjuk el, nem osztjuk
+      meg harmadik féllel, és nem használjuk hirdetési célra.
+    </p>
+
+    <h2>Ki fér hozzá az adatokhoz</h2>
+    <p>
+      Csak a RunMate csapatának tagjai, akik a szoftvert használják a saját munkájukhoz. Minden felhasználó
+      a saját Google-fiókját kapcsolja össze saját döntése alapján, bármikor bonthatja a kapcsolatot a
+      szoftver Beállítások menüjében.
+    </p>
+
+    <h2>Adatmegőrzés és törlés</h2>
+    <p>
+      A Google-fiók összekapcsolásakor kapott hozzáférési adatokat titkosítva tároljuk, kizárólag addig,
+      amíg a kapcsolat aktív. A kapcsolat bontásakor (a Beállítások menüből) ezek az adatok azonnal
+      törlődnek a rendszerünkből.
+    </p>
+
+    <div class="card">
+      <h2 style="margin-top:0">Kapcsolat</h2>
+      <p style="margin-bottom:0">
+        Kérdés esetén: <a href="mailto:runmatecompany@gmail.com">runmatecompany@gmail.com</a>
+      </p>
+    </div>
+  </div>
+</body>
+</html>
