@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "../lib/auth";
 import { listClients, type Client } from "../lib/clients";
 import { createContentItem, listContentItems, type ContentItem, type ContentType } from "../lib/socialMedia";
@@ -63,6 +63,15 @@ export default function SocialMediaPage({ tab }: SocialMediaPageProps) {
     listClients(token).then((result) => setClients(result.clients));
   }, [token]);
 
+  // A Social Media modul csak azokat az ügyfeleket listázza, akiknek
+  // ténylegesen van valamilyen social media tartalom-szolgáltatása az
+  // onboardingban (Short videók, Képes posztok vagy Clippelés) — akinek
+  // csak pl. weboldal-szolgáltatása van, ne jelenjen meg itt.
+  const socialMediaClients = useMemo(
+    () => clients.filter((c) => c.service_short_videos || c.service_image_posts || c.service_clipping),
+    [clients]
+  );
+
   async function handleCreate(input: {
     clientId: number;
     title: string;
@@ -112,15 +121,15 @@ export default function SocialMediaPage({ tab }: SocialMediaPageProps) {
 
       {loading && <p className="chat-empty-hint">Betöltés...</p>}
 
-      {!loading && tab === "status" && <SocialMediaStatusView clients={clients} items={items} onOpen={setOpenItemId} />}
-      {!loading && tab === "kanban" && <KanbanBoard items={items} clients={clients} onOpen={setOpenItemId} onChanged={refresh} />}
+      {!loading && tab === "status" && <SocialMediaStatusView clients={socialMediaClients} items={items} onOpen={setOpenItemId} />}
+      {!loading && tab === "kanban" && <KanbanBoard items={items} clients={socialMediaClients} onOpen={setOpenItemId} onChanged={refresh} />}
       {!loading && tab === "post-queue" && <PostQueueView items={items} onOpen={setOpenItemId} onChanged={refresh} />}
       {!loading && tab === "shoot-calendar" && <ShootCalendar items={items} onOpen={setOpenItemId} />}
       {!loading && tab === "content-calendar" && <ContentCalendar items={items} onOpen={setOpenItemId} />}
       {!loading && tab === "drive" && <DriveView />}
 
       {showCreate && (
-        <ContentItemFormModal clients={clients} onClose={() => setShowCreate(false)} onSave={handleCreate} />
+        <ContentItemFormModal clients={socialMediaClients} onClose={() => setShowCreate(false)} onSave={handleCreate} />
       )}
     </main>
   );

@@ -20,6 +20,10 @@ export interface Client {
   monthly_video_target: number | null;
   monthly_post_target: number | null;
   service_clipping: boolean;
+  service_short_videos: boolean;
+  service_image_posts: boolean;
+  service_website_build: boolean;
+  service_landing_page: boolean;
   status: ClientStatus;
   client_type: ClientType | null;
   created_at: string;

@@ -7,6 +7,8 @@ export interface ClientTaskSummary {
   monthly_video_target: number | null;
   monthly_post_target: number | null;
   service_clipping: boolean;
+  service_short_videos: boolean;
+  service_image_posts: boolean;
 }
 
 export type ManualTaskStatus = "todo" | "in_progress" | "done";

@@ -141,6 +141,16 @@ export default function TasksPage() {
     setClipProgress((prev) => ({ ...prev, [clientId]: progress }));
   }
 
+  // A tartalom-áttekintés kártyák csak azoknál az ügyfeleknél
+  // relevánsak, akiknek ténylegesen van social media tartalom-
+  // szolgáltatása — a fenti ügyfél-szűrő legördülő viszont az összes
+  // ügyfelet megtartja, mert egy tisztán web-ügyféllel is lehet kézi
+  // feladat.
+  const contentClients = useMemo(
+    () => clients.filter((c) => c.service_short_videos || c.service_image_posts || c.service_clipping),
+    [clients]
+  );
+
   const stats = useMemo(() => {
     const open = manualTasks.filter((t) => t.status !== "done").length;
     const overdue = manualTasks.filter(isOverdue).length;
@@ -342,10 +352,10 @@ export default function TasksPage() {
           </div>
 
           <h2 className="sm-section-title">Ügyfelenkénti tartalom-áttekintés</h2>
-          {clients.length === 0 && <p className="chat-empty-hint">Nincs még felvett ügyfél.</p>}
+          {contentClients.length === 0 && <p className="chat-empty-hint">Nincs social media szolgáltatással rendelkező ügyfél.</p>}
 
           <div className="mt-client-grid">
-            {clients.map((client) => {
+            {contentClients.map((client) => {
               const clientItems = items.filter((i) => i.client_id === client.client_id);
               const videoDone = clientItems.filter(
                 (i) => i.content_type === "video" && i.status === "published" && isThisMonth(i.published_at)

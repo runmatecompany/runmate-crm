@@ -145,6 +145,8 @@ export interface ClientTaskSummaryRow {
   monthly_video_target: number | null;
   monthly_post_target: number | null;
   service_clipping: boolean;
+  service_short_videos: boolean;
+  service_image_posts: boolean;
 }
 
 // A "kész ebben a hónapban" számot a frontend számolja a /content-items
@@ -153,12 +155,19 @@ export interface ClientTaskSummaryRow {
 // frontend-oldalon is. A service_clipping=true ügyfeleknél ez a szám nem
 // content_items-ekből jön, hanem külön, a Drive-mappából (lásd
 // GET /clients/:id/clipping-progress) — a frontend ez alapján dönt, melyik
-// forrást kérdezze le.
+// forrást kérdezze le. Szándékosan MINDEN ügyfelet visszaad (nem csak a
+// social media szolgáltatással rendelkezőket) — ugyanezt a listát
+// használja a Feladatok oldal ügyfél-szűrő legördülője is, ahol egy
+// tisztán web-ügyfélhez tartozó kézi feladatot is szűrni kell tudni; a
+// frontend szűri le social-media-relevánsra csak a tartalom-áttekintés
+// kártyák megjelenítésénél.
 export async function listClientTaskSummaries(): Promise<ClientTaskSummaryRow[]> {
   const { rows } = await pool.query<ClientTaskSummaryRow>(
     `SELECT c.id AS client_id, c.company_name AS client_name,
             op.monthly_video_target, op.monthly_post_target,
-            COALESCE(op.service_clipping, false) AS service_clipping
+            COALESCE(op.service_clipping, false) AS service_clipping,
+            COALESCE(op.service_short_videos, false) AS service_short_videos,
+            COALESCE(op.service_image_posts, false) AS service_image_posts
      FROM clients c
      LEFT JOIN client_onboarding_profiles op ON op.client_id = c.id
      ORDER BY c.company_name ASC`

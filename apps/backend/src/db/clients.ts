@@ -20,6 +20,10 @@ export interface ClientRow {
   monthly_video_target: number | null;
   monthly_post_target: number | null;
   service_clipping: boolean;
+  service_short_videos: boolean;
+  service_image_posts: boolean;
+  service_website_build: boolean;
+  service_landing_page: boolean;
   status: ClientStatus;
   client_type: ClientType | null;
   created_at: string;
@@ -29,9 +33,11 @@ export interface ClientRow {
 // A JOIN client_onboarding_profiles-szal a completed_at-ért (az Ügyfelek
 // lista "Onboarding" oszlopához) és a havi célszámokért van (a Social
 // Media "Állapot" füléhez) — így nem kell N+1 külön lekérdezés minden
-// ügyfélhez. A service_clipping jelzi, hogy az adott ügyfélnél a kész
-// videók száma a Drive-mappából olvasandó (lásd lib/clipping.ts), nem a
-// content_items-ekből.
+// ügyfélhez. A service_* jelzők jelzik, mely modulokban releváns az adott
+// ügyfél (pl. a Social Media modul csak akkor listázza, ha van
+// short_videos/image_posts/clipping szolgáltatása) — service_clipping
+// emellett azt is jelzi, hogy a kész videók száma a Drive-mappából
+// olvasandó (lásd lib/clipping.ts), nem a content_items-ekből.
 const CLIENT_SELECT = `
   SELECT
     c.id, c.company_name, c.contact_name, c.phone, c.email, c.address, c.notes,
@@ -39,6 +45,10 @@ const CLIENT_SELECT = `
     c.created_by, cu.name AS created_by_name,
     op.completed_at AS onboarding_completed_at, op.monthly_video_target, op.monthly_post_target,
     COALESCE(op.service_clipping, false) AS service_clipping,
+    COALESCE(op.service_short_videos, false) AS service_short_videos,
+    COALESCE(op.service_image_posts, false) AS service_image_posts,
+    COALESCE(op.service_website_build, false) AS service_website_build,
+    COALESCE(op.service_landing_page, false) AS service_landing_page,
     c.status, c.client_type,
     c.created_at, c.updated_at
   FROM clients c
