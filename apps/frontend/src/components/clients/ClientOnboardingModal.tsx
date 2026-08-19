@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useAuth } from "../../lib/auth";
-import { getClientOnboarding, updateClientOnboarding } from "../../lib/clientOnboarding";
+import { getClientOnboarding, splitPlatforms, updateClientOnboarding } from "../../lib/clientOnboarding";
 import { useEscapeToClose } from "../../lib/useEscapeToClose";
 
 interface ClientOnboardingModalProps {
@@ -9,13 +9,22 @@ interface ClientOnboardingModalProps {
   onClose: () => void;
 }
 
+const PLATFORM_OPTIONS = ["Facebook", "Instagram", "TikTok", "YouTube"] as const;
+
+function togglePlatform(list: string[], name: string): string[] {
+  return list.includes(name) ? list.filter((p) => p !== name) : [...list, name];
+}
+
 // Az ügyfél-onboarding kérdőíve — ezt tölti ki a hívó kolléga élőben, amíg
 // telefonon végigkérdezi az ügyfelet. A vállalkozásról szóló tényeket és
-// azt tárolja, amit MI vállalunk nekik (platformok, mennyiségek,
-// szolgáltatások) — a kreatív/tartalmi stílus-döntések (megszólítás,
+// azt tárolja, amit MI vállalunk nekik — az 5 szolgáltatás (Weboldal,
+// Landing, Short videók, Képes posztok, Clippelés) mindegyike önálló
+// kapcsoló, ami CSAK a hozzá tartozó kérdéscsoportot nyitja meg, saját
+// platform-választással (egy ügyfélnek lehet pl. csak TikTokra videója, de
+// Facebookra posztja). A kreatív/tartalmi stílus-döntések (megszólítás,
 // hangvétel, brand színek) külön, az AI-profilban élnek, azokat utólag a
 // csapat építi fel a beszélgetés alapján. Saját, széles, szekciózott
-// modal-elrendezést használ (nem a szűk .chat-modal-t) — 18+ mezőt nem
+// modal-elrendezést használ (nem a szűk .chat-modal-t) — sok mezőt nem
 // lehet kényelmesen egy 360px-es dobozba szorítani.
 export default function ClientOnboardingModal({ clientId, clientName, onClose }: ClientOnboardingModalProps) {
   useEscapeToClose(onClose);
@@ -29,17 +38,28 @@ export default function ClientOnboardingModal({ clientId, clientName, onClose }:
   const [brandAssetsLocation, setBrandAssetsLocation] = useState("");
   const [existingLinks, setExistingLinks] = useState<{ label: string; url: string }[]>([]);
 
-  const [platformFacebook, setPlatformFacebook] = useState(false);
-  const [platformInstagram, setPlatformInstagram] = useState(false);
-  const [platformTiktok, setPlatformTiktok] = useState(false);
-  const [platformYoutube, setPlatformYoutube] = useState(false);
   const [serviceWebsiteBuild, setServiceWebsiteBuild] = useState(false);
+  const [websitePagesCount, setWebsitePagesCount] = useState("");
+  const [websiteDomainHosting, setWebsiteDomainHosting] = useState("");
+  const [websiteReferenceNotes, setWebsiteReferenceNotes] = useState("");
+
   const [serviceLandingPage, setServiceLandingPage] = useState(false);
+  const [landingGoal, setLandingGoal] = useState("");
+  const [landingDomainHosting, setLandingDomainHosting] = useState("");
+  const [landingReferenceNotes, setLandingReferenceNotes] = useState("");
+
+  const [serviceShortVideos, setServiceShortVideos] = useState(false);
+  const [shortVideosPlatforms, setShortVideosPlatforms] = useState<string[]>([]);
+  const [monthlyVideoTarget, setMonthlyVideoTarget] = useState("");
+
+  const [serviceImagePosts, setServiceImagePosts] = useState(false);
+  const [imagePostsPlatforms, setImagePostsPlatforms] = useState<string[]>([]);
+  const [monthlyPostTarget, setMonthlyPostTarget] = useState("");
+
   const [serviceClipping, setServiceClipping] = useState(false);
+  const [clippingPlatforms, setClippingPlatforms] = useState<string[]>([]);
   const [clippingSourceFolderUrl, setClippingSourceFolderUrl] = useState("");
   const [clippingDailyTarget, setClippingDailyTarget] = useState("");
-  const [monthlyVideoTarget, setMonthlyVideoTarget] = useState("");
-  const [monthlyPostTarget, setMonthlyPostTarget] = useState("");
 
   const [collaborationGoals, setCollaborationGoals] = useState("");
   const [approvalProcessNotes, setApprovalProcessNotes] = useState("");
@@ -67,17 +87,24 @@ export default function ClientOnboardingModal({ clientId, clientName, onClose }:
             profile.youtube_url && { label: "YouTube", url: profile.youtube_url },
           ].filter((v): v is { label: string; url: string } => Boolean(v))
         );
-        setPlatformFacebook(profile.platform_facebook);
-        setPlatformInstagram(profile.platform_instagram);
-        setPlatformTiktok(profile.platform_tiktok);
-        setPlatformYoutube(profile.platform_youtube);
         setServiceWebsiteBuild(profile.service_website_build);
+        setWebsitePagesCount(profile.website_pages_count != null ? String(profile.website_pages_count) : "");
+        setWebsiteDomainHosting(profile.website_domain_hosting ?? "");
+        setWebsiteReferenceNotes(profile.website_reference_notes ?? "");
         setServiceLandingPage(profile.service_landing_page);
+        setLandingGoal(profile.landing_goal ?? "");
+        setLandingDomainHosting(profile.landing_domain_hosting ?? "");
+        setLandingReferenceNotes(profile.landing_reference_notes ?? "");
+        setServiceShortVideos(profile.service_short_videos);
+        setShortVideosPlatforms(splitPlatforms(profile.short_videos_platforms));
+        setMonthlyVideoTarget(profile.monthly_video_target != null ? String(profile.monthly_video_target) : "");
+        setServiceImagePosts(profile.service_image_posts);
+        setImagePostsPlatforms(splitPlatforms(profile.image_posts_platforms));
+        setMonthlyPostTarget(profile.monthly_post_target != null ? String(profile.monthly_post_target) : "");
         setServiceClipping(profile.service_clipping);
+        setClippingPlatforms(splitPlatforms(profile.clipping_platforms));
         setClippingSourceFolderUrl(profile.clipping_source_folder_url ?? "");
         setClippingDailyTarget(profile.clipping_daily_target != null ? String(profile.clipping_daily_target) : "");
-        setMonthlyVideoTarget(profile.monthly_video_target != null ? String(profile.monthly_video_target) : "");
-        setMonthlyPostTarget(profile.monthly_post_target != null ? String(profile.monthly_post_target) : "");
         setCollaborationGoals(profile.collaboration_goals ?? "");
         setApprovalProcessNotes(profile.approval_process_notes ?? "");
         setApproverName(profile.approver_name ?? "");
@@ -87,15 +114,8 @@ export default function ClientOnboardingModal({ clientId, clientName, onClose }:
       .finally(() => setLoading(false));
   }, [token, clientId]);
 
-  const anyPlatformSelected = platformFacebook || platformInstagram || platformTiktok || platformYoutube;
   const anyServiceSelected =
-    anyPlatformSelected || serviceWebsiteBuild || serviceLandingPage || serviceClipping;
-  // A "Havi videó mennyiség" a rendes tartalom-pipeline-on (nem bulk
-  // Clippelésen) készülő videókat számolja — csak akkor releváns, ha van
-  // platform, ahova ezek felkerülnek, ÉS nincs Clippelés (annak saját,
-  // napi rátából számolt célja van, lásd lib/clipping.ts).
-  const showVideoTarget = anyPlatformSelected && !serviceClipping;
-  const showPostTarget = anyPlatformSelected;
+    serviceWebsiteBuild || serviceLandingPage || serviceShortVideos || serviceImagePosts || serviceClipping;
 
   const progress = useMemo(() => {
     const checks = [
@@ -105,9 +125,13 @@ export default function ClientOnboardingModal({ clientId, clientName, onClose }:
       brandAssetsLocation.trim(),
       anyServiceSelected ? "x" : "",
     ];
-    if (serviceClipping) checks.push(clippingDailyTarget.trim());
-    if (showVideoTarget) checks.push(monthlyVideoTarget.trim());
-    if (showPostTarget) checks.push(monthlyPostTarget.trim());
+    if (serviceWebsiteBuild) checks.push(websitePagesCount.trim());
+    if (serviceLandingPage) checks.push(landingGoal.trim());
+    if (serviceShortVideos) checks.push(monthlyVideoTarget.trim(), shortVideosPlatforms.length > 0 ? "x" : "");
+    if (serviceImagePosts) checks.push(monthlyPostTarget.trim(), imagePostsPlatforms.length > 0 ? "x" : "");
+    if (serviceClipping) {
+      checks.push(clippingSourceFolderUrl.trim(), clippingDailyTarget.trim(), clippingPlatforms.length > 0 ? "x" : "");
+    }
     checks.push(
       collaborationGoals.trim(),
       approvalProcessNotes.trim(),
@@ -123,12 +147,20 @@ export default function ClientOnboardingModal({ clientId, clientName, onClose }:
     websiteUrl,
     brandAssetsLocation,
     anyServiceSelected,
-    serviceClipping,
-    showVideoTarget,
-    showPostTarget,
-    clippingDailyTarget,
+    serviceWebsiteBuild,
+    websitePagesCount,
+    serviceLandingPage,
+    landingGoal,
+    serviceShortVideos,
     monthlyVideoTarget,
+    shortVideosPlatforms,
+    serviceImagePosts,
     monthlyPostTarget,
+    imagePostsPlatforms,
+    serviceClipping,
+    clippingSourceFolderUrl,
+    clippingDailyTarget,
+    clippingPlatforms,
     collaborationGoals,
     approvalProcessNotes,
     approverName,
@@ -141,12 +173,21 @@ export default function ClientOnboardingModal({ clientId, clientName, onClose }:
     if (!businessDescription.trim()) return "Add meg röviden, mivel foglalkozik a vállalkozás.";
     if (!websiteUrl.trim()) return "A weboldal mező kitöltése kötelező (írj '-'-t, ha nincs).";
     if (!anyServiceSelected) return "Válassz legalább egy szolgáltatást.";
-    if (serviceClipping && !clippingSourceFolderUrl.trim()) {
-      return "Clippeléshez kötelező megadni a forrás mappát.";
+    if (serviceWebsiteBuild && !websitePagesCount.trim()) return "A weboldal aloldalainak száma kitöltése kötelező.";
+    if (serviceLandingPage && !landingGoal.trim()) return "A landing oldal célja kitöltése kötelező.";
+    if (serviceShortVideos) {
+      if (!monthlyVideoTarget.trim()) return "A havi videó mennyiség kitöltése kötelező.";
+      if (shortVideosPlatforms.length === 0) return "Válassz legalább egy platformot a Short videókhoz.";
     }
-    if (serviceClipping && !clippingDailyTarget.trim()) return "A napi klip mennyiség kitöltése kötelező.";
-    if (showVideoTarget && !monthlyVideoTarget.trim()) return "A havi videó mennyiség kitöltése kötelező.";
-    if (showPostTarget && !monthlyPostTarget.trim()) return "A havi poszt mennyiség kitöltése kötelező.";
+    if (serviceImagePosts) {
+      if (!monthlyPostTarget.trim()) return "A havi poszt mennyiség kitöltése kötelező.";
+      if (imagePostsPlatforms.length === 0) return "Válassz legalább egy platformot a Képes posztokhoz.";
+    }
+    if (serviceClipping) {
+      if (!clippingSourceFolderUrl.trim()) return "Clippeléshez kötelező megadni a forrás mappát.";
+      if (!clippingDailyTarget.trim()) return "A napi klip mennyiség kitöltése kötelező.";
+      if (clippingPlatforms.length === 0) return "Válassz legalább egy platformot a Clippeléshez.";
+    }
     return null;
   }
 
@@ -166,17 +207,24 @@ export default function ClientOnboardingModal({ clientId, clientName, onClose }:
         businessDescription: businessDescription.trim(),
         websiteUrl: websiteUrl.trim(),
         brandAssetsLocation: brandAssetsLocation.trim() || undefined,
-        platformFacebook,
-        platformInstagram,
-        platformTiktok,
-        platformYoutube,
         serviceWebsiteBuild,
+        websitePagesCount: serviceWebsiteBuild ? Number(websitePagesCount) : undefined,
+        websiteDomainHosting: serviceWebsiteBuild ? websiteDomainHosting.trim() || undefined : undefined,
+        websiteReferenceNotes: serviceWebsiteBuild ? websiteReferenceNotes.trim() || undefined : undefined,
         serviceLandingPage,
+        landingGoal: serviceLandingPage ? landingGoal.trim() || undefined : undefined,
+        landingDomainHosting: serviceLandingPage ? landingDomainHosting.trim() || undefined : undefined,
+        landingReferenceNotes: serviceLandingPage ? landingReferenceNotes.trim() || undefined : undefined,
+        serviceShortVideos,
+        shortVideosPlatforms: serviceShortVideos ? shortVideosPlatforms : undefined,
+        monthlyVideoTarget: serviceShortVideos ? Number(monthlyVideoTarget) : undefined,
+        serviceImagePosts,
+        imagePostsPlatforms: serviceImagePosts ? imagePostsPlatforms : undefined,
+        monthlyPostTarget: serviceImagePosts ? Number(monthlyPostTarget) : undefined,
         serviceClipping,
+        clippingPlatforms: serviceClipping ? clippingPlatforms : undefined,
         clippingSourceFolderUrl: serviceClipping ? clippingSourceFolderUrl.trim() : undefined,
         clippingDailyTarget: serviceClipping ? Number(clippingDailyTarget) : undefined,
-        monthlyVideoTarget: showVideoTarget ? Number(monthlyVideoTarget) : undefined,
-        monthlyPostTarget: showPostTarget ? Number(monthlyPostTarget) : undefined,
         collaborationGoals: collaborationGoals.trim() || undefined,
         approvalProcessNotes: approvalProcessNotes.trim() || undefined,
         approverName: approverName.trim() || undefined,
@@ -188,6 +236,23 @@ export default function ClientOnboardingModal({ clientId, clientName, onClose }:
       setError(err instanceof Error ? err.message : "Nem sikerült menteni az onboarding-profilt");
       setSaving(false);
     }
+  }
+
+  function renderPlatformPicker(selected: string[], onChange: (next: string[]) => void) {
+    return (
+      <div className="ob-platform-row">
+        {PLATFORM_OPTIONS.map((name) => (
+          <button
+            key={name}
+            type="button"
+            className={selected.includes(name) ? "ai-profile-platform-toggle active" : "ai-profile-platform-toggle"}
+            onClick={() => onChange(togglePlatform(selected, name))}
+          >
+            {name}
+          </button>
+        ))}
+      </div>
+    );
   }
 
   return (
@@ -297,7 +362,10 @@ export default function ClientOnboardingModal({ clientId, clientName, onClose }:
                     <span className="ob-section-badge">2</span>
                     <div>
                       <div className="ob-section-title">Amit vállalunk nekik</div>
-                      <p className="ob-section-desc">A szolgáltatás terjedelme — mire vállaltunk munkát, nem az, hogy hol van már jelenleg jelenléte.</p>
+                      <p className="ob-section-desc">
+                        Válaszd ki, milyen szolgáltatásokat vállaltunk — mindegyik a saját, hozzá tartozó kérdéseit
+                        nyitja meg.
+                      </p>
                     </div>
                   </div>
 
@@ -318,31 +386,17 @@ export default function ClientOnboardingModal({ clientId, clientName, onClose }:
                     </button>
                     <button
                       type="button"
-                      className={platformFacebook ? "ai-profile-platform-toggle active" : "ai-profile-platform-toggle"}
-                      onClick={() => setPlatformFacebook((v) => !v)}
+                      className={serviceShortVideos ? "ai-profile-platform-toggle active" : "ai-profile-platform-toggle"}
+                      onClick={() => setServiceShortVideos((v) => !v)}
                     >
-                      Facebook
+                      Short videók
                     </button>
                     <button
                       type="button"
-                      className={platformInstagram ? "ai-profile-platform-toggle active" : "ai-profile-platform-toggle"}
-                      onClick={() => setPlatformInstagram((v) => !v)}
+                      className={serviceImagePosts ? "ai-profile-platform-toggle active" : "ai-profile-platform-toggle"}
+                      onClick={() => setServiceImagePosts((v) => !v)}
                     >
-                      Instagram
-                    </button>
-                    <button
-                      type="button"
-                      className={platformTiktok ? "ai-profile-platform-toggle active" : "ai-profile-platform-toggle"}
-                      onClick={() => setPlatformTiktok((v) => !v)}
-                    >
-                      TikTok
-                    </button>
-                    <button
-                      type="button"
-                      className={platformYoutube ? "ai-profile-platform-toggle active" : "ai-profile-platform-toggle"}
-                      onClick={() => setPlatformYoutube((v) => !v)}
-                    >
-                      YouTube
+                      Képes posztok
                     </button>
                     <button
                       type="button"
@@ -353,8 +407,99 @@ export default function ClientOnboardingModal({ clientId, clientName, onClose }:
                     </button>
                   </div>
 
+                  {serviceWebsiteBuild && (
+                    <div className="sm-detail-field">
+                      <div className="ob-service-block-title">Weboldal készítés</div>
+                      <label htmlFor="ob-website-pages">Hány aloldal</label>
+                      <input
+                        id="ob-website-pages"
+                        type="number"
+                        min={0}
+                        value={websitePagesCount}
+                        onChange={(e) => setWebsitePagesCount(e.currentTarget.value)}
+                        placeholder="Pl. 5"
+                      />
+                      <label htmlFor="ob-website-hosting">Van-e már domain/tárhely</label>
+                      <input
+                        id="ob-website-hosting"
+                        value={websiteDomainHosting}
+                        onChange={(e) => setWebsiteDomainHosting(e.currentTarget.value)}
+                        placeholder="Pl. van, ez: ..., vagy: nincs, azt is intézzük"
+                      />
+                      <label htmlFor="ob-website-reference">Referencia oldalak / stílus-elvárások</label>
+                      <input
+                        id="ob-website-reference"
+                        value={websiteReferenceNotes}
+                        onChange={(e) => setWebsiteReferenceNotes(e.currentTarget.value)}
+                        placeholder="Amit szeret, aminek stílusát követni kéne"
+                      />
+                    </div>
+                  )}
+
+                  {serviceLandingPage && (
+                    <div className="sm-detail-field">
+                      <div className="ob-service-block-title">Landing oldal készítés</div>
+                      <label htmlFor="ob-landing-goal">A landing oldal célja</label>
+                      <input
+                        id="ob-landing-goal"
+                        value={landingGoal}
+                        onChange={(e) => setLandingGoal(e.currentTarget.value)}
+                        placeholder="Pl. lead-gyűjtés, termékbemutató, esemény"
+                      />
+                      <label htmlFor="ob-landing-hosting">Van-e már domain/tárhely</label>
+                      <input
+                        id="ob-landing-hosting"
+                        value={landingDomainHosting}
+                        onChange={(e) => setLandingDomainHosting(e.currentTarget.value)}
+                        placeholder="Pl. van, ez: ..., vagy: nincs, azt is intézzük"
+                      />
+                      <label htmlFor="ob-landing-reference">Referencia oldalak / stílus-elvárások</label>
+                      <input
+                        id="ob-landing-reference"
+                        value={landingReferenceNotes}
+                        onChange={(e) => setLandingReferenceNotes(e.currentTarget.value)}
+                        placeholder="Amit szeret, aminek stílusát követni kéne"
+                      />
+                    </div>
+                  )}
+
+                  {serviceShortVideos && (
+                    <div className="sm-detail-field">
+                      <div className="ob-service-block-title">Short videók</div>
+                      <label htmlFor="ob-short-videos-target">Havi hány videó</label>
+                      <input
+                        id="ob-short-videos-target"
+                        type="number"
+                        min={0}
+                        value={monthlyVideoTarget}
+                        onChange={(e) => setMonthlyVideoTarget(e.currentTarget.value)}
+                        placeholder="Pl. 8"
+                      />
+                      <span className="chat-empty-hint">Milyen platformokra</span>
+                      {renderPlatformPicker(shortVideosPlatforms, setShortVideosPlatforms)}
+                    </div>
+                  )}
+
+                  {serviceImagePosts && (
+                    <div className="sm-detail-field">
+                      <div className="ob-service-block-title">Képes posztok</div>
+                      <label htmlFor="ob-image-posts-target">Havi hány poszt</label>
+                      <input
+                        id="ob-image-posts-target"
+                        type="number"
+                        min={0}
+                        value={monthlyPostTarget}
+                        onChange={(e) => setMonthlyPostTarget(e.currentTarget.value)}
+                        placeholder="Pl. 8"
+                      />
+                      <span className="chat-empty-hint">Milyen platformokra</span>
+                      {renderPlatformPicker(imagePostsPlatforms, setImagePostsPlatforms)}
+                    </div>
+                  )}
+
                   {serviceClipping && (
                     <div className="sm-detail-field">
+                      <div className="ob-service-block-title">Clippelés</div>
                       <label htmlFor="ob-clipping-source">Forrás mappa (Drive link, ahonnan a vágó dolgozik)</label>
                       <input
                         id="ob-clipping-source"
@@ -378,37 +523,10 @@ export default function ClientOnboardingModal({ clientId, clientName, onClose }:
                         "Videók/Megvágva" Drive-mappából olvasódik, a munka csak akkor válik láthatóvá/elérhetővé,
                         ha admin jóváhagyta, hogy az ügyfél fizetett.
                       </p>
+                      <span className="chat-empty-hint">Milyen platformokra kerülnek fel a kész klipek</span>
+                      {renderPlatformPicker(clippingPlatforms, setClippingPlatforms)}
                     </div>
                   )}
-
-                  <div className="ob-grid">
-                    {showVideoTarget && (
-                      <div className="ob-field">
-                        <label htmlFor="ob-monthly-video-target">Havi videó mennyiség</label>
-                        <input
-                          id="ob-monthly-video-target"
-                          type="number"
-                          min={0}
-                          value={monthlyVideoTarget}
-                          onChange={(e) => setMonthlyVideoTarget(e.currentTarget.value)}
-                          placeholder="Pl. 8"
-                        />
-                      </div>
-                    )}
-                    {showPostTarget && (
-                      <div className="ob-field">
-                        <label htmlFor="ob-monthly-post-target">Havi poszt mennyiség</label>
-                        <input
-                          id="ob-monthly-post-target"
-                          type="number"
-                          min={0}
-                          value={monthlyPostTarget}
-                          onChange={(e) => setMonthlyPostTarget(e.currentTarget.value)}
-                          placeholder="Pl. 8"
-                        />
-                      </div>
-                    )}
-                  </div>
                 </section>
 
                 <section className="ob-section ob-section--collab">

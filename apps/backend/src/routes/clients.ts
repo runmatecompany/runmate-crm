@@ -101,13 +101,20 @@ const onboardingBodySchema = {
     businessDescription: { type: "string" },
     websiteUrl: { type: "string" },
     brandAssetsLocation: { type: "string" },
-    platformFacebook: { type: "boolean" },
-    platformInstagram: { type: "boolean" },
-    platformTiktok: { type: "boolean" },
-    platformYoutube: { type: "boolean" },
     serviceWebsiteBuild: { type: "boolean" },
     serviceLandingPage: { type: "boolean" },
+    serviceShortVideos: { type: "boolean" },
+    serviceImagePosts: { type: "boolean" },
     serviceClipping: { type: "boolean" },
+    websitePagesCount: { type: "integer" },
+    websiteDomainHosting: { type: "string" },
+    websiteReferenceNotes: { type: "string" },
+    landingGoal: { type: "string" },
+    landingDomainHosting: { type: "string" },
+    landingReferenceNotes: { type: "string" },
+    shortVideosPlatforms: { type: "array", items: { type: "string" } },
+    imagePostsPlatforms: { type: "array", items: { type: "string" } },
+    clippingPlatforms: { type: "array", items: { type: "string" } },
     clippingSourceFolderUrl: { type: "string" },
     clippingDailyTarget: { type: "integer" },
     monthlyVideoTarget: { type: "integer" },
@@ -125,13 +132,20 @@ interface OnboardingBody {
   businessDescription?: string;
   websiteUrl?: string;
   brandAssetsLocation?: string;
-  platformFacebook?: boolean;
-  platformInstagram?: boolean;
-  platformTiktok?: boolean;
-  platformYoutube?: boolean;
   serviceWebsiteBuild?: boolean;
   serviceLandingPage?: boolean;
+  serviceShortVideos?: boolean;
+  serviceImagePosts?: boolean;
   serviceClipping?: boolean;
+  websitePagesCount?: number;
+  websiteDomainHosting?: string;
+  websiteReferenceNotes?: string;
+  landingGoal?: string;
+  landingDomainHosting?: string;
+  landingReferenceNotes?: string;
+  shortVideosPlatforms?: string[];
+  imagePostsPlatforms?: string[];
+  clippingPlatforms?: string[];
   clippingSourceFolderUrl?: string;
   clippingDailyTarget?: number;
   monthlyVideoTarget?: number;
