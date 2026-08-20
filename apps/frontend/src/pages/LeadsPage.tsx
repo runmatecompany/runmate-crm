@@ -13,9 +13,12 @@ import {
   type LeadFormInput,
   type LeadStatus,
 } from "../lib/leads";
+import { createManualTask } from "../lib/tasks";
+import Avatar from "../components/Avatar";
 import LeadFormModal from "../components/leads/LeadFormModal";
 import LeadDetail from "../components/leads/LeadDetail";
 import LeadInterestedNoteModal from "../components/leads/LeadInterestedNoteModal";
+import LeadCallbackModal from "../components/leads/LeadCallbackModal";
 
 export default function LeadsPage() {
   const { auth } = useAuth();
@@ -30,6 +33,7 @@ export default function LeadsPage() {
   const [openLeadId, setOpenLeadId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [interestedNoteLead, setInterestedNoteLead] = useState<Lead | null>(null);
+  const [callbackLead, setCallbackLead] = useState<Lead | null>(null);
 
   const refresh = useCallback(() => {
     if (!token) return;
@@ -52,7 +56,33 @@ export default function LeadsPage() {
       setInterestedNoteLead(lead);
       return;
     }
+    if (status === "call_back") {
+      setCallbackLead(lead);
+      return;
+    }
     await updateLeadStatus(token, lead.id, status);
+    refresh();
+  }
+
+  // "Visszahívandó"-ra váltáskor a dátum + jegyzet mellett automatikusan
+  // létrejön egy emlékeztető feladat is a Feladatok modulban — a lead maga
+  // nem "ügyfél", ezért a feladat nem köthető client_id-hoz, csak a
+  // szöveges címben/leírásban hordozza a lead adatait. A felelős az, aki
+  // épp most rögzítette a visszahívást — ő tudja, mit kell mondania.
+  async function handleSaveCallback(dueDate: string, note: string) {
+    if (!token || !callbackLead) return;
+    const formattedDate = new Date(dueDate).toLocaleDateString("hu-HU");
+    const statusNote = `Visszahívás időpontja: ${formattedDate}${note ? ` — ${note}` : ""}`;
+    await updateLeadStatus(token, callbackLead.id, "call_back", statusNote);
+    await createManualTask(token, {
+      title: `Visszahívás: ${callbackLead.company_name}`,
+      description: [callbackLead.phone ? `Telefon: ${callbackLead.phone}` : null, note || null]
+        .filter(Boolean)
+        .join("\n"),
+      assignedTo: auth?.user.id,
+      dueDate,
+    });
+    setCallbackLead(null);
     refresh();
   }
 
@@ -209,6 +239,12 @@ export default function LeadsPage() {
                         Törlés
                       </button>
                     )}
+                    {lead.created_by != null && lead.created_by_name && (
+                      <span className="leads-created-by" title={`Rögzítette: ${lead.created_by_name}`}>
+                        <Avatar userId={lead.created_by} name={lead.created_by_name} size={22} />
+                        {lead.created_by_name}
+                      </span>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -231,6 +267,14 @@ export default function LeadsPage() {
           companyName={interestedNoteLead.company_name}
           onClose={() => setInterestedNoteLead(null)}
           onSave={handleSaveInterestedNote}
+        />
+      )}
+
+      {callbackLead && (
+        <LeadCallbackModal
+          companyName={callbackLead.company_name}
+          onClose={() => setCallbackLead(null)}
+          onSave={handleSaveCallback}
         />
       )}
     </main>
