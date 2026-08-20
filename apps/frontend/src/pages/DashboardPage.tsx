@@ -9,7 +9,7 @@ import LeadsPage from "./LeadsPage";
 import LeadGenPage from "./LeadGenPage";
 import ClientsPage from "./ClientsPage";
 import TasksPage from "./TasksPage";
-import WebPage from "./WebPage";
+import WebPage, { type WebTab } from "./WebPage";
 import SocialMediaPage, { type SocialMediaTab } from "./SocialMediaPage";
 import SettingsPage from "./SettingsPage";
 
@@ -20,6 +20,11 @@ const SOCIAL_MEDIA_TABS: Record<string, SocialMediaTab> = {
   "social-shoot-calendar": "shoot-calendar",
   "social-content-calendar": "content-calendar",
   "social-drive": "drive",
+};
+
+const WEB_TABS: Record<string, WebTab> = {
+  "web-status": "status",
+  "web-projects": "projects",
 };
 
 export default function DashboardPage() {
@@ -62,8 +67,8 @@ export default function DashboardPage() {
         <ClientsPage />
       ) : activeId === "tasks" ? (
         <TasksPage />
-      ) : activeId === "web" ? (
-        <WebPage />
+      ) : activeId in WEB_TABS ? (
+        <WebPage tab={WEB_TABS[activeId]} />
       ) : activeId in SOCIAL_MEDIA_TABS ? (
         <SocialMediaPage tab={SOCIAL_MEDIA_TABS[activeId]} />
       ) : activeId === "settings" ? (

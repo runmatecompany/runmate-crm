@@ -83,6 +83,38 @@ export async function createWebProject(input: CreateWebProjectInput): Promise<We
   return created!;
 }
 
+export async function getWebProjectByClientAndType(
+  clientId: number,
+  projectType: WebProjectType
+): Promise<WebProjectRow | undefined> {
+  const { rows } = await pool.query<{ id: number }>(
+    `SELECT id FROM web_projects WHERE client_id = $1 AND project_type = $2 LIMIT 1`,
+    [clientId, projectType]
+  );
+  if (!rows[0]) return undefined;
+  return getWebProjectById(rows[0].id);
+}
+
+// Nincs kézi "+ Új projekt" az UI-n — a web_projects sorok automatikusan
+// jönnek létre, amikor az onboardingban bejelölik a Weboldal készítés
+// vagy Landing oldal készítés szolgáltatást (lásd
+// db/clientOnboarding.ts upsertClientOnboarding). Idempotens: ha már van
+// projekt ehhez az (ügyfél, típus) párhoz, nem hoz létre másikat, akkor
+// sem, ha az meglévő már "Élesítve" állapotban van — újbóli, önálló
+// projekthez (pl. egy második landing oldalhoz egy új kampányhoz) egyelőre
+// nincs automatikus út, ez a jelenlegi hatókörön kívül esik.
+export async function ensureWebProjectForService(
+  clientId: number,
+  projectType: WebProjectType,
+  companyName: string,
+  createdBy: number
+): Promise<void> {
+  const existing = await getWebProjectByClientAndType(clientId, projectType);
+  if (existing) return;
+  const title = `${companyName} — ${projectType === "website" ? "Weboldal" : "Landing oldal"}`;
+  await createWebProject({ title, projectType, clientId, createdBy });
+}
+
 export interface UpdateWebProjectInput {
   title: string;
   projectType: WebProjectType;

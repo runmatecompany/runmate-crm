@@ -41,16 +41,6 @@ export async function listWebProjects(token: string): Promise<WebProjectsResult>
   return res.json();
 }
 
-export async function createWebProject(token: string, input: WebProjectInput): Promise<WebProject> {
-  const res = await authFetch(token, "/web/projects", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
-  });
-  const data = await res.json();
-  return data.project;
-}
-
 export async function updateWebProject(token: string, id: number, input: WebProjectInput): Promise<WebProject> {
   const res = await authFetch(token, `/web/projects/${id}`, {
     method: "PATCH",

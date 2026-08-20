@@ -14,7 +14,14 @@ export const MENU_ITEMS: MenuItem[] = [
   { id: "leadgen", label: "Lead Gen" },
   { id: "clients", label: "Ügyfelek" },
   { id: "tasks", label: "Feladatok" },
-  { id: "web", label: "Web" },
+  {
+    id: "web",
+    label: "Web",
+    children: [
+      { id: "web-status", label: "Állapot" },
+      { id: "web-projects", label: "Projektek" },
+    ],
+  },
   {
     id: "social",
     label: "Social Media",

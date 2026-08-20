@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "../lib/auth";
 import { listClients, type Client } from "../lib/clients";
 import {
-  createWebProject,
   deleteWebProject,
   listWebProjects,
   updateWebProject,
@@ -12,6 +11,9 @@ import {
   type WebProjectStatus,
 } from "../lib/webProjects";
 import WebProjectFormModal from "../components/web/WebProjectFormModal";
+import WebStatusView from "../components/web/WebStatusView";
+
+export type WebTab = "status" | "projects";
 
 const STATUS_ORDER: WebProjectStatus[] = ["planning", "development", "review", "live"];
 const STATUS_LABELS: Record<WebProjectStatus, string> = {
@@ -21,6 +23,7 @@ const STATUS_LABELS: Record<WebProjectStatus, string> = {
   live: "Élesítve",
 };
 const TYPE_LABELS = { website: "Weboldal", landing_page: "Landing" } as const;
+const TAB_LABELS: Record<WebTab, string> = { status: "Állapot", projects: "Projektek" };
 
 const AVATAR_PALETTE = ["#2f7fe0", "#17a2b8", "#8e6ff7", "#e05f9b", "#f5a623", "#3ecf8e"];
 
@@ -36,11 +39,17 @@ function initials(name: string): string {
   return chars.join("").toUpperCase();
 }
 
+interface WebPageProps {
+  tab: WebTab;
+}
+
 // A weboldal és landing oldal projektek egy közös Kanban-táblában élnek
 // (a project_type csak egy jelölő, nem külön modul) — a felhasználó
 // kifejezetten így kérte: "itt vegyesen lesznek egyben a weboldalas és a
-// landing oldalas projektek".
-export default function WebPage() {
+// landing oldalas projektek". Kézi "+ Új projekt" nincs — a projektek az
+// onboardingból (Weboldal/Landing szolgáltatás bejelölése) jönnek létre
+// automatikusan, lásd db/clientOnboarding.ts ensureWebProjectForService.
+export default function WebPage({ tab }: WebPageProps) {
   const { auth } = useAuth();
   const token = auth?.token ?? null;
   const isAdmin = auth?.user.role === "admin";
@@ -49,7 +58,7 @@ export default function WebPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [hasAccess, setHasAccess] = useState(true);
   const [loading, setLoading] = useState(true);
-  const [formProject, setFormProject] = useState<WebProject | "new" | null>(null);
+  const [formProject, setFormProject] = useState<WebProject | null>(null);
 
   const [search, setSearch] = useState("");
   const [onlyMine, setOnlyMine] = useState(false);
@@ -92,12 +101,8 @@ export default function WebPage() {
   }, [projects, onlyMine, clientFilter, typeFilter, search, auth?.user.id]);
 
   async function handleSaveProject(input: WebProjectInput) {
-    if (!token) return;
-    if (formProject && formProject !== "new") {
-      await updateWebProject(token, formProject.id, input);
-    } else {
-      await createWebProject(token, input);
-    }
+    if (!token || !formProject) return;
+    await updateWebProject(token, formProject.id, input);
     setFormProject(null);
     refresh();
   }
@@ -134,15 +139,16 @@ export default function WebPage() {
   return (
     <main className="leads-page sm-page">
       <div className="leads-header">
-        <h1>Web</h1>
-        <button type="button" onClick={() => setFormProject("new")}>
-          + Új projekt
-        </button>
+        <h1>Web — {TAB_LABELS[tab]}</h1>
       </div>
 
       {loading && <p className="chat-empty-hint">Betöltés...</p>}
 
-      {!loading && (
+      {!loading && tab === "status" && (
+        <WebStatusView clients={webClients} projects={projects} onOpen={setFormProject} />
+      )}
+
+      {!loading && tab === "projects" && (
         <>
           <div className="mt-toolbar">
             <input
@@ -241,11 +247,7 @@ export default function WebPage() {
       )}
 
       {formProject && (
-        <WebProjectFormModal
-          project={formProject === "new" ? undefined : formProject}
-          onClose={() => setFormProject(null)}
-          onSave={handleSaveProject}
-        />
+        <WebProjectFormModal project={formProject} onClose={() => setFormProject(null)} onSave={handleSaveProject} />
       )}
     </main>
   );

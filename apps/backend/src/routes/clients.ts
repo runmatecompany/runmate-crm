@@ -311,7 +311,7 @@ export default async function clientsRoutes(fastify: FastifyInstance) {
       }
       const clientId = Number(request.params.id);
       if (!(await getClientById(clientId))) return reply.code(404).send({ error: "Client not found" });
-      const profile = await upsertClientOnboarding(clientId, request.body);
+      const profile = await upsertClientOnboarding(clientId, request.body, request.user.sub);
       return { profile };
     }
   );

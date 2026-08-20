@@ -1,4 +1,6 @@
 import { pool } from "./pool.js";
+import { getClientById } from "./clients.js";
+import { ensureWebProjectForService } from "./webProjects.js";
 
 const PLATFORM_NAMES = ["Facebook", "Instagram", "TikTok", "YouTube"] as const;
 
@@ -116,7 +118,8 @@ export interface UpsertClientOnboardingInput {
 // referenciaként jeleníti meg, nem ez az upsert írja.
 export async function upsertClientOnboarding(
   clientId: number,
-  input: UpsertClientOnboardingInput
+  input: UpsertClientOnboardingInput,
+  createdBy: number
 ): Promise<ClientOnboardingRow> {
   const shortVideosPlatforms = input.shortVideosPlatforms ?? [];
   const imagePostsPlatforms = input.imagePostsPlatforms ?? [];
@@ -190,5 +193,20 @@ export async function upsertClientOnboarding(
       input.otherNotes ?? null,
     ]
   );
+
+  // A Web modulban nincs kézi "+ Új projekt" — a projektek automatikusan
+  // jönnek létre, amikor itt bejelölik a Weboldal/Landing szolgáltatást.
+  if (input.serviceWebsiteBuild || input.serviceLandingPage) {
+    const client = await getClientById(clientId);
+    if (client) {
+      if (input.serviceWebsiteBuild) {
+        await ensureWebProjectForService(clientId, "website", client.company_name, createdBy);
+      }
+      if (input.serviceLandingPage) {
+        await ensureWebProjectForService(clientId, "landing_page", client.company_name, createdBy);
+      }
+    }
+  }
+
   return (await getClientOnboarding(clientId))!;
 }
