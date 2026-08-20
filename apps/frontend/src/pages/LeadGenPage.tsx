@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState, type MouseEvent } from "react";
 import { useAuth } from "../lib/auth";
 import {
   LEAD_STATUS_LABELS,
   TEMPERATURE_LABELS,
+  deleteLeadGenCompany,
   listLeadGenCallQueue,
   listLeadGenCompanies,
   listLeadGenDoNotCall,
@@ -10,8 +11,13 @@ import {
 } from "../lib/leadgen";
 import CallCard from "../components/leadgen/CallCard";
 import CompanyFormModal from "../components/leadgen/CompanyFormModal";
-import CsvImportModal from "../components/leadgen/CsvImportModal";
 import CompanyDetail from "../components/leadgen/CompanyDetail";
+
+// A CSV/Excel import modal az exceljs csomagot importálja (~950 kB
+// minifikálva) — lusta betöltéssel csak akkor kerül be a futó kódba,
+// amikor valaki ténylegesen megnyitja az import ablakot, nem minden Lead
+// Gen oldal-betöltéskor.
+const CsvImportModal = lazy(() => import("../components/leadgen/CsvImportModal"));
 
 type LeadGenTab = "callqueue" | "companies" | "dnc";
 
@@ -65,6 +71,14 @@ export default function LeadGenPage() {
     refreshCompanies();
   }
 
+  async function handleDeleteCompany(e: MouseEvent, company: LeadGenCompany) {
+    e.stopPropagation();
+    if (!token) return;
+    if (!confirm(`Biztosan eltávolítod a(z) "${company.company_name}" céget a listából?`)) return;
+    await deleteLeadGenCompany(token, company.id);
+    refreshCompanies();
+  }
+
   if (!loading && !hasAccess) {
     return (
       <main className="leads-page">
@@ -95,7 +109,7 @@ export default function LeadGenPage() {
         {tab === "companies" && (
           <div className="leads-row-actions">
             <button type="button" onClick={() => setShowCsvImport(true)}>
-              CSV import
+              CSV / Excel import
             </button>
             <button type="button" onClick={() => setShowCompanyForm(true)}>
               + Új cég
@@ -175,6 +189,7 @@ export default function LeadGenPage() {
                   <th>Pontszám</th>
                   <th>Állapot</th>
                   <th>Kísérletek</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -190,6 +205,17 @@ export default function LeadGenPage() {
                     </td>
                     <td>{LEAD_STATUS_LABELS[c.lead_status]}</td>
                     <td>{c.call_attempts_count}/5</td>
+                    <td>
+                      <button
+                        type="button"
+                        className="sm-clip-file-remove"
+                        onClick={(e) => void handleDeleteCompany(e, c)}
+                        aria-label="Eltávolítás"
+                        title="Cég eltávolítása a listából"
+                      >
+                        ×
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -237,13 +263,15 @@ export default function LeadGenPage() {
       )}
 
       {showCsvImport && (
-        <CsvImportModal
-          onClose={() => setShowCsvImport(false)}
-          onImported={() => {
-            setShowCsvImport(false);
-            refreshCompanies();
-          }}
-        />
+        <Suspense fallback={null}>
+          <CsvImportModal
+            onClose={() => setShowCsvImport(false)}
+            onImported={() => {
+              setShowCsvImport(false);
+              refreshCompanies();
+            }}
+          />
+        </Suspense>
       )}
     </main>
   );

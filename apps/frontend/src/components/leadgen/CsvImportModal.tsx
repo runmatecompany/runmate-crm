@@ -1,4 +1,5 @@
 import { useState } from "react";
+import ExcelJS from "exceljs";
 import { useAuth } from "../../lib/auth";
 import { importLeadGenCsv, type LeadGenCsvField, type LeadGenCsvMapping, type LeadGenImportSummary } from "../../lib/leadgen";
 import { useEscapeToClose } from "../../lib/useEscapeToClose";
@@ -47,6 +48,38 @@ function guessField(header: string): LeadGenCsvField | "" {
 const MAX_HEADER_SCAN_CHARS = 20000;
 const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
 
+function csvEscape(value: string): string {
+  if (/[",\n]/.test(value)) return `"${value.replace(/"/g, '""')}"`;
+  return value;
+}
+
+// Az Excel-fájlt a böngészőben, kliens-oldalon alakítjuk át CSV-szöveggé,
+// hogy utána a fájl-kiválasztástól a feltöltésig minden a meglévő,
+// jól tesztelt CSV-útvonalon menjen — a szervernek nem kell tudnia az
+// Excel-formátumról. Az `xlsx` (SheetJS) csomag npm-re publikált verziója
+// ismert, magas súlyosságú biztonsági résekkel rendelkezik (prototype
+// pollution, ReDoS) — mivel ez felhasználó által feltöltött, nem
+// megbízható fájlokat dolgoz fel, helyette az exceljs csomagot használjuk.
+async function convertXlsxToCsvFile(file: File): Promise<File> {
+  const buffer = await file.arrayBuffer();
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(buffer);
+  const worksheet = workbook.worksheets[0];
+  if (!worksheet) throw new Error("Az Excel fájl nem tartalmaz munkalapot.");
+
+  const lines: string[] = [];
+  worksheet.eachRow({ includeEmpty: true }, (row) => {
+    const cells: string[] = [];
+    row.eachCell({ includeEmpty: true }, (cell) => {
+      cells.push(csvEscape(cell.text ?? ""));
+    });
+    lines.push(cells.join(","));
+  });
+
+  const csvText = lines.join("\n");
+  return new File([csvText], file.name.replace(/\.xlsx?$/i, ".csv"), { type: "text/csv" });
+}
+
 function splitFirstLine(text: string): string[] {
   const scanText = text.length > MAX_HEADER_SCAN_CHARS ? text.slice(0, MAX_HEADER_SCAN_CHARS) : text;
   const firstLine = scanText.split(/\r?\n/, 1)[0] ?? "";
@@ -71,17 +104,29 @@ export default function CsvImportModal({ onClose, onImported }: CsvImportModalPr
   const [error, setError] = useState<string | null>(null);
   const [summary, setSummary] = useState<LeadGenImportSummary | null>(null);
 
-  async function handleFileSelected(f: File) {
+  async function handleFileSelected(rawFile: File) {
     setError(null);
     setHeaders([]);
     setMapping({});
-    if (f.size > MAX_FILE_SIZE_BYTES) {
+    if (rawFile.size > MAX_FILE_SIZE_BYTES) {
       setFile(null);
       setError(
-        `A fájl túl nagy (${Math.round(f.size / 1024 / 1024)} MB). A CSV import legfeljebb ${MAX_FILE_SIZE_BYTES / 1024 / 1024} MB méretig támogatott.`
+        `A fájl túl nagy (${Math.round(rawFile.size / 1024 / 1024)} MB). Az import legfeljebb ${MAX_FILE_SIZE_BYTES / 1024 / 1024} MB méretig támogatott.`
       );
       return;
     }
+
+    let f = rawFile;
+    if (/\.xlsx?$/i.test(rawFile.name)) {
+      try {
+        f = await convertXlsxToCsvFile(rawFile);
+      } catch {
+        setFile(null);
+        setError("Nem sikerült beolvasni az Excel fájlt — ellenőrizd, hogy valódi .xlsx fájlt választottál-e ki.");
+        return;
+      }
+    }
+
     setFile(f);
     try {
       const text = await f.text();
@@ -123,18 +168,18 @@ export default function CsvImportModal({ onClose, onImported }: CsvImportModalPr
   return (
     <div className="chat-modal-backdrop">
       <div className="chat-modal lead-form">
-        <h2>CSV import</h2>
+        <h2>CSV / Excel import</h2>
 
         {!summary ? (
           <>
             <p className="chat-modal-hint">
-              Bármilyen forrásból származó CSV feltölthető — minimum a cégnév, weboldal vagy adószám oszlopok
-              egyike szükséges, a többit a rendszer később kiegészíti.
+              Bármilyen forrásból származó CSV vagy Excel (.xlsx) fájl feltölthető — minimum a cégnév, weboldal
+              vagy adószám oszlopok egyike szükséges, a többit a rendszer később kiegészíti.
             </p>
 
             <input
               type="file"
-              accept=".csv,text/csv"
+              accept=".csv,text/csv,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
               onChange={(e) => {
                 const f = e.currentTarget.files?.[0];
                 if (f) void handleFileSelected(f);
