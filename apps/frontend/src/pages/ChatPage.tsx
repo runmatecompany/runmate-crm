@@ -1,4 +1,14 @@
-import { useCallback, useEffect, useRef, useState, type ChangeEvent, type DragEvent, type FormEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type DragEvent,
+  type FormEvent,
+  type KeyboardEvent,
+} from "react";
 import { useAuth } from "../lib/auth";
 import { useRealtime } from "../lib/realtime";
 import { useCall } from "../lib/call";
@@ -18,6 +28,7 @@ import {
   type RoomSummary,
 } from "../lib/chat";
 import { resizeImageToDataUrl } from "../lib/profile";
+import { buildMentionCandidates, type MentionCandidate } from "../lib/chatMentions";
 import RoomList from "../components/chat/RoomList";
 import MessageThread from "../components/chat/MessageThread";
 import CreateRoomModal from "../components/chat/CreateRoomModal";
@@ -46,10 +57,14 @@ export default function ChatPage() {
   const [sendingImage, setSendingImage] = useState(false);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [pendingImages, setPendingImages] = useState<{ file: File; previewUrl: string }[]>([]);
+  const [mentionStart, setMentionStart] = useState<number | null>(null);
+  const [mentionQuery, setMentionQuery] = useState("");
+  const [mentionActiveIndex, setMentionActiveIndex] = useState(0);
 
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTypingSentRef = useRef(0);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const draftInputRef = useRef<HTMLInputElement>(null);
 
   const refreshRooms = useCallback(async () => {
     if (!token) return;
@@ -69,6 +84,7 @@ export default function ChatPage() {
       prev.forEach((p) => URL.revokeObjectURL(p.previewUrl));
       return [];
     });
+    setMentionStart(null);
   }, [activeRoomId]);
 
   useEffect(() => {
@@ -183,14 +199,83 @@ export default function ChatPage() {
     };
   }, [onFrame, activeRoomId, token]);
 
+  const mentionCandidates = useMemo(() => buildMentionCandidates(colleagues), [colleagues]);
+
+  // A dropdown addig marad nyitva, amíg a "@" utáni (szóközöket is
+  // tartalmazó — a kolléganevek gyakran két szóból állnak) szövegrész még
+  // legalább egy jelölt nevének eleje lehet. Amint ez már senkire nem
+  // illik (pl. egy email-cím "@" jele után írt szöveg), magától bezárul.
+  function updateMentionState(value: string, caret: number) {
+    const uptoCaret = value.slice(0, caret);
+    const at = uptoCaret.lastIndexOf("@");
+    if (at === -1 || (at > 0 && !/\s/.test(value[at - 1]))) {
+      setMentionStart(null);
+      return;
+    }
+    const query = uptoCaret.slice(at + 1);
+    if (query.length > 40 || /\n/.test(query)) {
+      setMentionStart(null);
+      return;
+    }
+    const queryLower = query.toLowerCase();
+    const hasMatch = mentionCandidates.some((c) => c.name.toLowerCase().includes(queryLower));
+    if (!hasMatch) {
+      setMentionStart(null);
+      return;
+    }
+    setMentionStart(at);
+    setMentionQuery(query);
+    setMentionActiveIndex(0);
+  }
+
   function handleDraftChange(e: ChangeEvent<HTMLInputElement>) {
     const value = e.currentTarget.value;
     setDraft(value);
+    updateMentionState(value, e.currentTarget.selectionStart ?? value.length);
     if (activeRoomId == null) return;
     const now = Date.now();
     if (now - lastTypingSentRef.current > TYPING_THROTTLE_MS) {
       sendFrame({ type: "typing", roomId: activeRoomId });
       lastTypingSentRef.current = now;
+    }
+  }
+
+  const mentionSuggestions = useMemo(() => {
+    if (mentionStart == null) return [];
+    const queryLower = mentionQuery.trim().toLowerCase();
+    return mentionCandidates.filter((c) => c.name.toLowerCase().includes(queryLower)).slice(0, 6);
+  }, [mentionStart, mentionQuery, mentionCandidates]);
+
+  function pickMention(candidate: MentionCandidate) {
+    if (mentionStart == null) return;
+    const caret = mentionStart + 1 + mentionQuery.length;
+    const before = draft.slice(0, mentionStart);
+    const after = draft.slice(caret);
+    const inserted = `@${candidate.name} `;
+    const nextValue = `${before}${inserted}${after}`;
+    setDraft(nextValue);
+    setMentionStart(null);
+    const nextCaret = before.length + inserted.length;
+    requestAnimationFrame(() => {
+      draftInputRef.current?.focus();
+      draftInputRef.current?.setSelectionRange(nextCaret, nextCaret);
+    });
+  }
+
+  function handleDraftKeyDown(e: KeyboardEvent<HTMLInputElement>) {
+    if (mentionStart == null || mentionSuggestions.length === 0) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setMentionActiveIndex((prev) => (prev + 1) % mentionSuggestions.length);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setMentionActiveIndex((prev) => (prev - 1 + mentionSuggestions.length) % mentionSuggestions.length);
+    } else if (e.key === "Enter" || e.key === "Tab") {
+      e.preventDefault();
+      pickMention(mentionSuggestions[mentionActiveIndex]);
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      setMentionStart(null);
     }
   }
 
@@ -271,6 +356,7 @@ export default function ChatPage() {
 
   async function handleSend(e: FormEvent) {
     e.preventDefault();
+    setMentionStart(null);
     if (activeRoomId == null) return;
 
     if (pendingImages.length > 0) {
@@ -405,7 +491,7 @@ export default function ChatPage() {
                 </button>
               )}
             </div>
-            <MessageThread messages={messages} currentUserId={auth?.user.id ?? -1} />
+            <MessageThread messages={messages} currentUserId={auth?.user.id ?? -1} colleagues={colleagues} />
             {typingUserName && <div className="chat-typing-indicator">{typingUserName} éppen ír...</div>}
             {pendingImages.length > 0 && (
               <div className="chat-pending-images">
@@ -444,11 +530,38 @@ export default function ChatPage() {
               >
                 📷
               </button>
-              <input
-                value={draft}
-                onChange={handleDraftChange}
-                placeholder={pendingImages.length > 0 ? "Írhatsz hozzá szöveget (nem kötelező)..." : "Írj üzenetet..."}
-              />
+              <div className="chat-draft-wrap">
+                {mentionStart != null && mentionSuggestions.length > 0 && (
+                  <div className="chat-mention-popup">
+                    {mentionSuggestions.map((c, i) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        className={
+                          i === mentionActiveIndex
+                            ? "chat-mention-option active"
+                            : "chat-mention-option"
+                        }
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          pickMention(c);
+                        }}
+                      >
+                        {c.id === "everyone" ? "📢 " : ""}
+                        {c.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <input
+                  ref={draftInputRef}
+                  value={draft}
+                  onChange={handleDraftChange}
+                  onKeyDown={handleDraftKeyDown}
+                  onBlur={() => setMentionStart(null)}
+                  placeholder={pendingImages.length > 0 ? "Írhatsz hozzá szöveget (nem kötelező)..." : "Írj üzenetet... (@ a tageléshez)"}
+                />
+              </div>
               <button type="submit" disabled={sendingImage || (!draft.trim() && pendingImages.length === 0)}>
                 {sendingImage ? "Küldés..." : "Küldés"}
               </button>

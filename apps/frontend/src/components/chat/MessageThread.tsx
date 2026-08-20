@@ -1,11 +1,40 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "../../lib/auth";
-import { fetchChatImageBlobUrl, type ChatMessage } from "../../lib/chat";
+import { fetchChatImageBlobUrl, type ChatMessage, type Colleague } from "../../lib/chat";
 import { useRealtime } from "../../lib/realtime";
+import { buildMentionCandidates, parseMentionSegments } from "../../lib/chatMentions";
 
 interface MessageThreadProps {
   messages: ChatMessage[];
   currentUserId: number;
+  colleagues: Colleague[];
+}
+
+function MessageBody({ body, currentUserId, colleagues }: { body: string; currentUserId: number; colleagues: Colleague[] }) {
+  const candidates = useMemo(() => buildMentionCandidates(colleagues), [colleagues]);
+  const segments = useMemo(() => parseMentionSegments(body, candidates), [body, candidates]);
+
+  return (
+    <div className="chat-bubble-body">
+      {segments.map((seg, i) => {
+        if (seg.type === "text") return <span key={i}>{seg.value}</span>;
+        const isEveryone = seg.id === "everyone";
+        const isMe = seg.id === currentUserId;
+        const className = [
+          "chat-mention",
+          isEveryone ? "chat-mention-everyone" : "",
+          isMe ? "chat-mention-me" : "",
+        ]
+          .filter(Boolean)
+          .join(" ");
+        return (
+          <span key={i} className={className}>
+            @{seg.name}
+          </span>
+        );
+      })}
+    </div>
+  );
 }
 
 function ChatImage({ messageId, onOpen }: { messageId: number; onOpen: (url: string) => void }) {
@@ -63,7 +92,7 @@ function ReceiptTick({ message }: { message: ChatMessage }) {
   );
 }
 
-export default function MessageThread({ messages, currentUserId }: MessageThreadProps) {
+export default function MessageThread({ messages, currentUserId, colleagues }: MessageThreadProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const { names } = useRealtime();
   const [lightbox, setLightbox] = useState<string | null>(null);
@@ -82,7 +111,7 @@ export default function MessageThread({ messages, currentUserId }: MessageThread
             <div className="chat-bubble">
               {!mine && <div className="chat-bubble-sender">{senderName}</div>}
               {msg.has_image && <ChatImage messageId={msg.id} onOpen={setLightbox} />}
-              {msg.body && <div className="chat-bubble-body">{msg.body}</div>}
+              {msg.body && <MessageBody body={msg.body} currentUserId={currentUserId} colleagues={colleagues} />}
               <div className="chat-bubble-time">
                 {new Date(msg.created_at).toLocaleTimeString("hu-HU", { hour: "2-digit", minute: "2-digit" })}
                 {mine && <ReceiptTick message={msg} />}
