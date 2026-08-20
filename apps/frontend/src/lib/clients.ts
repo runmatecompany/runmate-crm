@@ -26,6 +26,8 @@ export interface Client {
   service_landing_page: boolean;
   status: ClientStatus;
   client_type: ClientType | null;
+  deletion_requested_by: number | null;
+  deletion_requested_by_name: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -80,6 +82,28 @@ export async function updateClientStatus(token: string, id: number, status: Clie
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ status }),
   });
+  const data = await res.json();
+  return data.client;
+}
+
+// Nem-admin nem törölhet közvetlenül — ez egy kérelmet küld, ami
+// feladatként jelenik meg az admin(ok)nak a Feladatok modulban.
+export async function requestDeleteClient(token: string, id: number): Promise<Client> {
+  const res = await authFetch(token, `/clients/${id}/deletion-request`, { method: "POST" });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error ?? "Nem sikerült elküldeni a törlési kérelmet");
+  }
+  const data = await res.json();
+  return data.client;
+}
+
+export async function cancelDeletionRequest(token: string, id: number): Promise<Client> {
+  const res = await authFetch(token, `/clients/${id}/deletion-request`, { method: "DELETE" });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error ?? "Nem sikerült visszavonni a törlési kérelmet");
+  }
   const data = await res.json();
   return data.client;
 }

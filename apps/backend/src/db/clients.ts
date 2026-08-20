@@ -1,4 +1,5 @@
 import { pool } from "./pool.js";
+import { deleteManualTask } from "./tasks.js";
 
 export type ClientStatus = "active" | "paused" | "closed";
 export type ClientType = "monthly" | "one_off";
@@ -26,6 +27,8 @@ export interface ClientRow {
   service_landing_page: boolean;
   status: ClientStatus;
   client_type: ClientType | null;
+  deletion_requested_by: number | null;
+  deletion_requested_by_name: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -50,10 +53,13 @@ const CLIENT_SELECT = `
     COALESCE(op.service_website_build, false) AS service_website_build,
     COALESCE(op.service_landing_page, false) AS service_landing_page,
     c.status, c.client_type,
+    dr.requested_by AS deletion_requested_by, du.name AS deletion_requested_by_name,
     c.created_at, c.updated_at
   FROM clients c
   LEFT JOIN users cu ON cu.id = c.created_by
   LEFT JOIN client_onboarding_profiles op ON op.client_id = c.id
+  LEFT JOIN client_deletion_requests dr ON dr.client_id = c.id
+  LEFT JOIN users du ON du.id = dr.requested_by
 `;
 
 export async function listAllClients(): Promise<ClientRow[]> {
@@ -152,9 +158,69 @@ export async function setClientDriveFolders(id: number, input: { driveFolderId: 
   ]);
 }
 
+// Admin-only tényleges törlés — ha volt hozzá törlési kérelem (a
+// client_deletion_requests sor a kliens törlésekor CASCADE-del úgyis
+// eltűnik), a hozzá tartozó manual_tasks feladatot is eltakarítjuk, nehogy
+// egy már nem létező ügyfélre mutató "törlési kérelem" feladat maradjon a
+// Feladatok modulban.
 export async function deleteClient(id: number): Promise<boolean> {
+  const { rows } = await pool.query<{ manual_task_id: number | null }>(
+    `SELECT manual_task_id FROM client_deletion_requests WHERE client_id = $1`,
+    [id]
+  );
+  const manualTaskId = rows[0]?.manual_task_id ?? null;
+
   const { rowCount } = await pool.query(`DELETE FROM clients WHERE id = $1`, [id]);
-  return (rowCount ?? 0) > 0;
+  const deleted = (rowCount ?? 0) > 0;
+
+  if (deleted && manualTaskId != null) {
+    await deleteManualTask(manualTaskId);
+  }
+  return deleted;
+}
+
+export interface ClientDeletionRequest {
+  clientId: number;
+  requestedBy: number;
+  manualTaskId: number | null;
+  createdAt: string;
+}
+
+export async function getClientDeletionRequest(clientId: number): Promise<ClientDeletionRequest | undefined> {
+  const { rows } = await pool.query<{
+    client_id: number;
+    requested_by: number;
+    manual_task_id: number | null;
+    created_at: string;
+  }>(`SELECT client_id, requested_by, manual_task_id, created_at FROM client_deletion_requests WHERE client_id = $1`, [
+    clientId,
+  ]);
+  const row = rows[0];
+  if (!row) return undefined;
+  return { clientId: row.client_id, requestedBy: row.requested_by, manualTaskId: row.manual_task_id, createdAt: row.created_at };
+}
+
+export async function createClientDeletionRequest(
+  clientId: number,
+  requestedBy: number,
+  manualTaskId: number
+): Promise<void> {
+  await pool.query(
+    `INSERT INTO client_deletion_requests (client_id, requested_by, manual_task_id) VALUES ($1, $2, $3)`,
+    [clientId, requestedBy, manualTaskId]
+  );
+}
+
+// Visszavonás (a kérelmező vagy admin által) — a hozzá tartozó
+// emlékeztető feladatot is töröljük a Feladatok modulból.
+export async function cancelClientDeletionRequest(clientId: number): Promise<boolean> {
+  const existing = await getClientDeletionRequest(clientId);
+  if (!existing) return false;
+  await pool.query(`DELETE FROM client_deletion_requests WHERE client_id = $1`, [clientId]);
+  if (existing.manualTaskId != null) {
+    await deleteManualTask(existing.manualTaskId);
+  }
+  return true;
 }
 
 // A teljes "Ügyfelek" modulhoz való hozzáférés — modul-szintű, mint a

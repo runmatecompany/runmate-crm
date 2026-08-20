@@ -2,9 +2,11 @@ import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "../lib/auth";
 import { useNavigation } from "../lib/navigation";
 import {
+  cancelDeletionRequest,
   createClient,
   deleteClient,
   listClients,
+  requestDeleteClient,
   updateClient,
   updateClientStatus,
   type Client,
@@ -78,6 +80,40 @@ export default function ClientsPage() {
     }
   }
 
+  // Nem-admin nem törölhet közvetlenül — a gombja helyette egy kérelmet
+  // küld, ami feladatként landol a Feladatok modulban admin számára.
+  async function handleRequestDelete(client: Client) {
+    if (!token) return;
+    if (
+      !confirm(
+        `Kérelmezed a(z) "${client.company_name}" ügyfél törlését? Egy adminisztrátor fogja jóváhagyni vagy elutasítani — a kérelem a Feladatok modulban jelenik meg.`
+      )
+    ) {
+      return;
+    }
+    setError(null);
+    try {
+      await requestDeleteClient(token, client.id);
+      refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Nem sikerült elküldeni a törlési kérelmet");
+    }
+  }
+
+  // Ugyanaz a visszavonás-végpont szolgálja a kérelmező "meggondoltam
+  // magam" esetét és az admin elutasítását is (admin nélküle is tud
+  // ténylegesen törölni, ha egyetért a kérelemmel).
+  async function handleCancelDeletionRequest(client: Client) {
+    if (!token) return;
+    setError(null);
+    try {
+      await cancelDeletionRequest(token, client.id);
+      refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Nem sikerült visszavonni a törlési kérelmet");
+    }
+  }
+
   async function handleSave(input: ClientFormInput) {
     if (!token) return;
     if (editingClient && editingClient !== "new") {
@@ -133,14 +169,29 @@ export default function ClientsPage() {
         <tbody>
           {list.map((client) => {
             const onboarded = client.onboarding_completed_at != null;
+            const pending = client.deletion_requested_by != null;
+            const isRequester = pending && client.deletion_requested_by === auth?.user.id;
+            // Amíg törlési kérelem van folyamatban, csak admin szerkesztheti
+            // tovább az ügyfelet — mindenki másnak (a kérelmezőnek is)
+            // zárolva van, hogy ne dolgozzanak tovább valamin, ami törlésre
+            // vár.
+            const actionsLocked = pending && !isAdmin;
             return (
-              <tr key={client.id}>
-                <td>{client.company_name}</td>
+              <tr key={client.id} className={pending ? "clients-row-pending-deletion" : undefined}>
+                <td>
+                  {client.company_name}
+                  {pending && (
+                    <span className="clients-pending-badge" title={`Törlésre kérelmezve: ${client.deletion_requested_by_name}`}>
+                      Törlésre kérelmezve
+                    </span>
+                  )}
+                </td>
                 <td>{client.client_type ? CLIENT_TYPE_LABELS[client.client_type] : "—"}</td>
                 <td>
                   <select
                     value={client.status}
                     onChange={(e) => handleStatusChange(client, e.currentTarget.value as ClientStatus)}
+                    disabled={actionsLocked}
                   >
                     {(Object.keys(STATUS_LABELS) as ClientStatus[]).map((status) => (
                       <option key={status} value={status}>
@@ -174,10 +225,10 @@ export default function ClientsPage() {
                 </td>
                 <td>
                   <div className="leads-row-actions">
-                    <button type="button" onClick={() => setEditingClient(client)}>
+                    <button type="button" onClick={() => setEditingClient(client)} disabled={actionsLocked}>
                       Szerkesztés
                     </button>
-                    <button type="button" onClick={() => setOnboardingClient(client)}>
+                    <button type="button" onClick={() => setOnboardingClient(client)} disabled={actionsLocked}>
                       {onboarded ? "Onboarding szerkesztése" : "Onboarding"}
                     </button>
                     {isAdmin && (
@@ -185,9 +236,25 @@ export default function ClientsPage() {
                         AI-profil
                       </button>
                     )}
-                    {isAdmin && (
+
+                    {pending ? (
+                      isAdmin || isRequester ? (
+                        <button type="button" onClick={() => handleCancelDeletionRequest(client)}>
+                          Törlés visszavonása
+                        </button>
+                      ) : null
+                    ) : isAdmin ? (
                       <button type="button" onClick={() => handleDelete(client)}>
                         Törlés
+                      </button>
+                    ) : (
+                      <button type="button" onClick={() => handleRequestDelete(client)}>
+                        Törlés
+                      </button>
+                    )}
+                    {isAdmin && pending && (
+                      <button type="button" onClick={() => handleDelete(client)}>
+                        Törlés jóváhagyása
                       </button>
                     )}
                     </div>

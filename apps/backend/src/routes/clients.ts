@@ -1,15 +1,19 @@
 import type { FastifyInstance } from "fastify";
 import type { Readable } from "node:stream";
 import {
+  cancelClientDeletionRequest,
   createClient,
+  createClientDeletionRequest,
   deleteClient,
   getClientById,
+  getClientDeletionRequest,
   hasClientsAccess,
   listAllClients,
   updateClientDetails,
   updateClientStatus,
   type ClientStatus,
 } from "../db/clients.js";
+import { createManualTask } from "../db/tasks.js";
 import { getClientAiProfile, upsertClientAiProfile } from "../db/clientAiProfiles.js";
 import { getClientOnboarding, upsertClientOnboarding } from "../db/clientOnboarding.js";
 import { hasSocialMediaAccess } from "../db/contentItems.js";
@@ -228,6 +232,58 @@ export default async function clientsRoutes(fastify: FastifyInstance) {
     if (!deleted) return reply.code(404).send({ error: "Client not found" });
     return { ok: true };
   });
+
+  // Nem-admin nem törölhet közvetlenül — helyette kérelmet küld, ami egy
+  // feladatként jelenik meg a Feladatok modulban, admin számára. A
+  // client_deletion_requests UNIQUE(client_id) miatt egyszerre csak egy
+  // aktív kérelem lehet ügyfelenként.
+  fastify.post<{ Params: { id: string } }>(
+    "/clients/:id/deletion-request",
+    { onRequest: [fastify.authenticate] },
+    async (request, reply) => {
+      if (!(await canAccessClientsModule(request.user.sub, request.user.role))) {
+        return reply.code(403).send({ error: "Nincs hozzáférésed az Ügyfelek modulhoz" });
+      }
+      const clientId = Number(request.params.id);
+      const client = await getClientById(clientId);
+      if (!client) return reply.code(404).send({ error: "Client not found" });
+
+      const existing = await getClientDeletionRequest(clientId);
+      if (existing) {
+        return reply.code(400).send({ error: "Már van folyamatban lévő törlési kérelem ehhez az ügyfélhez" });
+      }
+
+      const task = await createManualTask({
+        title: `Ügyfél törlési kérelem: ${client.company_name}`,
+        description: `${request.user.email} törlésre kérelmezte a(z) "${client.company_name}" ügyfelet az Ügyfelek modulban.`,
+        createdBy: request.user.sub,
+      });
+      await createClientDeletionRequest(clientId, request.user.sub, task.id);
+
+      return reply.code(201).send({ client: (await getClientById(clientId))! });
+    }
+  );
+
+  // Visszavonás — a kérelmező maga, vagy admin bármikor visszavonhatja
+  // (admin ezzel el is utasíthatja a kérelmet anélkül, hogy törölné az
+  // ügyfelet).
+  fastify.delete<{ Params: { id: string } }>(
+    "/clients/:id/deletion-request",
+    { onRequest: [fastify.authenticate] },
+    async (request, reply) => {
+      if (!(await canAccessClientsModule(request.user.sub, request.user.role))) {
+        return reply.code(403).send({ error: "Nincs hozzáférésed az Ügyfelek modulhoz" });
+      }
+      const clientId = Number(request.params.id);
+      const existing = await getClientDeletionRequest(clientId);
+      if (!existing) return reply.code(404).send({ error: "Nincs folyamatban lévő törlési kérelem" });
+      if (request.user.role !== "admin" && existing.requestedBy !== request.user.sub) {
+        return reply.code(403).send({ error: "Csak a kérelmező vagy admin vonhatja vissza a kérelmet" });
+      }
+      await cancelClientDeletionRequest(clientId);
+      return { client: await getClientById(clientId) };
+    }
+  );
 
   // Az aktív/passzív (szüneteltetve/lezárva) állapotváltás külön, gyors
   // művelet — nem kell a teljes szerkesztő-formot megnyitni hozzá, ugyanaz

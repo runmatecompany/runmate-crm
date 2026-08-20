@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useAuth } from "../../lib/auth";
 import {
@@ -18,18 +18,46 @@ export default function PersonalGoogleDriveSettings() {
   const [status, setStatus] = useState<PersonalGoogleDriveStatus | null>(null);
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [justConnected, setJustConnected] = useState(false);
+  const wasConnected = useRef<boolean | null>(null);
 
   function refresh() {
     if (!auth) return;
-    getPersonalGoogleDriveStatus(auth.token).then(setStatus);
+    getPersonalGoogleDriveStatus(auth.token).then((next) => {
+      // A kapcsolódás egy külső böngészőablakban zajlik (OAuth consent) —
+      // amikor a felhasználó visszavált az appba, ezt kell észlelnie,
+      // hogy tudja, sikerült-e. A false→true átmenetre külön, jól
+      // látható sikeres visszajelzést mutatunk, nem csak a state csendes
+      // frissülését.
+      if (wasConnected.current === false && next.connected) {
+        setJustConnected(true);
+        setTimeout(() => setJustConnected(false), 6000);
+      }
+      wasConnected.current = next.connected;
+      setStatus(next);
+    });
   }
 
   useEffect(refresh, [auth]);
+
+  // Amíg a felhasználó a rendszer böngészőjében intézi az OAuth
+  // engedélyezést, az app ablaka a háttérben marad — visszaváltáskor
+  // (focus) frissítjük az állapotot, hogy ne kelljen kézzel újranyitni a
+  // Beállításokat a visszajelzés eléréséhez.
+  useEffect(() => {
+    function onFocus() {
+      refresh();
+    }
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auth]);
 
   async function handleConnect() {
     if (!auth) return;
     setConnecting(true);
     setError(null);
+    setJustConnected(false);
     try {
       const url = await getPersonalGoogleDriveAuthUrl(auth.token);
       await openUrl(url);
@@ -44,6 +72,8 @@ export default function PersonalGoogleDriveSettings() {
     if (!auth) return;
     if (!confirm("Biztosan bontod a saját Google-fiókod kapcsolatát?")) return;
     await disconnectPersonalGoogleDrive(auth.token);
+    wasConnected.current = false;
+    setJustConnected(false);
     refresh();
   }
 
@@ -56,6 +86,10 @@ export default function PersonalGoogleDriveSettings() {
       </p>
 
       {!status && <p className="chat-empty-hint">Betöltés...</p>}
+
+      {justConnected && (
+        <p className="profile-google-drive-success">✓ Sikeresen összekötve — mostantól ezt a fiókot használja a gyors feltöltés.</p>
+      )}
 
       {status && status.connected && (
         <>
