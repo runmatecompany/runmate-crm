@@ -1,7 +1,7 @@
 import { useState } from "react";
-import ExcelJS from "exceljs";
 import { useAuth } from "../../lib/auth";
 import { importLeadGenCsv, type LeadGenCsvField, type LeadGenCsvMapping, type LeadGenImportSummary } from "../../lib/leadgen";
+import { xlsxFileToCsvText } from "../../lib/xlsxToCsv";
 import { useEscapeToClose } from "../../lib/useEscapeToClose";
 
 interface CsvImportModalProps {
@@ -48,35 +48,12 @@ function guessField(header: string): LeadGenCsvField | "" {
 const MAX_HEADER_SCAN_CHARS = 20000;
 const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
 
-function csvEscape(value: string): string {
-  if (/[",\n]/.test(value)) return `"${value.replace(/"/g, '""')}"`;
-  return value;
-}
-
-// Az Excel-fájlt a böngészőben, kliens-oldalon alakítjuk át CSV-szöveggé,
-// hogy utána a fájl-kiválasztástól a feltöltésig minden a meglévő,
-// jól tesztelt CSV-útvonalon menjen — a szervernek nem kell tudnia az
-// Excel-formátumról. Az `xlsx` (SheetJS) csomag npm-re publikált verziója
-// ismert, magas súlyosságú biztonsági résekkel rendelkezik (prototype
-// pollution, ReDoS) — mivel ez felhasználó által feltöltött, nem
-// megbízható fájlokat dolgoz fel, helyette az exceljs csomagot használjuk.
+// Az Excel-fájlt a böngészőben, kliens-oldalon alakítjuk át CSV-szöveggé
+// (lib/xlsxToCsv.ts), hogy utána a fájl-kiválasztástól a feltöltésig
+// minden a meglévő, jól tesztelt CSV-útvonalon menjen — a szervernek nem
+// kell tudnia az Excel-formátumról.
 async function convertXlsxToCsvFile(file: File): Promise<File> {
-  const buffer = await file.arrayBuffer();
-  const workbook = new ExcelJS.Workbook();
-  await workbook.xlsx.load(buffer);
-  const worksheet = workbook.worksheets[0];
-  if (!worksheet) throw new Error("Az Excel fájl nem tartalmaz munkalapot.");
-
-  const lines: string[] = [];
-  worksheet.eachRow({ includeEmpty: true }, (row) => {
-    const cells: string[] = [];
-    row.eachCell({ includeEmpty: true }, (cell) => {
-      cells.push(csvEscape(cell.text ?? ""));
-    });
-    lines.push(cells.join(","));
-  });
-
-  const csvText = lines.join("\n");
+  const csvText = await xlsxFileToCsvText(file);
   return new File([csvText], file.name.replace(/\.xlsx?$/i, ".csv"), { type: "text/csv" });
 }
 

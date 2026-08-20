@@ -103,12 +103,25 @@ export async function convertLeadToClient(token: string, id: number): Promise<nu
   return data.clientId;
 }
 
-export async function extractLeadFromImages(token: string, images: string[]): Promise<ExtractedLeadFields> {
-  const res = await authFetch(token, "/leads/extract-from-images", {
+export interface LeadDocumentInput {
+  filename: string;
+  text: string;
+}
+
+export async function extractLeadFromMedia(
+  token: string,
+  images: string[],
+  documents: LeadDocumentInput[]
+): Promise<ExtractedLeadFields> {
+  const res = await authFetch(token, "/leads/extract", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ images }),
+    body: JSON.stringify({ images, documents }),
   });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error ?? "Nem sikerült feldolgozni a fájlokat");
+  }
   const data = await res.json();
   return data.fields;
 }

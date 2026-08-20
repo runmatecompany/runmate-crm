@@ -7,6 +7,11 @@ export interface LeadImageInput {
   base64: string;
 }
 
+export interface LeadDocumentInput {
+  filename: string;
+  text: string;
+}
+
 export interface ExtractedLeadFields {
   companyName: string | null;
   contactName: string | null;
@@ -48,14 +53,19 @@ function getClient(): GoogleGenAI {
   return client;
 }
 
-// Fényképek (pl. névjegykártya, képernyőfotó) alapján próbálja meg
-// kitölteni a lead mezőit. Amit nem talál, azt null-lal jelzi vissza —
-// a hívó fél csak a nem-null mezőket illeszti be az űrlapba.
+// Fényképek (pl. névjegykártya, képernyőfotó) és/vagy dokumentumok (pl.
+// Excel-táblázatból kliens-oldalon szöveggé alakított cégadat, lásd
+// lib/xlsxToCsv.ts a frontenden) alapján próbálja meg kitölteni a lead
+// mezőit. Amit nem talál, azt null-lal jelzi vissza — a hívó fél csak a
+// nem-null mezőket illeszti be az űrlapba.
 //
 // A régebbi generateContent()-es Gemini API 2026 közepén megszűnt új
 // felhasználóknak — a jelenlegi felület az Interactions API
 // (ai.interactions.create), élőben tesztelve és ellenőrizve.
-export async function extractLeadFromImages(images: LeadImageInput[]): Promise<ExtractedLeadFields> {
+export async function extractLeadFromMedia(
+  images: LeadImageInput[],
+  documents: LeadDocumentInput[]
+): Promise<ExtractedLeadFields> {
   await assertAiQuotaAvailable();
   const ai = getClient();
 
@@ -65,16 +75,22 @@ export async function extractLeadFromImages(images: LeadImageInput[]): Promise<E
       {
         type: "text",
         text:
-          "Ezek a képek egy potenciális üzleti ügyfélről (lead) tartalmaznak adatokat " +
-          "(pl. névjegykártya, weboldal képernyőfotó, cégadatbázis-bejegyzés). " +
+          "Ezek a fájlok egy potenciális üzleti ügyfélről (lead) tartalmaznak adatokat " +
+          "(pl. névjegykártya, weboldal képernyőfotó, cégadatbázis-bejegyzés, vagy egy " +
+          "Excel-táblázatból szöveggé alakított cégadat). Ha egy dokumentum több sort/céget " +
+          "tartalmaz, az elsőt vagy a legteljesebb adatú sort vedd alapul. " +
           "Olvasd ki belőlük, ami megállapítható: cégnév, kapcsolattartó neve, telefonszám, " +
           "email cím, cím, és bármi egyéb hasznos infó a 'notes' mezőbe (pl. beosztás, weboldal, tevékenységi kör). " +
-          "Amit nem találsz meg egyértelműen a képeken, azt hagyd null-on. Ne találj ki adatot.",
+          "Amit nem találsz meg egyértelműen a fájlokban, azt hagyd null-on. Ne találj ki adatot.",
       },
       ...images.map((image) => ({
         type: "image" as const,
         data: image.base64,
         mime_type: image.mediaType,
+      })),
+      ...documents.map((doc) => ({
+        type: "text" as const,
+        text: `--- Dokumentum: ${doc.filename} ---\n${doc.text}`,
       })),
     ],
     response_format: {

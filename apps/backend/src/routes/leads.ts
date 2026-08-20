@@ -11,7 +11,12 @@ import {
   updateLeadStatus,
   type LeadStatus,
 } from "../db/leads.js";
-import { extractLeadFromImages, isLeadExtractionEnabled, type LeadImageInput } from "../lib/leadExtraction.js";
+import {
+  extractLeadFromMedia,
+  isLeadExtractionEnabled,
+  type LeadDocumentInput,
+  type LeadImageInput,
+} from "../lib/leadExtraction.js";
 import { canAccessClientsModule } from "./clients.js";
 import { getClientById } from "../db/clients.js";
 import { provisionClientDriveFolders } from "../lib/googleDrive/onboarding.js";
@@ -57,14 +62,27 @@ const DATA_URL_PATTERN = /^data:(image\/(?:png|jpeg|jpg|webp|gif));base64,(.+)$/
 
 const extractBodySchema = {
   type: "object",
-  required: ["images"],
   properties: {
     images: {
       type: "array",
-      minItems: 1,
       maxItems: 5,
       // ~8 MB base64 kép (kb. 6 MB nyers) — bőven elég egy telefonos fotóhoz.
       items: { type: "string", maxLength: 8_000_000 },
+    },
+    // A frontend Excel-fájlokat is kliens-oldalon (lib/xlsxToCsv.ts)
+    // alakítja át szöveggé, mielőtt ide küldi — a szervernek nem kell
+    // tudnia semmit a bináris Excel-formátumról.
+    documents: {
+      type: "array",
+      maxItems: 3,
+      items: {
+        type: "object",
+        required: ["filename", "text"],
+        properties: {
+          filename: { type: "string", maxLength: 200 },
+          text: { type: "string", maxLength: 500_000 },
+        },
+      },
     },
   },
 } as const;
@@ -120,8 +138,8 @@ export default async function leadsRoutes(fastify: FastifyInstance) {
     }
   );
 
-  fastify.post<{ Body: { images: string[] } }>(
-    "/leads/extract-from-images",
+  fastify.post<{ Body: { images?: string[]; documents?: LeadDocumentInput[] } }>(
+    "/leads/extract",
     { onRequest: [fastify.authenticate], schema: { body: extractBodySchema } },
     async (request, reply) => {
       if (!(await canAccessLeadsModule(request.user.sub, request.user.role))) {
@@ -131,8 +149,14 @@ export default async function leadsRoutes(fastify: FastifyInstance) {
         return reply.code(503).send({ error: "Az AI kitöltés nincs beállítva a szerveren" });
       }
 
+      const rawImages = request.body.images ?? [];
+      const documents = request.body.documents ?? [];
+      if (rawImages.length === 0 && documents.length === 0) {
+        return reply.code(400).send({ error: "Nincs feltöltött kép vagy dokumentum" });
+      }
+
       const images: LeadImageInput[] = [];
-      for (const dataUrl of request.body.images) {
+      for (const dataUrl of rawImages) {
         const match = dataUrl.match(DATA_URL_PATTERN);
         if (!match) {
           return reply.code(400).send({ error: "Érvénytelen kép formátum" });
@@ -142,11 +166,11 @@ export default async function leadsRoutes(fastify: FastifyInstance) {
       }
 
       try {
-        const fields = await extractLeadFromImages(images);
+        const fields = await extractLeadFromMedia(images, documents);
         return { fields };
       } catch (err) {
         fastify.log.error(err, "Lead extraction failed");
-        return reply.code(502).send({ error: err instanceof Error ? err.message : "Nem sikerült feldolgozni a képeket" });
+        return reply.code(502).send({ error: err instanceof Error ? err.message : "Nem sikerült feldolgozni a fájlokat" });
       }
     }
   );

@@ -2265,6 +2265,29 @@ button:hover {
   cursor: pointer;
 }
 
+.lead-document-thumb {
+  width: auto;
+  height: 56px;
+  max-width: 160px;
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+  padding: 0 1.4em 0 0.5em;
+  background-color: var(--surface-alt);
+}
+
+.lead-document-icon {
+  font-size: 1.1em;
+  flex-shrink: 0;
+}
+
+.lead-document-filename {
+  font-size: 0.78em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .lead-image-add {
   width: 56px;
   height: 56px;

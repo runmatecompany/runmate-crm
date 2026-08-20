@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
-import { extractLeadFromImages, type ExtractedLeadFields, type Lead, type LeadFormInput } from "../../lib/leads";
+import { extractLeadFromMedia, type ExtractedLeadFields, type Lead, type LeadFormInput } from "../../lib/leads";
 import { useEscapeToClose } from "../../lib/useEscapeToClose";
 
 interface LeadFormModalProps {
@@ -14,7 +14,14 @@ interface PendingImage {
   dataUrl: string;
 }
 
+interface PendingDocument {
+  id: string;
+  filename: string;
+  text: string;
+}
+
 const MAX_IMAGES = 5;
+const MAX_DOCUMENTS = 3;
 const AUTO_EXTRACT_DEBOUNCE_MS = 700;
 
 function readAsDataUrl(file: File): Promise<string> {
@@ -39,17 +46,23 @@ export default function LeadFormModal({ lead, token, onClose, onSave }: LeadForm
   const [error, setError] = useState<string | null>(null);
 
   const [images, setImages] = useState<PendingImage[]>([]);
+  const [documents, setDocuments] = useState<PendingDocument[]>([]);
   const [extracting, setExtracting] = useState(false);
   const [extractProgress, setExtractProgress] = useState(0);
   const [extractError, setExtractError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imagesRef = useRef<PendingImage[]>([]);
+  const documentsRef = useRef<PendingDocument[]>([]);
   const autoExtractTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const progressTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     imagesRef.current = images;
   }, [images]);
+
+  useEffect(() => {
+    documentsRef.current = documents;
+  }, [documents]);
 
   useEffect(
     () => () => {
@@ -93,15 +106,16 @@ export default function LeadFormModal({ lead, token, onClose, onSave }: LeadForm
     if (fields.notes) setNotes((prev) => (prev.trim() ? prev : fields.notes!));
   }
 
-  async function runExtraction(imgs: PendingImage[]) {
-    if (imgs.length === 0) return;
+  async function runExtraction(imgs: PendingImage[], docs: PendingDocument[]) {
+    if (imgs.length === 0 && docs.length === 0) return;
     setExtracting(true);
     setExtractError(null);
     startProgressSimulation();
     try {
-      const fields = await extractLeadFromImages(
+      const fields = await extractLeadFromMedia(
         token,
-        imgs.map((img) => img.dataUrl)
+        imgs.map((img) => img.dataUrl),
+        docs.map((doc) => ({ filename: doc.filename, text: doc.text }))
       );
       applyExtractedFields(fields);
       stopProgressSimulation(100);
@@ -109,33 +123,72 @@ export default function LeadFormModal({ lead, token, onClose, onSave }: LeadForm
       setTimeout(() => setExtracting(false), 350);
     } catch (err) {
       stopProgressSimulation(0);
-      setExtractError(err instanceof Error ? err.message : "Nem sikerült feldolgozni a képeket");
+      setExtractError(err instanceof Error ? err.message : "Nem sikerült feldolgozni a fájlokat");
       setExtracting(false);
     }
   }
 
-  // Új kép hozzáadásakor (feltöltés vagy vágólap) egy rövid szünet után
+  // Új fájl hozzáadásakor (feltöltés vagy vágólap) egy rövid szünet után
   // automatikusan elindítja az AI felismerést — nem kell külön gombot nyomni.
-  // A debounce azért kell, hogy több egymás után beillesztett kép (pl. névjegy
-  // két oldala) egyetlen hívásba kerüljön, ne külön-külön fizessük meg.
+  // A debounce azért kell, hogy több egymás után beillesztett fájl (pl.
+  // névjegy két oldala) egyetlen hívásba kerüljön, ne külön-külön fizessük meg.
   function scheduleAutoExtract() {
     if (autoExtractTimer.current) clearTimeout(autoExtractTimer.current);
     autoExtractTimer.current = setTimeout(() => {
       autoExtractTimer.current = null;
-      void runExtraction(imagesRef.current);
+      void runExtraction(imagesRef.current, documentsRef.current);
     }, AUTO_EXTRACT_DEBOUNCE_MS);
   }
 
+  // A képek (névjegykártya, képernyőfotó) mellett Excel-dokumentum is
+  // feltölthető — azt kliens-oldalon (lib/xlsxToCsv.ts) szöveggé alakítjuk,
+  // és ugyanabba az AI-hívásba kerül be, mint a képek.
   async function addFiles(files: File[]) {
     if (files.length === 0) return;
     setExtractError(null);
-    const dataUrls = await Promise.all(files.map(readAsDataUrl));
-    const room = MAX_IMAGES - imagesRef.current.length;
-    if (room <= 0) return;
-    const added = dataUrls.slice(0, room).map((dataUrl, i) => ({ id: `${Date.now()}-${i}`, dataUrl }));
-    const next = [...imagesRef.current, ...added];
-    imagesRef.current = next;
-    setImages(next);
+
+    const imageFiles = files.filter((f) => f.type.startsWith("image/"));
+    const xlsxFiles = files.filter((f) => /\.xlsx?$/i.test(f.name));
+
+    let addedImages: PendingImage[] = [];
+    let addedDocuments: PendingDocument[] = [];
+
+    if (imageFiles.length > 0) {
+      const imageRoom = MAX_IMAGES - imagesRef.current.length;
+      if (imageRoom > 0) {
+        const dataUrls = await Promise.all(imageFiles.slice(0, imageRoom).map(readAsDataUrl));
+        addedImages = dataUrls.map((dataUrl, i) => ({ id: `${Date.now()}-img-${i}`, dataUrl }));
+      }
+    }
+
+    if (xlsxFiles.length > 0) {
+      const docRoom = MAX_DOCUMENTS - documentsRef.current.length;
+      if (docRoom > 0) {
+        try {
+          // Dinamikus import — az exceljs csomag (~950 kB) csak akkor
+          // kerül be a futó kódba, ha valaki ténylegesen Excel fájlt ad
+          // meg, nem minden lead-form megnyitásakor.
+          const { xlsxFileToCsvText } = await import("../../lib/xlsxToCsv");
+          const texts = await Promise.all(xlsxFiles.slice(0, docRoom).map(xlsxFileToCsvText));
+          addedDocuments = texts.map((text, i) => ({
+            id: `${Date.now()}-doc-${i}`,
+            filename: xlsxFiles[i].name,
+            text,
+          }));
+        } catch {
+          setExtractError("Nem sikerült beolvasni az Excel fájlt — ellenőrizd, hogy valódi .xlsx fájlt választottál-e ki.");
+        }
+      }
+    }
+
+    if (addedImages.length === 0 && addedDocuments.length === 0) return;
+
+    const nextImages = [...imagesRef.current, ...addedImages];
+    const nextDocuments = [...documentsRef.current, ...addedDocuments];
+    imagesRef.current = nextImages;
+    documentsRef.current = nextDocuments;
+    setImages(nextImages);
+    setDocuments(nextDocuments);
     scheduleAutoExtract();
   }
 
@@ -143,6 +196,14 @@ export default function LeadFormModal({ lead, token, onClose, onSave }: LeadForm
     const files = Array.from(e.currentTarget.files ?? []);
     e.currentTarget.value = "";
     await addFiles(files);
+  }
+
+  function removeDocument(id: string) {
+    setDocuments((prev) => {
+      const next = prev.filter((doc) => doc.id !== id);
+      documentsRef.current = next;
+      return next;
+    });
   }
 
   function removeImage(id: string) {
@@ -180,7 +241,7 @@ export default function LeadFormModal({ lead, token, onClose, onSave }: LeadForm
       clearTimeout(autoExtractTimer.current);
       autoExtractTimer.current = null;
     }
-    void runExtraction(imagesRef.current);
+    void runExtraction(imagesRef.current, documentsRef.current);
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -212,9 +273,9 @@ export default function LeadFormModal({ lead, token, onClose, onSave }: LeadForm
         {!lead && (
           <div className="lead-image-upload">
             <label>
-              Fotók (névjegykártya, képernyőfotó) — a kép hozzáadása után az AI automatikusan
-              kitölti belőlük a mezőket. Vágólapról is beillesztheted (Ctrl+V), nem kell előbb
-              lementened a képet.
+              Fotók (névjegykártya, képernyőfotó) vagy Excel-dokumentum — a fájl hozzáadása után az AI
+              automatikusan kitölti belőlük a mezőket. Kép vágólapról is beilleszthető (Ctrl+V), nem kell
+              előbb lementeni.
             </label>
             <div className="lead-image-list">
               {images.map((img) => (
@@ -225,31 +286,40 @@ export default function LeadFormModal({ lead, token, onClose, onSave }: LeadForm
                   </button>
                 </div>
               ))}
-              {images.length < MAX_IMAGES && (
+              {documents.map((doc) => (
+                <div key={doc.id} className="lead-image-thumb lead-document-thumb">
+                  <span className="lead-document-icon">📄</span>
+                  <span className="lead-document-filename">{doc.filename}</span>
+                  <button type="button" className="lead-image-remove" onClick={() => removeDocument(doc.id)}>
+                    ×
+                  </button>
+                </div>
+              ))}
+              {(images.length < MAX_IMAGES || documents.length < MAX_DOCUMENTS) && (
                 <button type="button" className="lead-image-add" onClick={() => fileInputRef.current?.click()}>
-                  + Kép
+                  + Fájl
                 </button>
               )}
             </div>
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/*"
+              accept="image/*,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
               multiple
               hidden
               onChange={handleFilesSelected}
             />
-            {images.length > 0 && extracting && (
+            {(images.length > 0 || documents.length > 0) && extracting && (
               <div className="lead-extract-progress">
                 <div className="lead-extract-progress-track">
                   <div className="lead-extract-progress-fill" style={{ width: `${extractProgress}%` }} />
                 </div>
-                <span className="lead-extract-progress-label">AI olvassa a képet... {extractProgress}%</span>
+                <span className="lead-extract-progress-label">AI olvassa a fájlt... {extractProgress}%</span>
               </div>
             )}
-            {images.length > 0 && !extracting && (
+            {(images.length > 0 || documents.length > 0) && !extracting && (
               <button type="button" className="lead-image-extract" onClick={handleManualExtract}>
-                AI kitöltés újra a fotókból
+                AI kitöltés újra a fájlokból
               </button>
             )}
             {extractError && <p className="login-error">{extractError}</p>}
