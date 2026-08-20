@@ -10,8 +10,14 @@ export interface MenuItem {
 export const MENU_ITEMS: MenuItem[] = [
   { id: "messages", label: "Üzenetek" },
   { id: "chat", label: "Chat" },
-  { id: "leads", label: "Leadek" },
-  { id: "leadgen", label: "Lead Gen" },
+  {
+    id: "sales",
+    label: "Sales",
+    children: [
+      { id: "leads", label: "Leadek" },
+      { id: "leadgen", label: "Lead Gen" },
+    ],
+  },
   { id: "clients", label: "Ügyfelek" },
   { id: "tasks", label: "Feladatok" },
   {
