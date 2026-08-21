@@ -808,6 +808,7 @@ button:hover {
   color: var(--text);
   padding: 0.5em 0.6em;
   border-radius: 6px;
+  cursor: pointer;
 }
 
 .chat-room-item:hover {
@@ -1522,6 +1523,44 @@ button:hover {
   background-color: #6b7280;
 }
 
+.avatar-trigger {
+  display: block;
+  padding: 0;
+  margin: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: none;
+  cursor: pointer;
+  line-height: 0;
+}
+
+.avatar-card {
+  position: absolute;
+  top: calc(100% + 0.4em);
+  left: 0;
+  z-index: 40;
+  min-width: 180px;
+  padding: 0.7em 0.9em;
+  border-radius: 10px;
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  cursor: default;
+}
+
+.avatar-card-name {
+  font-weight: 600;
+  font-size: 0.9em;
+  margin-bottom: 0.25em;
+}
+
+.avatar-card-phone {
+  font-size: 0.85em;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
 /* --- Settings / Profile --- */
 
 .settings-page {
@@ -1928,6 +1967,7 @@ button:hover {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
   text-align: left;
   animation: toast-in 0.18s ease-out;
+  cursor: pointer;
 }
 
 .toast-card:hover {
@@ -4031,6 +4071,7 @@ button:hover {
   background-color: var(--surface);
   border: 1px solid var(--border);
   color: var(--text);
+  cursor: pointer;
 }
 
 .support-ticket-card:hover {

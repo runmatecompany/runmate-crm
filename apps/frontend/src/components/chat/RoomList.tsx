@@ -65,11 +65,18 @@ export default function RoomList({ rooms, activeRoomId, onSelect, isAdmin, onCre
       </div>
       {dmRooms.length === 0 && <p className="chat-empty-hint">Nincs még privát beszélgetés.</p>}
       {dmRooms.map((room) => (
-        <button
+        <div
           key={room.id}
-          type="button"
+          role="button"
+          tabIndex={0}
           className={room.id === activeRoomId ? "chat-room-item active" : "chat-room-item"}
           onClick={() => onSelect(room.id)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              onSelect(room.id);
+            }
+          }}
         >
           <span className="chat-room-item-row">
             {room.other_user_id != null && (
@@ -79,7 +86,7 @@ export default function RoomList({ rooms, activeRoomId, onSelect, isAdmin, onCre
             <CallBadge roomId={room.id} />
           </span>
           {room.last_message_body && <span className="chat-room-preview">{room.last_message_body}</span>}
-        </button>
+        </div>
       ))}
     </aside>
   );

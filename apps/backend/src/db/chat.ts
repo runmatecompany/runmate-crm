@@ -28,6 +28,7 @@ export interface Colleague {
   name: string;
   email: string;
   role: "admin" | "user";
+  phone: string | null;
 }
 
 // Csoportszobát (is_dm = false) mindenki lát, tagsági bejegyzés nélkül is —
@@ -320,6 +321,6 @@ export async function getUnreadMessageCount(userId: number): Promise<number> {
 }
 
 export async function listColleagues(): Promise<Colleague[]> {
-  const { rows } = await pool.query<Colleague>(`SELECT id, name, email, role FROM users ORDER BY name`);
+  const { rows } = await pool.query<Colleague>(`SELECT id, name, email, role, phone FROM users ORDER BY name`);
   return rows;
 }

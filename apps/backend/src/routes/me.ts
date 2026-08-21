@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { getUserAvatar, getUserById, setUserAvatar, updateUserName } from "../db/users.js";
+import { getUserAvatar, getUserById, setUserAvatar, updateUserName, updateUserPhone } from "../db/users.js";
 import { disconnectUserDrive, getUserDriveConnectionStatus } from "../db/userGoogleDrive.js";
 import { getPersonalAuthUrl } from "../lib/googleDrive/personalOauth.js";
 import { GoogleCalendarNotConfiguredError } from "../lib/googleCalendar/oauth.js";
@@ -10,6 +10,13 @@ const updateNameBodySchema = {
   required: ["name"],
   properties: {
     name: { type: "string", minLength: 1, maxLength: 100 },
+  },
+} as const;
+
+const updatePhoneBodySchema = {
+  type: "object",
+  properties: {
+    phone: { type: "string", maxLength: 40 },
   },
 } as const;
 
@@ -43,6 +50,20 @@ export default async function meRoutes(fastify: FastifyInstance) {
         return reply.code(404).send({ error: "User not found" });
       }
       broadcastToAll({ type: "profile-updated", userId: user.id, name: user.name });
+      return { user };
+    }
+  );
+
+  fastify.patch<{ Body: { phone?: string } }>(
+    "/me/phone",
+    { onRequest: [fastify.authenticate], schema: { body: updatePhoneBodySchema } },
+    async (request, reply) => {
+      const trimmed = request.body.phone?.trim();
+      const user = await updateUserPhone(request.user.sub, trimmed ? trimmed : null);
+      if (!user) {
+        return reply.code(404).send({ error: "User not found" });
+      }
+      broadcastToAll({ type: "profile-updated", userId: user.id, phone: user.phone });
       return { user };
     }
   );

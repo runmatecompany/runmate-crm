@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { AuthProvider, useAuth } from "./lib/auth";
 import { RealtimeProvider } from "./lib/realtime";
+import { ColleagueDirectoryProvider } from "./lib/colleagueDirectory";
 import { CallProvider } from "./lib/call";
 import { NavigationProvider } from "./lib/navigation";
 import { checkServerReachable } from "./lib/setup";
@@ -64,13 +65,15 @@ export default function App() {
     <ErrorBoundary>
       <AuthProvider>
         <RealtimeProvider>
-          <NavigationProvider>
-            <CallProvider>
-              <Screen />
-              <CallOverlay />
-              <ToastNotifications />
-            </CallProvider>
-          </NavigationProvider>
+          <ColleagueDirectoryProvider>
+            <NavigationProvider>
+              <CallProvider>
+                <Screen />
+                <CallOverlay />
+                <ToastNotifications />
+              </CallProvider>
+            </NavigationProvider>
+          </ColleagueDirectoryProvider>
         </RealtimeProvider>
       </AuthProvider>
     </ErrorBoundary>

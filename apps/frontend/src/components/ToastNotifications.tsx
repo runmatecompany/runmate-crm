@@ -61,11 +61,18 @@ export default function ToastNotifications() {
   return (
     <div className="toast-stack">
       {toasts.map((toast) => (
-        <button
+        <div
           key={toast.id}
-          type="button"
+          role="button"
+          tabIndex={0}
           className={toast.mentionsMe ? "toast-card toast-card-mention" : "toast-card"}
           onClick={() => handleClick(toast)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              handleClick(toast);
+            }
+          }}
         >
           <Avatar userId={toast.senderId} name={toast.senderName} size={32} />
           <div className="toast-text">
@@ -75,7 +82,7 @@ export default function ToastNotifications() {
             </div>
             <div className="toast-body">{toast.body}</div>
           </div>
-        </button>
+        </div>
       ))}
     </div>
   );

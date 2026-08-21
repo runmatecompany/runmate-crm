@@ -62,11 +62,18 @@ export default function SupportPage() {
   function renderCard(ticket: SupportTicket) {
     const preview = ticket.body.length > 140 ? `${ticket.body.slice(0, 140)}...` : ticket.body;
     return (
-      <button
+      <div
         key={ticket.id}
-        type="button"
+        role="button"
+        tabIndex={0}
         className="support-ticket-card"
         onClick={() => setOpenTicket(ticket)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setOpenTicket(ticket);
+          }
+        }}
       >
         <Avatar userId={ticket.created_by} name={ticket.created_by_name} size={32} />
         <div className="support-ticket-card-body">
@@ -76,7 +83,7 @@ export default function SupportPage() {
           </div>
           <div className="support-ticket-card-preview">{preview}</div>
         </div>
-      </button>
+      </div>
     );
   }
 

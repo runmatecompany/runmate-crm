@@ -1,7 +1,7 @@
-import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { useAuth } from "../../lib/auth";
 import { useRealtime } from "../../lib/realtime";
-import { resizeImageToDataUrl, uploadMyAvatar } from "../../lib/profile";
+import { getMe, resizeImageToDataUrl, updateMyPhone, uploadMyAvatar } from "../../lib/profile";
 import Avatar from "../Avatar";
 import PersonalGoogleDriveSettings from "./PersonalGoogleDriveSettings";
 import GoogleIntegrationSettings from "./GoogleIntegrationSettings";
@@ -10,26 +10,34 @@ export default function ProfileSettings() {
   const { auth, updateName } = useAuth();
   const { bumpAvatar } = useRealtime();
   const [name, setName] = useState(auth?.user.name ?? "");
+  const [phone, setPhone] = useState("");
   const [saving, setSaving] = useState(false);
   const [savedHint, setSavedHint] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    if (!auth) return;
+    getMe(auth.token).then((me) => setPhone(me.phone ?? ""));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auth?.token]);
+
   if (!auth) return null;
 
-  async function handleSaveName(e: FormEvent) {
+  async function handleSaveProfile(e: FormEvent) {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!auth || !name.trim()) return;
     setSaving(true);
     setError(null);
     setSavedHint(false);
     try {
       await updateName(name.trim());
+      await updateMyPhone(auth.token, phone.trim());
       setSavedHint(true);
       setTimeout(() => setSavedHint(false), 2500);
     } catch {
-      setError("Nem sikerült menteni a nevet.");
+      setError("Nem sikerült menteni az adatokat.");
     } finally {
       setSaving(false);
     }
@@ -76,9 +84,20 @@ export default function ProfileSettings() {
         </div>
       </div>
 
-      <form className="profile-name-form" onSubmit={handleSaveName}>
+      <form className="profile-name-form" onSubmit={handleSaveProfile}>
         <label htmlFor="profile-name">Keresztnév</label>
         <input id="profile-name" value={name} onChange={(e) => setName(e.currentTarget.value)} required />
+        <label htmlFor="profile-phone">Telefonszám</label>
+        <input
+          id="profile-phone"
+          type="tel"
+          value={phone}
+          onChange={(e) => setPhone(e.currentTarget.value)}
+          placeholder="+36 30 123 4567"
+        />
+        <p className="chat-modal-hint">
+          Ezt látják a kollégáid, ha rákattintanak az avatárodra — így el tudnak érni, ha szükséges.
+        </p>
         <button type="submit" disabled={saving}>
           {saving ? "Mentés..." : "Mentés"}
         </button>

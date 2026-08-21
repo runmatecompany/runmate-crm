@@ -5,6 +5,7 @@ export interface Profile {
   name: string;
   email: string;
   role: "admin" | "user";
+  phone: string | null;
   created_at: string;
 }
 
@@ -19,6 +20,16 @@ export async function updateMyName(token: string, name: string): Promise<Profile
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name }),
+  });
+  const data = await res.json();
+  return data.user;
+}
+
+export async function updateMyPhone(token: string, phone: string): Promise<Profile> {
+  const res = await authFetch(token, "/me/phone", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ phone }),
   });
   const data = await res.json();
   return data.user;
