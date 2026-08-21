@@ -4,6 +4,14 @@ import { disconnectUserDrive, getUserDriveConnectionStatus } from "../db/userGoo
 import { getPersonalAuthUrl } from "../lib/googleDrive/personalOauth.js";
 import { GoogleCalendarNotConfiguredError } from "../lib/googleCalendar/oauth.js";
 import { broadcastToAll } from "../realtime/connections.js";
+import { hasLeadsAccess } from "../db/leads.js";
+import { hasClientsAccess } from "../db/clients.js";
+import { hasSocialMediaAccess } from "../db/contentItems.js";
+import { hasTasksAccess } from "../db/tasks.js";
+import { hasLeadGenAccess } from "../db/leadgenAccess.js";
+import { hasWebAccess } from "../db/webProjects.js";
+import { hasSupportAccess } from "../db/supportTickets.js";
+import { hasEmailModuleAccess } from "../db/emailAccounts.js";
 
 const updateNameBodySchema = {
   type: "object",
@@ -39,6 +47,55 @@ export default async function meRoutes(fastify: FastifyInstance) {
       return reply.code(404).send({ error: "User not found" });
     }
     return { user };
+  });
+
+  // Saját jogosultságok — a Sidebar ez alapján rejti el azokat a
+  // modulokat, amikhez a felhasználónak (admin kivételével) nincs
+  // hozzáférése, hogy ne is lássa a menüpontot, ne csak a tartalma legyen
+  // zárolva.
+  fastify.get("/me/access", { onRequest: [fastify.authenticate] }, async (request) => {
+    const userId = request.user.sub;
+    if (request.user.role === "admin") {
+      return {
+        leadsAccess: true,
+        clientsAccess: true,
+        socialMediaAccess: true,
+        tasksAccess: true,
+        leadGenAccess: true,
+        webAccess: true,
+        supportAccess: true,
+        emailModuleAccess: true,
+      };
+    }
+    const [
+      leadsAccess,
+      clientsAccess,
+      socialMediaAccess,
+      tasksAccess,
+      leadGenAccess,
+      webAccess,
+      supportAccess,
+      emailModuleAccess,
+    ] = await Promise.all([
+      hasLeadsAccess(userId),
+      hasClientsAccess(userId),
+      hasSocialMediaAccess(userId),
+      hasTasksAccess(userId),
+      hasLeadGenAccess(userId),
+      hasWebAccess(userId),
+      hasSupportAccess(userId),
+      hasEmailModuleAccess(userId),
+    ]);
+    return {
+      leadsAccess,
+      clientsAccess,
+      socialMediaAccess,
+      tasksAccess,
+      leadGenAccess,
+      webAccess,
+      supportAccess,
+      emailModuleAccess,
+    };
   });
 
   fastify.patch<{ Body: { name: string } }>(

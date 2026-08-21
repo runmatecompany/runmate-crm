@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import logo from "../assets/logo.png";
 import { useUpdater } from "../lib/updater";
 import { useRealtime } from "../lib/realtime";
+import { useAuth } from "../lib/auth";
+import { getMyAccess, type MyAccess } from "../lib/userAccess";
 import { MENU_ITEMS } from "../lib/menuItems";
 import Avatar from "./Avatar";
 import SupportRequestModal from "./support/SupportRequestModal";
@@ -14,7 +16,23 @@ interface SidebarProps {
   onLogout: () => void;
 }
 
+// Melyik menüponthoz melyik jogosultság-mező tartozik — amihez nincs itt
+// bejegyzés (Chat, Beállítások), az mindig látszik. Admin a /me/access
+// végponton már eleve mindent "true"-nak kap vissza, itt nem kell külön
+// kezelni.
+const MODULE_ACCESS_KEY: Partial<Record<string, keyof MyAccess>> = {
+  leads: "leadsAccess",
+  leadgen: "leadGenAccess",
+  clients: "clientsAccess",
+  tasks: "tasksAccess",
+  web: "webAccess",
+  social: "socialMediaAccess",
+  support: "supportAccess",
+  messages: "emailModuleAccess",
+};
+
 export default function Sidebar({ activeId, onSelect, userId, userName, onLogout }: SidebarProps) {
+  const { auth } = useAuth();
   const { status, installAndRestart } = useUpdater();
   const { unreadCount } = useRealtime();
   const updateAvailable = status === "available" || status === "installing";
@@ -24,6 +42,22 @@ export default function Sidebar({ activeId, onSelect, userId, userName, onLogout
     () => new Set(MENU_ITEMS.filter((item) => item.children).map((item) => item.id))
   );
   const [showSupportRequest, setShowSupportRequest] = useState(false);
+  const [access, setAccess] = useState<MyAccess | null>(null);
+
+  useEffect(() => {
+    if (!auth) return;
+    getMyAccess(auth.token)
+      .then(setAccess)
+      .catch(() => {});
+  }, [auth]);
+
+  // Amíg nem tudjuk, mihez van jogosultsága, a jogosultsághoz kötött
+  // modulokat inkább nem mutatjuk, minthogy felvillanjanak, majd eltűnjenek.
+  const visibleItems = MENU_ITEMS.filter((item) => {
+    const key = MODULE_ACCESS_KEY[item.id];
+    if (!key) return true;
+    return access ? access[key] : false;
+  });
 
   function toggleGroup(id: string) {
     setCollapsedGroups((prev) => {
@@ -45,7 +79,7 @@ export default function Sidebar({ activeId, onSelect, userId, userName, onLogout
       </div>
 
       <nav className="sidebar-nav">
-        {MENU_ITEMS.map((item) => {
+        {visibleItems.map((item) => {
           const isParentActive = item.id === activeId || (item.children?.some((c) => c.id === activeId) ?? false);
           const isCollapsed = collapsedGroups.has(item.id);
           const groupClasses = ["sidebar-group"];
