@@ -6,6 +6,7 @@ import { revokeAllDriveFolderGrants } from "../../lib/clipping.js";
 import { grantTasksAccess, hasTasksAccess, revokeTasksAccess } from "../../db/tasks.js";
 import { grantLeadGenAccess, hasLeadGenAccess, revokeLeadGenAccess } from "../../db/leadgenAccess.js";
 import { grantWebAccess, hasWebAccess, revokeWebAccess } from "../../db/webProjects.js";
+import { grantSupportAccess, hasSupportAccess, revokeSupportAccess } from "../../db/supportTickets.js";
 import {
   grantAccountAccess,
   grantEmailModuleAccess,
@@ -20,7 +21,7 @@ const accessBodySchema = {
   type: "object",
   required: [
     "leadsAccess", "clientsAccess", "socialMediaAccess", "tasksAccess", "leadGenAccess", "webAccess",
-    "emailModuleAccess", "emailAccountIds",
+    "supportAccess", "emailModuleAccess", "emailAccountIds",
   ],
   properties: {
     leadsAccess: { type: "boolean" },
@@ -29,6 +30,7 @@ const accessBodySchema = {
     tasksAccess: { type: "boolean" },
     leadGenAccess: { type: "boolean" },
     webAccess: { type: "boolean" },
+    supportAccess: { type: "boolean" },
     emailModuleAccess: { type: "boolean" },
     emailAccountIds: { type: "array", items: { type: "integer" } },
   },
@@ -43,18 +45,38 @@ export default async function adminUserAccessRoutes(fastify: FastifyInstance) {
 
   fastify.get<{ Params: { id: string } }>("/admin/users/:id/access", async (request) => {
     const userId = Number(request.params.id);
-    const [leadsAccess, clientsAccess, socialMediaAccess, tasksAccess, leadGenAccess, webAccess, emailModuleAccess, emailAccountIds] =
-      await Promise.all([
-        hasLeadsAccess(userId),
-        hasClientsAccess(userId),
-        hasSocialMediaAccess(userId),
-        hasTasksAccess(userId),
-        hasLeadGenAccess(userId),
-        hasWebAccess(userId),
-        hasEmailModuleAccess(userId),
-        listAccessibleAccountIdsForUser(userId),
-      ]);
-    return { leadsAccess, clientsAccess, socialMediaAccess, tasksAccess, leadGenAccess, webAccess, emailModuleAccess, emailAccountIds };
+    const [
+      leadsAccess,
+      clientsAccess,
+      socialMediaAccess,
+      tasksAccess,
+      leadGenAccess,
+      webAccess,
+      supportAccess,
+      emailModuleAccess,
+      emailAccountIds,
+    ] = await Promise.all([
+      hasLeadsAccess(userId),
+      hasClientsAccess(userId),
+      hasSocialMediaAccess(userId),
+      hasTasksAccess(userId),
+      hasLeadGenAccess(userId),
+      hasWebAccess(userId),
+      hasSupportAccess(userId),
+      hasEmailModuleAccess(userId),
+      listAccessibleAccountIdsForUser(userId),
+    ]);
+    return {
+      leadsAccess,
+      clientsAccess,
+      socialMediaAccess,
+      tasksAccess,
+      leadGenAccess,
+      webAccess,
+      supportAccess,
+      emailModuleAccess,
+      emailAccountIds,
+    };
   });
 
   fastify.put<{
@@ -66,13 +88,23 @@ export default async function adminUserAccessRoutes(fastify: FastifyInstance) {
       tasksAccess: boolean;
       leadGenAccess: boolean;
       webAccess: boolean;
+      supportAccess: boolean;
       emailModuleAccess: boolean;
       emailAccountIds: number[];
     };
   }>("/admin/users/:id/access", { schema: { body: accessBodySchema } }, async (request, reply) => {
     const userId = Number(request.params.id);
-    const { leadsAccess, clientsAccess, socialMediaAccess, tasksAccess, leadGenAccess, webAccess, emailModuleAccess, emailAccountIds } =
-      request.body;
+    const {
+      leadsAccess,
+      clientsAccess,
+      socialMediaAccess,
+      tasksAccess,
+      leadGenAccess,
+      webAccess,
+      supportAccess,
+      emailModuleAccess,
+      emailAccountIds,
+    } = request.body;
 
     if (leadsAccess) {
       await grantLeadsAccess(userId, request.user.sub);
@@ -116,6 +148,12 @@ export default async function adminUserAccessRoutes(fastify: FastifyInstance) {
       await grantWebAccess(userId, request.user.sub);
     } else {
       await revokeWebAccess(userId);
+    }
+
+    if (supportAccess) {
+      await grantSupportAccess(userId, request.user.sub);
+    } else {
+      await revokeSupportAccess(userId);
     }
 
     if (emailModuleAccess) {

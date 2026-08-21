@@ -21,6 +21,7 @@ export default function UserAccessModal({ user, onClose }: UserAccessModalProps)
   const [tasksAccess, setTasksAccessState] = useState(false);
   const [leadGenAccess, setLeadGenAccessState] = useState(false);
   const [webAccess, setWebAccessState] = useState(false);
+  const [supportAccess, setSupportAccessState] = useState(false);
   const [emailModuleAccess, setEmailModuleAccessState] = useState(false);
   const [selectedAccountIds, setSelectedAccountIds] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -38,6 +39,7 @@ export default function UserAccessModal({ user, onClose }: UserAccessModalProps)
         setTasksAccessState(access.tasksAccess);
         setLeadGenAccessState(access.leadGenAccess);
         setWebAccessState(access.webAccess);
+        setSupportAccessState(access.supportAccess);
         setEmailModuleAccessState(access.emailModuleAccess);
         setSelectedAccountIds(new Set(access.emailAccountIds));
         setLoading(false);
@@ -69,6 +71,7 @@ export default function UserAccessModal({ user, onClose }: UserAccessModalProps)
         tasksAccess,
         leadGenAccess,
         webAccess,
+        supportAccess,
         emailModuleAccess,
         emailAccountIds: Array.from(selectedAccountIds),
       });
@@ -144,6 +147,15 @@ export default function UserAccessModal({ user, onClose }: UserAccessModalProps)
                 onChange={(e) => setWebAccessState(e.currentTarget.checked)}
               />
               {menuItemLabel("web", "Web")} modul
+            </label>
+
+            <label className="chat-colleague-pick email-account-access-option user-access-module">
+              <input
+                type="checkbox"
+                checked={supportAccess}
+                onChange={(e) => setSupportAccessState(e.currentTarget.checked)}
+              />
+              {menuItemLabel("support", "Support")} modul
             </label>
 
             <label className="chat-colleague-pick email-account-access-option user-access-module">

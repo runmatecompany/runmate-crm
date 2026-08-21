@@ -4,6 +4,7 @@ import { useUpdater } from "../lib/updater";
 import { useRealtime } from "../lib/realtime";
 import { MENU_ITEMS } from "../lib/menuItems";
 import Avatar from "./Avatar";
+import SupportRequestModal from "./support/SupportRequestModal";
 
 interface SidebarProps {
   activeId: string;
@@ -18,6 +19,7 @@ export default function Sidebar({ activeId, onSelect, userId, userName, onLogout
   const { unreadCount } = useRealtime();
   const updateAvailable = status === "available" || status === "installing";
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const [showSupportRequest, setShowSupportRequest] = useState(false);
 
   function toggleGroup(id: string) {
     setCollapsedGroups((prev) => {
@@ -107,10 +109,15 @@ export default function Sidebar({ activeId, onSelect, userId, userName, onLogout
             <span>{userName}</span>
           </div>
         )}
+        <button className="sidebar-support-btn" onClick={() => setShowSupportRequest(true)}>
+          Support
+        </button>
         <button className="sidebar-logout" onClick={onLogout}>
           Kijelentkezés
         </button>
       </div>
+
+      {showSupportRequest && <SupportRequestModal onClose={() => setShowSupportRequest(false)} />}
     </aside>
   );
 }

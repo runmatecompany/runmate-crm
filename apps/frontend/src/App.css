@@ -715,6 +715,17 @@ button:hover {
   color: var(--text);
 }
 
+.sidebar-support-btn {
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+
+.sidebar-support-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
 .content {
   flex: 1;
   padding: 2.5em;
@@ -3978,4 +3989,91 @@ button:hover {
 
 .lg-contact-row:last-child {
   border-bottom: none;
+}
+
+.support-request-modal {
+  width: min(480px, calc(100vw - 3em));
+}
+
+.support-request-textarea {
+  width: 100%;
+  min-height: 180px;
+  resize: vertical;
+  font-family: inherit;
+  font-size: 0.95em;
+  padding: 0.7em 0.8em;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background-color: var(--surface-alt);
+  color: var(--text);
+}
+
+.support-ticket-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+  margin-bottom: 1.5em;
+}
+
+.support-ticket-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.8em;
+  width: 100%;
+  text-align: left;
+  padding: 0.8em 1em;
+  border-radius: 10px;
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+
+.support-ticket-card:hover {
+  border-color: var(--accent);
+}
+
+.support-ticket-card-body {
+  min-width: 0;
+  flex: 1;
+}
+
+.support-ticket-card-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6em;
+  margin-bottom: 0.25em;
+}
+
+.support-ticket-card-author {
+  font-weight: 600;
+  font-size: 0.9em;
+}
+
+.support-ticket-card-date {
+  font-size: 0.78em;
+  color: var(--text-muted);
+}
+
+.support-ticket-card-preview {
+  font-size: 0.88em;
+  color: var(--text-muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.support-ticket-modal {
+  width: min(520px, calc(100vw - 3em));
+}
+
+.support-ticket-modal-header {
+  display: flex;
+  align-items: center;
+  gap: 0.7em;
+}
+
+.support-ticket-modal-body {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.95em;
+  margin: 0;
 }

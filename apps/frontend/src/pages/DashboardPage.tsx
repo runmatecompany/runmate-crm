@@ -11,6 +11,7 @@ import ClientsPage from "./ClientsPage";
 import TasksPage from "./TasksPage";
 import WebPage, { type WebTab } from "./WebPage";
 import SocialMediaPage, { type SocialMediaTab } from "./SocialMediaPage";
+import SupportPage from "./SupportPage";
 import SettingsPage from "./SettingsPage";
 
 const SOCIAL_MEDIA_TABS: Record<string, SocialMediaTab> = {
@@ -71,6 +72,8 @@ export default function DashboardPage() {
         <WebPage tab={WEB_TABS[activeId]} />
       ) : activeId in SOCIAL_MEDIA_TABS ? (
         <SocialMediaPage tab={SOCIAL_MEDIA_TABS[activeId]} />
+      ) : activeId === "support" ? (
+        <SupportPage />
       ) : activeId === "settings" ? (
         <SettingsPage />
       ) : (

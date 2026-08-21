@@ -26,6 +26,7 @@ import googleDriveRoutes from "./routes/googleDrive.js";
 import adminUserAccessRoutes from "./routes/admin/userAccess.js";
 import leadGenRoutes from "./routes/leadgen.js";
 import webRoutes from "./routes/web.js";
+import supportRoutes from "./routes/support.js";
 
 export function buildApp() {
   // Az alapértelmezett 1 MB-os body limit kevés lenne egy base64-kódolt
@@ -69,6 +70,7 @@ export function buildApp() {
   app.register(adminUserAccessRoutes);
   app.register(leadGenRoutes);
   app.register(webRoutes);
+  app.register(supportRoutes);
 
   app.get("/health", async () => ({ status: "ok" }));
 

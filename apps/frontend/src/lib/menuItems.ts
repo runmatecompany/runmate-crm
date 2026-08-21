@@ -40,6 +40,7 @@ export const MENU_ITEMS: MenuItem[] = [
       { id: "social-drive", label: "Drive" },
     ],
   },
+  { id: "support", label: "Support" },
   { id: "settings", label: "Beállítások" },
 ];
 
