@@ -37,9 +37,7 @@ export default function SupportRequestModal({ onClose }: SupportRequestModalProp
 
         {sent ? (
           <>
-            <p className="chat-modal-hint">
-              Köszönjük, elküldve! A jelzés a Support modulban jelenik meg a névvel és időponttal együtt.
-            </p>
+            <p className="chat-modal-hint">Köszönjük, elküldve!</p>
             <div className="chat-modal-actions">
               <button type="button" onClick={onClose}>
                 Bezárás
