@@ -4,7 +4,6 @@ import ProfileSettings from "../components/settings/ProfileSettings";
 import EmailAccountsSettings from "../components/settings/EmailAccountsSettings";
 import ProfilesSettings from "../components/settings/ProfilesSettings";
 import SocialMediaSettings from "../components/settings/SocialMediaSettings";
-import GoogleIntegrationSettings from "../components/settings/GoogleIntegrationSettings";
 
 interface SettingsSection {
   id: string;
@@ -19,7 +18,6 @@ export default function SettingsPage() {
     { id: "profile", label: "Profilom" },
     ...(isAdmin ? [{ id: "email-accounts", label: "Email fiókok" }] : []),
     ...(isAdmin ? [{ id: "social-media", label: "Social Media" }] : []),
-    ...(isAdmin ? [{ id: "google-calendar", label: "Google-integráció" }] : []),
     ...(isAdmin ? [{ id: "profiles", label: "Fiókok" }] : []),
   ];
 
@@ -43,7 +41,6 @@ export default function SettingsPage() {
         {activeSection === "profile" && <ProfileSettings />}
         {activeSection === "email-accounts" && isAdmin && <EmailAccountsSettings />}
         {activeSection === "social-media" && isAdmin && <SocialMediaSettings />}
-        {activeSection === "google-calendar" && isAdmin && <GoogleIntegrationSettings />}
         {activeSection === "profiles" && isAdmin && <ProfilesSettings />}
       </div>
     </main>

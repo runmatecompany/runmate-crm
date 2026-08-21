@@ -4,6 +4,7 @@ import { useRealtime } from "../../lib/realtime";
 import { resizeImageToDataUrl, uploadMyAvatar } from "../../lib/profile";
 import Avatar from "../Avatar";
 import PersonalGoogleDriveSettings from "./PersonalGoogleDriveSettings";
+import GoogleIntegrationSettings from "./GoogleIntegrationSettings";
 
 export default function ProfileSettings() {
   const { auth, updateName } = useAuth();
@@ -87,6 +88,8 @@ export default function ProfileSettings() {
       {error && <p className="login-error">{error}</p>}
 
       <PersonalGoogleDriveSettings />
+
+      {auth.user.role === "admin" && <GoogleIntegrationSettings />}
     </div>
   );
 }
