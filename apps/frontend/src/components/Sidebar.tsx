@@ -109,8 +109,8 @@ export default function Sidebar({ activeId, onSelect, userId, userName, onLogout
             <span>{userName}</span>
           </div>
         )}
-        <button className="sidebar-support-btn" onClick={() => setShowSupportRequest(true)}>
-          Support
+        <button className="sidebar-support-link" onClick={() => setShowSupportRequest(true)}>
+          Probléma jelentése
         </button>
         <button className="sidebar-logout" onClick={onLogout}>
           Kijelentkezés
