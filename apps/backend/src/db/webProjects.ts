@@ -20,6 +20,7 @@ export interface WebProjectRow {
   updated_at: string;
   last_actor_name: string | null;
   last_actor_at: string | null;
+  drive_folder_id: string | null;
 }
 
 const WEB_PROJECT_SELECT = `
@@ -29,7 +30,8 @@ const WEB_PROJECT_SELECT = `
     p.assigned_to, au.name AS assigned_to_name,
     p.created_by, cu.name AS created_by_name,
     p.created_at, p.updated_at,
-    ev.user_name AS last_actor_name, ev.created_at AS last_actor_at
+    ev.user_name AS last_actor_name, ev.created_at AS last_actor_at,
+    p.drive_folder_id
   FROM web_projects p
   JOIN clients c ON c.id = p.client_id
   LEFT JOIN users au ON au.id = p.assigned_to
@@ -113,6 +115,10 @@ export async function ensureWebProjectForService(
   if (existing) return;
   const title = `${companyName} — ${projectType === "website" ? "Weboldal" : "Landing oldal"}`;
   await createWebProject({ title, projectType, clientId, createdBy });
+}
+
+export async function setWebProjectDriveFolder(id: number, driveFolderId: string): Promise<void> {
+  await pool.query(`UPDATE web_projects SET drive_folder_id = $2 WHERE id = $1`, [id, driveFolderId]);
 }
 
 export interface UpdateWebProjectInput {

@@ -1,8 +1,17 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useAuth } from "../../lib/auth";
 import { listColleagues, type Colleague } from "../../lib/chat";
-import type { WebProject, WebProjectInput } from "../../lib/webProjects";
+import {
+  browseWebDrive,
+  createWebDriveItem,
+  deleteWebDriveItem,
+  renameWebDriveItem,
+  uploadWebDriveFiles,
+  type WebProject,
+  type WebProjectInput,
+} from "../../lib/webProjects";
 import { useEscapeToClose } from "../../lib/useEscapeToClose";
+import DriveView, { type DriveViewApi } from "../socialMedia/DriveView";
 
 const TYPE_LABELS = { website: "Weboldal", landing_page: "Landing oldal" } as const;
 
@@ -35,6 +44,21 @@ export default function WebProjectFormModal({ project, onClose, onSave }: WebPro
     listColleagues(token).then(setColleagues);
   }, [token]);
 
+  // A projekt saját Drive-mappájára szűkített böngésző — ide töltődnek fel
+  // a kész oldal fájljai, hogy bármelyik kolléga elérje, ne csak aki a
+  // gépén elkészítette (lásd db/migrations/048, lib/googleDrive/onboarding.ts
+  // ensureWebProjectDriveFolder).
+  const webDriveApi: DriveViewApi = useMemo(
+    () => ({
+      browse: (t, folderId) => browseWebDrive(t, project.id, folderId),
+      createItem: (t, folderId, name, kind) => createWebDriveItem(t, project.id, folderId, name, kind),
+      renameItem: (t, itemId, name) => renameWebDriveItem(t, project.id, itemId, name),
+      deleteItem: (t, itemId) => deleteWebDriveItem(t, project.id, itemId),
+      uploadFiles: (t, folderId, files, onProgress) => uploadWebDriveFiles(t, project.id, folderId, files, onProgress),
+    }),
+    [project.id]
+  );
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!title.trim()) return;
@@ -57,7 +81,7 @@ export default function WebProjectFormModal({ project, onClose, onSave }: WebPro
 
   return (
     <div className="chat-modal-backdrop">
-      <form className="chat-modal lead-form" onSubmit={handleSubmit}>
+      <form className="chat-modal lead-form web-project-modal" onSubmit={handleSubmit}>
         <h2>Web projekt szerkesztése</h2>
         <p className="chat-empty-hint">
           {project.client_name} · {TYPE_LABELS[project.project_type]}
@@ -104,6 +128,13 @@ export default function WebProjectFormModal({ project, onClose, onSave }: WebPro
           onChange={(e) => setNotes(e.currentTarget.value)}
           placeholder="Részletek, elvárások, állapot..."
         />
+
+        <label>Projekt fájljai (Drive)</label>
+        <p className="chat-modal-hint">
+          Ide töltsd fel a kész oldal fájljait — bármelyik kolléga eléri innen, nem csak a saját gépeden lévő
+          verzió.
+        </p>
+        <DriveView api={webDriveApi} />
 
         {error && <p className="login-error">{error}</p>}
 

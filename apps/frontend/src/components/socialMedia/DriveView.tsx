@@ -14,6 +14,37 @@ import {
 
 const CREATE_KINDS: DriveCreateKind[] = ["folder", "document", "spreadsheet", "presentation"];
 
+// Ugyanez a komponens szolgálja ki a Web modul projekt-Drive-mappáját is
+// (WebProjectFormModal) — csak a hívásokat kell máshova irányítani (a
+// Social Media modul teljes "Ügyfelek" gyökere helyett egy adott projekt
+// mappájára szűkítve). Ha nincs `api` prop, az alapértelmezett Social
+// Media hívások futnak, tehát a meglévő `<DriveView />` hívási helyek
+// (SocialMediaPage) változtatás nélkül működnek tovább.
+export interface DriveViewApi {
+  browse: (token: string, folderId?: string) => Promise<DriveBrowseResult>;
+  createItem: (token: string, folderId: string, name: string, kind: DriveCreateKind) => Promise<DriveItem>;
+  renameItem: (token: string, itemId: string, name: string) => Promise<DriveItem>;
+  deleteItem: (token: string, itemId: string) => Promise<void>;
+  uploadFiles: (
+    token: string,
+    folderId: string,
+    files: File[],
+    onProgress?: (fraction: number) => void
+  ) => Promise<{ uploadedCount: number }>;
+}
+
+const DEFAULT_DRIVE_API: DriveViewApi = {
+  browse: browseDrive,
+  createItem: createDriveItem,
+  renameItem: renameDriveItem,
+  deleteItem: deleteDriveItem,
+  uploadFiles: uploadDriveFiles,
+};
+
+interface DriveViewProps {
+  api?: DriveViewApi;
+}
+
 // Az appon belüli előnézet mindig az olvasható /preview beágyazást
 // használja — a docs.google.com/.../edit szerkesztőt a Tauri webview nem
 // tudja megnyitni (a Google bejelentkezéséhez szükséges felugró ablakot a
@@ -45,7 +76,7 @@ function editUrl(item: DriveItem): string | null {
 // (iframe) — szerkesztéshez (Docs/Sheets/Slides) egy külön gomb nyitja meg
 // külső böngészőben, mert a Tauri webview blokkolja a Google
 // bejelentkezéséhez szükséges felugró ablakot.
-export default function DriveView() {
+export default function DriveView({ api = DEFAULT_DRIVE_API }: DriveViewProps) {
   const { auth } = useAuth();
   const token = auth?.token ?? null;
 
@@ -67,11 +98,12 @@ export default function DriveView() {
     if (!token) return;
     setLoading(true);
     setError(null);
-    browseDrive(token, folderId)
+    api
+      .browse(token, folderId)
       .then(setData)
       .catch((err) => setError(err instanceof Error ? err.message : "Nem sikerült betölteni a Drive-mappát"))
       .finally(() => setLoading(false));
-  }, [token, folderId]);
+  }, [token, folderId, api]);
 
   useEffect(() => {
     load();
@@ -103,7 +135,7 @@ export default function DriveView() {
     setCreating(true);
     setError(null);
     try {
-      const file = await createDriveItem(token, data.folderId, name.trim(), kind);
+      const file = await api.createItem(token, data.folderId, name.trim(), kind);
       load();
       if (kind !== "folder") setOpenItem(file);
     } catch (err) {
@@ -120,7 +152,7 @@ export default function DriveView() {
     if (!name?.trim() || name.trim() === item.name) return;
     setError(null);
     try {
-      await renameDriveItem(token, item.id, name.trim());
+      await api.renameItem(token, item.id, name.trim());
       load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Nem sikerült átnevezni");
@@ -133,7 +165,7 @@ export default function DriveView() {
     if (!confirm(`Biztosan kukába dobod: "${item.name}"?`)) return;
     setError(null);
     try {
-      await deleteDriveItem(token, item.id);
+      await api.deleteItem(token, item.id);
       load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Nem sikerült törölni");
@@ -145,7 +177,7 @@ export default function DriveView() {
     setUploadProgress(0);
     setError(null);
     try {
-      await uploadDriveFiles(token, data.folderId, files, setUploadProgress);
+      await api.uploadFiles(token, data.folderId, files, setUploadProgress);
       load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Nem sikerült feltölteni a fájlokat");

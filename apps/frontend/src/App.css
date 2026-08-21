@@ -1194,6 +1194,12 @@ button:hover {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
 }
 
+.web-project-modal {
+  width: min(680px, calc(100vw - 3em));
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
 .chat-modal h2 {
   margin: 0 0 0.2em;
   font-size: 1.1em;

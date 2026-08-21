@@ -27,7 +27,8 @@ import {
 } from "../lib/clipping.js";
 import { getUserDriveConnection } from "../db/userGoogleDrive.js";
 import { getUserAuthorizedClient } from "../lib/googleDrive/personalOauth.js";
-import { provisionClientDriveFolders } from "../lib/googleDrive/onboarding.js";
+import { provisionClientDriveFolders, ensureWebProjectDriveFolder } from "../lib/googleDrive/onboarding.js";
+import { getWebProjectByClientAndType } from "../db/webProjects.js";
 
 const clientDetailsSchema = {
   companyName: { type: "string", minLength: 1 },
@@ -368,6 +369,27 @@ export default async function clientsRoutes(fastify: FastifyInstance) {
       const clientId = Number(request.params.id);
       if (!(await getClientById(clientId))) return reply.code(404).send({ error: "Client not found" });
       const profile = await upsertClientOnboarding(clientId, request.body, request.user.sub);
+
+      // Web-projekt Drive-mappa: ugyanaz a best-effort minta, mint az
+      // ügyfél-mappa onboardingkori létrehozásánál — ha nincs Google-kapcsolat
+      // vagy hibázik, az onboarding-mentés akkor is sikeres marad.
+      try {
+        if (request.body.serviceWebsiteBuild) {
+          const project = await getWebProjectByClientAndType(clientId, "website");
+          if (project && !project.drive_folder_id) {
+            await ensureWebProjectDriveFolder(clientId, project.id, project.title);
+          }
+        }
+        if (request.body.serviceLandingPage) {
+          const project = await getWebProjectByClientAndType(clientId, "landing_page");
+          if (project && !project.drive_folder_id) {
+            await ensureWebProjectDriveFolder(clientId, project.id, project.title);
+          }
+        }
+      } catch (err) {
+        fastify.log.error(err, "Drive folder provisioning failed for web project");
+      }
+
       return { profile };
     }
   );

@@ -65,6 +65,27 @@ export async function findOrCreateFolder(client: OAuth2Client, parentId: string 
   return createFolder(client, parentId, name);
 }
 
+// Ha egy mappaazonosítót valaki kézzel törölt a Drive-on (vagy eleve hibás
+// lett elmentve), a `parents` mezőben rá hivatkozó create-hívás NEM hibázik
+// — a Drive csendben, hiba nélkül gyökérszinten hozza létre az új elemet.
+// Ezért kell explicit létezés-ellenőrzés minden olyan helyen, ahol egy
+// adatbázisban tárolt mappaazonosítót szülőként újra felhasználunk (lásd
+// onboarding.ts getReadyClient).
+export async function folderExists(client: OAuth2Client, folderId: string): Promise<boolean> {
+  const { token: accessToken } = await client.getAccessToken();
+  if (!accessToken) throw new Error("Nincs érvényes Google access token");
+  const res = await fetch(`${DRIVE_FILES_URL}/${folderId}?fields=id,trashed&supportsAllDrives=true`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (res.status === 404) return false;
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`Google Drive API hiba (${res.status}): ${body.slice(0, 300)}`);
+  }
+  const data = (await res.json()) as { trashed?: boolean };
+  return !data.trashed;
+}
+
 // Resumable feltöltés indítása — a válasz Location fejléce az a session-URL,
 // amire a tényleges fájl-bájtokat (streamelve, pufferelés nélkül) PUT-oljuk.
 export async function startResumableUpload(
