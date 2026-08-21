@@ -18,7 +18,11 @@ export default function Sidebar({ activeId, onSelect, userId, userName, onLogout
   const { status, installAndRestart } = useUpdater();
   const { unreadCount } = useRealtime();
   const updateAvailable = status === "available" || status === "installing";
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  // Belépéskor minden kinyitható modul (aminek van almenüje) csukva legyen —
+  // csak akkor nyílik ki, ha a felhasználó rákattint.
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(
+    () => new Set(MENU_ITEMS.filter((item) => item.children).map((item) => item.id))
+  );
   const [showSupportRequest, setShowSupportRequest] = useState(false);
 
   function toggleGroup(id: string) {

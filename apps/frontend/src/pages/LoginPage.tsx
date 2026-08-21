@@ -1,7 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { useAuth } from "../lib/auth";
 import { ApiError } from "../lib/api";
-import { getApiUrl, setApiUrl } from "../lib/serverConfig";
 import logo from "../assets/logo.png";
 
 const REMEMBERED_EMAIL_KEY = "runmate-crm-remembered-email";
@@ -13,9 +12,6 @@ export default function LoginPage() {
   const [remember, setRemember] = useState(() => localStorage.getItem(REMEMBERED_EMAIL_KEY) !== null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-
-  const [showServerSettings, setShowServerSettings] = useState(false);
-  const [serverUrl, setServerUrl] = useState(getApiUrl());
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -33,12 +29,6 @@ export default function LoginPage() {
     } finally {
       setSubmitting(false);
     }
-  }
-
-  function handleSaveServerUrl() {
-    setApiUrl(serverUrl);
-    setServerUrl(getApiUrl());
-    setShowServerSettings(false);
   }
 
   return (
@@ -82,30 +72,6 @@ export default function LoginPage() {
         <button type="submit" disabled={submitting}>
           {submitting ? "Bejelentkezés..." : "Bejelentkezés"}
         </button>
-
-        <button
-          type="button"
-          className="login-server-toggle"
-          onClick={() => setShowServerSettings((v) => !v)}
-        >
-          Szerver: {getApiUrl()}
-        </button>
-
-        {showServerSettings && (
-          <div className="login-server-panel">
-            <label htmlFor="server-url">Szerver cím</label>
-            <input
-              id="server-url"
-              type="text"
-              value={serverUrl}
-              onChange={(e) => setServerUrl(e.currentTarget.value)}
-              placeholder="http://192.168.1.50:3001"
-            />
-            <button type="button" onClick={handleSaveServerUrl}>
-              Mentés
-            </button>
-          </div>
-        )}
       </form>
     </main>
   );
