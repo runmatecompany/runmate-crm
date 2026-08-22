@@ -197,6 +197,7 @@ export default function LeadsPage() {
           <thead>
             <tr>
               <th>Cég</th>
+              <th>Város</th>
               <th>Kapcsolattartó</th>
               <th>Telefon</th>
               <th>Email</th>
@@ -207,6 +208,7 @@ export default function LeadsPage() {
             {visible.map((lead) => (
               <tr key={lead.id}>
                 <td>{lead.company_name}</td>
+                <td>{lead.city || "—"}</td>
                 <td>{lead.contact_name}</td>
                 <td>{lead.phone}</td>
                 <td>{lead.email}</td>

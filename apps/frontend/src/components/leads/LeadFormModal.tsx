@@ -40,6 +40,7 @@ export default function LeadFormModal({ lead, token, onClose, onSave }: LeadForm
   const [phone, setPhone] = useState(lead?.phone ?? "");
   const [email, setEmail] = useState(lead?.email ?? "");
   const [address, setAddress] = useState(lead?.address ?? "");
+  const [city, setCity] = useState(lead?.city ?? "");
   const [websiteUrl, setWebsiteUrl] = useState(lead?.website_url ?? "");
   const [notes, setNotes] = useState(lead?.notes ?? "");
   const [saving, setSaving] = useState(false);
@@ -256,6 +257,7 @@ export default function LeadFormModal({ lead, token, onClose, onSave }: LeadForm
         phone: phone.trim() || undefined,
         email: email.trim() || undefined,
         address: address.trim() || undefined,
+        city: city.trim() || undefined,
         websiteUrl: websiteUrl.trim() || undefined,
         notes: notes.trim() || undefined,
       });
@@ -354,8 +356,16 @@ export default function LeadFormModal({ lead, token, onClose, onSave }: LeadForm
           </div>
         </div>
 
-        <label htmlFor="lead-address">Cím</label>
-        <input id="lead-address" value={address} onChange={(e) => setAddress(e.currentTarget.value)} />
+        <div className="lead-form-row">
+          <div>
+            <label htmlFor="lead-address">Cím</label>
+            <input id="lead-address" value={address} onChange={(e) => setAddress(e.currentTarget.value)} />
+          </div>
+          <div>
+            <label htmlFor="lead-city">Város</label>
+            <input id="lead-city" value={city} onChange={(e) => setCity(e.currentTarget.value)} />
+          </div>
+        </div>
 
         <label htmlFor="lead-website">Weboldal</label>
         <input
@@ -366,7 +376,14 @@ export default function LeadFormModal({ lead, token, onClose, onSave }: LeadForm
         />
 
         <label htmlFor="lead-notes">Jegyzet</label>
-        <textarea id="lead-notes" rows={3} value={notes} onChange={(e) => setNotes(e.currentTarget.value)} />
+        <textarea
+          id="lead-notes"
+          className="lead-notes-textarea"
+          rows={4}
+          value={notes}
+          onChange={(e) => setNotes(e.currentTarget.value)}
+          placeholder="Bármilyen extra infó a leadről..."
+        />
 
         {error && <p className="login-error">{error}</p>}
 

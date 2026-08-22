@@ -17,6 +17,7 @@ export interface Lead {
   phone: string | null;
   email: string | null;
   address: string | null;
+  city: string | null;
   notes: string | null;
   website_url: string | null;
   facebook_url: string | null;
@@ -36,6 +37,7 @@ export interface LeadFormInput {
   phone?: string;
   email?: string;
   address?: string;
+  city?: string;
   notes?: string;
   websiteUrl?: string;
   facebookUrl?: string;

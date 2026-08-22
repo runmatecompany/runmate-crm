@@ -9,6 +9,7 @@ export interface LeadRow {
   phone: string | null;
   email: string | null;
   address: string | null;
+  city: string | null;
   notes: string | null;
   website_url: string | null;
   facebook_url: string | null;
@@ -24,7 +25,7 @@ export interface LeadRow {
 
 const LEAD_SELECT = `
   SELECT
-    l.id, l.company_name, l.contact_name, l.phone, l.email, l.address, l.notes, l.website_url,
+    l.id, l.company_name, l.contact_name, l.phone, l.email, l.address, l.city, l.notes, l.website_url,
     l.facebook_url, l.instagram_url, l.tiktok_url, l.youtube_url,
     l.status, l.created_by, cu.name AS created_by_name,
     l.created_at, l.updated_at
@@ -48,6 +49,7 @@ export interface CreateLeadInput {
   phone?: string;
   email?: string;
   address?: string;
+  city?: string;
   notes?: string;
   websiteUrl?: string;
   facebookUrl?: string;
@@ -59,9 +61,9 @@ export interface CreateLeadInput {
 
 export async function createLead(input: CreateLeadInput): Promise<LeadRow> {
   const { rows } = await pool.query<{ id: number }>(
-    `INSERT INTO leads (company_name, contact_name, phone, email, address, notes, website_url,
+    `INSERT INTO leads (company_name, contact_name, phone, email, address, city, notes, website_url,
        facebook_url, instagram_url, tiktok_url, youtube_url, created_by)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
      RETURNING id`,
     [
       input.companyName,
@@ -69,6 +71,7 @@ export async function createLead(input: CreateLeadInput): Promise<LeadRow> {
       input.phone ?? null,
       input.email ?? null,
       input.address ?? null,
+      input.city ?? null,
       input.notes ?? null,
       input.websiteUrl ?? null,
       input.facebookUrl ?? null,
@@ -88,6 +91,7 @@ export interface UpdateLeadDetailsInput {
   phone?: string;
   email?: string;
   address?: string;
+  city?: string;
   notes?: string;
   websiteUrl?: string;
   facebookUrl?: string;
@@ -99,8 +103,8 @@ export interface UpdateLeadDetailsInput {
 export async function updateLeadDetails(id: number, input: UpdateLeadDetailsInput): Promise<LeadRow | undefined> {
   const { rowCount } = await pool.query(
     `UPDATE leads SET
-       company_name = $2, contact_name = $3, phone = $4, email = $5, address = $6, notes = $7, website_url = $8,
-       facebook_url = $9, instagram_url = $10, tiktok_url = $11, youtube_url = $12,
+       company_name = $2, contact_name = $3, phone = $4, email = $5, address = $6, city = $7, notes = $8,
+       website_url = $9, facebook_url = $10, instagram_url = $11, tiktok_url = $12, youtube_url = $13,
        updated_at = now()
      WHERE id = $1`,
     [
@@ -110,6 +114,7 @@ export async function updateLeadDetails(id: number, input: UpdateLeadDetailsInpu
       input.phone ?? null,
       input.email ?? null,
       input.address ?? null,
+      input.city ?? null,
       input.notes ?? null,
       input.websiteUrl ?? null,
       input.facebookUrl ?? null,

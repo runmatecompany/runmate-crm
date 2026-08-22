@@ -2600,6 +2600,20 @@ button:hover {
   min-width: 0;
 }
 
+.lead-notes-textarea {
+  width: 100%;
+  min-height: 90px;
+  resize: vertical;
+  font-family: inherit;
+  font-size: 0.95em;
+  line-height: 1.4;
+  padding: 0.7em 0.8em;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background-color: var(--surface-alt);
+  color: var(--text);
+}
+
 .lead-image-upload {
   display: flex;
   flex-direction: column;
