@@ -2282,25 +2282,225 @@ button:hover {
   vertical-align: middle;
 }
 
-.clients-row-pending-deletion {
-  opacity: 0.55;
+/* --- Ügyfelek modul: dedikált, a Leadektől/Lead Gentől független
+   osztálynevek, hogy ennek a modulnak a vizuális frissítése ne hasson ki a
+   megosztott .leads-* stílusokra máshol. --- */
+
+.clients-page {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 2.5em;
+  overflow-y: auto;
+}
+
+.clients-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1em;
+  margin-bottom: 1.4em;
+}
+
+.clients-header h1 {
+  margin: 0;
+}
+
+.clients-header-count {
+  margin: 0.2em 0 0;
+  font-size: 0.85em;
+  color: var(--text-muted);
+}
+
+.clients-section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  font-size: 0.8em;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 1.8em 0 0.7em;
+  color: var(--text-muted);
+}
+
+.clients-table-wrap {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  background-color: var(--surface);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.clients-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.clients-table th {
+  text-align: left;
+  font-size: 0.74em;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.75em 1em;
+  background-color: var(--surface-alt);
+  border-bottom: 1px solid var(--border);
+}
+
+.clients-table td {
+  padding: 0.65em 1em;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.9em;
+  vertical-align: middle;
+}
+
+.clients-table tbody tr {
+  transition: background-color 0.12s ease;
+}
+
+.clients-table tbody tr:hover {
   background-color: var(--surface-alt);
 }
 
-.clients-row-pending-deletion td {
-  filter: grayscale(0.4);
+.clients-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.clients-name-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.7em;
+}
+
+.clients-avatar {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8em;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.clients-name-text {
+  font-weight: 600;
+}
+
+.clients-muted-cell {
+  color: var(--text-muted);
+}
+
+.clients-row-pending {
+  opacity: 0.6;
+}
+
+.clients-row-pending td {
+  filter: grayscale(0.35);
 }
 
 .clients-pending-badge {
   display: inline-block;
   margin-left: 0.6em;
   padding: 0.15em 0.6em;
-  border-radius: 6px;
+  border-radius: 999px;
+  font-size: 0.68em;
+  font-weight: 600;
+  background-color: rgba(255, 107, 107, 0.15);
+  color: var(--danger);
+  white-space: nowrap;
+}
+
+.clients-status-select {
+  border-radius: 999px;
+  font-size: 0.82em;
+  font-weight: 600;
+  padding: 0.35em 0.9em;
+  border: 1px solid transparent;
+  box-shadow: none;
+}
+
+.clients-status-active {
+  background-color: rgba(62, 207, 142, 0.15);
+  color: #3ecf8e;
+}
+
+.clients-status-paused {
+  background-color: rgba(245, 166, 35, 0.15);
+  color: #f5a623;
+}
+
+.clients-status-closed {
+  background-color: var(--surface-alt);
+  color: var(--text-muted);
+  border-color: var(--border);
+}
+
+.clients-drive-link {
+  font-size: 0.9em;
+}
+
+.clients-badge {
+  display: inline-block;
+  padding: 0.2em 0.65em;
+  border-radius: 999px;
   font-size: 0.72em;
   font-weight: 600;
-  background-color: var(--danger);
+}
+
+.clients-badge-done {
+  background-color: rgba(62, 207, 142, 0.15);
+  color: #3ecf8e;
+}
+
+.clients-badge-missing {
+  background-color: rgba(245, 166, 35, 0.15);
+  color: #f5a623;
+}
+
+.clients-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4em;
+}
+
+.clients-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  box-shadow: none;
+  color: var(--text-muted);
+  font-size: 0.8em;
+  font-weight: 500;
+  padding: 0.4em 0.75em;
+}
+
+.clients-btn:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.clients-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.clients-btn-danger:hover:not(:disabled) {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.clients-btn-accent {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.clients-btn-accent:hover:not(:disabled) {
+  background-color: var(--accent);
   color: #ffffff;
-  white-space: nowrap;
 }
 
 .leads-row-actions {

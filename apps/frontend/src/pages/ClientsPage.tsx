@@ -28,6 +28,20 @@ const CLIENT_TYPE_LABELS: Record<string, string> = {
   one_off: "Alkalmi",
 };
 
+// Ugyanaz a hash-alapú palettaválasztás, mint az Avatar komponensnél —
+// itt cégnévre alkalmazva egy sima, kép nélküli monogram-jelvényhez, hogy a
+// táblázat sorai vizuálisan is megkülönböztethetők legyenek anélkül, hogy
+// bármi extra grafikát kellene tárolni/betölteni.
+const BADGE_PALETTE = ["#2f7fe0", "#5b8c3e", "#b8622f", "#8955c4", "#c23f6f", "#2c9c8f"];
+
+function companyColor(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return BADGE_PALETTE[Math.abs(hash) % BADGE_PALETTE.length];
+}
+
 export default function ClientsPage() {
   const { auth } = useAuth();
   const token = auth?.token ?? null;
@@ -138,7 +152,7 @@ export default function ClientsPage() {
 
   if (!loading && !hasAccess) {
     return (
-      <main className="leads-page">
+      <main className="clients-page">
         <h1>Ügyfelek</h1>
         <p className="chat-empty-hint">
           Nincs hozzáférésed az Ügyfelek modulhoz. Kérj hozzáférést egy adminisztrátortól.
@@ -152,111 +166,150 @@ export default function ClientsPage() {
 
   function renderTable(list: Client[]) {
     return (
-      <table className="leads-table">
-        <thead>
-          <tr>
-            <th>Cég</th>
-            <th>Típus</th>
-            <th>Állapot</th>
-            <th>Kapcsolattartó</th>
-            <th>Telefon</th>
-            <th>Email</th>
-            <th>Drive</th>
-            <th>Onboarding</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {list.map((client) => {
-            const onboarded = client.onboarding_completed_at != null;
-            const pending = client.deletion_requested_by != null;
-            const isRequester = pending && client.deletion_requested_by === auth?.user.id;
-            // Amíg törlési kérelem van folyamatban, csak admin szerkesztheti
-            // tovább az ügyfelet — mindenki másnak (a kérelmezőnek is)
-            // zárolva van, hogy ne dolgozzanak tovább valamin, ami törlésre
-            // vár.
-            const actionsLocked = pending && !isAdmin;
-            return (
-              <tr key={client.id} className={pending ? "clients-row-pending-deletion" : undefined}>
-                <td>
-                  {client.company_name}
-                  {pending && (
-                    <span className="clients-pending-badge" title={`Törlésre kérelmezve: ${client.deletion_requested_by_name}`}>
-                      Törlésre kérelmezve
-                    </span>
-                  )}
-                </td>
-                <td>{client.client_type ? CLIENT_TYPE_LABELS[client.client_type] : "—"}</td>
-                <td>
-                  <select
-                    value={client.status}
-                    onChange={(e) => handleStatusChange(client, e.currentTarget.value as ClientStatus)}
-                    disabled={actionsLocked}
-                  >
-                    {(Object.keys(STATUS_LABELS) as ClientStatus[]).map((status) => (
-                      <option key={status} value={status}>
-                        {STATUS_LABELS[status]}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-                <td>{client.contact_name}</td>
-                <td>{client.phone}</td>
-                <td>{client.email}</td>
-                <td>
-                  {client.drive_folder_id ? (
-                    <a
-                      href={`https://drive.google.com/drive/folders/${client.drive_folder_id}`}
-                      target="_blank"
-                      rel="noreferrer"
+      <div className="clients-table-wrap">
+        <table className="clients-table">
+          <thead>
+            <tr>
+              <th>Cég</th>
+              <th>Típus</th>
+              <th>Állapot</th>
+              <th>Kapcsolattartó</th>
+              <th>Telefon</th>
+              <th>Email</th>
+              <th>Drive</th>
+              <th>Onboarding</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {list.map((client) => {
+              const onboarded = client.onboarding_completed_at != null;
+              const pending = client.deletion_requested_by != null;
+              const isRequester = pending && client.deletion_requested_by === auth?.user.id;
+              // Amíg törlési kérelem van folyamatban, csak admin szerkesztheti
+              // tovább az ügyfelet — mindenki másnak (a kérelmezőnek is)
+              // zárolva van, hogy ne dolgozzanak tovább valamin, ami törlésre
+              // vár.
+              const actionsLocked = pending && !isAdmin;
+              return (
+                <tr key={client.id} className={pending ? "clients-row-pending" : undefined}>
+                  <td>
+                    <div className="clients-name-cell">
+                      <span className="clients-avatar" style={{ backgroundColor: companyColor(client.company_name) }}>
+                        {client.company_name.trim().charAt(0).toUpperCase() || "?"}
+                      </span>
+                      <span className="clients-name-text">
+                        {client.company_name}
+                        {pending && (
+                          <span
+                            className="clients-pending-badge"
+                            title={`Törlésre kérelmezve: ${client.deletion_requested_by_name}`}
+                          >
+                            Törlésre kérelmezve
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="clients-muted-cell">
+                    {client.client_type ? CLIENT_TYPE_LABELS[client.client_type] : "—"}
+                  </td>
+                  <td>
+                    <select
+                      className={`clients-status-select clients-status-${client.status}`}
+                      value={client.status}
+                      onChange={(e) => handleStatusChange(client, e.currentTarget.value as ClientStatus)}
+                      disabled={actionsLocked}
                     >
-                      Mappa megnyitása
-                    </a>
-                  ) : (
-                    "—"
-                  )}
-                </td>
-                <td>
-                  <span
-                    className={`sm-kanban-card-badge ${onboarded ? "sm-kanban-card-badge-sent" : "sm-kanban-card-badge-not_started"}`}
-                  >
-                    {onboarded ? "Kész" : "Hiányzik"}
-                  </span>
-                </td>
-                <td>
-                  <div className="leads-row-actions">
-                    <button type="button" onClick={() => setEditingClient(client)} disabled={actionsLocked}>
-                      Szerkesztés
-                    </button>
-                    <button type="button" onClick={() => setOnboardingClient(client)} disabled={actionsLocked}>
-                      {onboarded ? "Onboarding szerkesztése" : "Onboarding"}
-                    </button>
-                    {isAdmin && (
-                      <button type="button" onClick={() => setAiProfileClient(client)}>
-                        AI-profil
-                      </button>
-                    )}
-
-                    {pending ? (
-                      isAdmin || isRequester ? (
-                        <button type="button" onClick={() => handleCancelDeletionRequest(client)}>
-                          Törlés visszavonása
-                        </button>
-                      ) : null
-                    ) : isAdmin ? (
-                      <button type="button" onClick={() => handleDelete(client)}>
-                        Törlés
-                      </button>
+                      {(Object.keys(STATUS_LABELS) as ClientStatus[]).map((status) => (
+                        <option key={status} value={status}>
+                          {STATUS_LABELS[status]}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className="clients-muted-cell">{client.contact_name}</td>
+                  <td className="clients-muted-cell">{client.phone}</td>
+                  <td className="clients-muted-cell">{client.email}</td>
+                  <td>
+                    {client.drive_folder_id ? (
+                      <a
+                        className="clients-drive-link"
+                        href={`https://drive.google.com/drive/folders/${client.drive_folder_id}`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Mappa megnyitása
+                      </a>
                     ) : (
-                      <button type="button" onClick={() => handleRequestDelete(client)}>
-                        Törlés
-                      </button>
+                      <span className="clients-muted-cell">—</span>
                     )}
-                    {isAdmin && pending && (
-                      <button type="button" onClick={() => handleDelete(client)}>
-                        Törlés jóváhagyása
+                  </td>
+                  <td>
+                    <span className={`clients-badge ${onboarded ? "clients-badge-done" : "clients-badge-missing"}`}>
+                      {onboarded ? "Kész" : "Hiányzik"}
+                    </span>
+                  </td>
+                  <td>
+                    <div className="clients-row-actions">
+                      <button
+                        type="button"
+                        className="clients-btn"
+                        onClick={() => setEditingClient(client)}
+                        disabled={actionsLocked}
+                      >
+                        Szerkesztés
                       </button>
-                    )}
+                      <button
+                        type="button"
+                        className="clients-btn"
+                        onClick={() => setOnboardingClient(client)}
+                        disabled={actionsLocked}
+                      >
+                        {onboarded ? "Onboarding szerkesztése" : "Onboarding"}
+                      </button>
+                      {isAdmin && (
+                        <button type="button" className="clients-btn" onClick={() => setAiProfileClient(client)}>
+                          AI-profil
+                        </button>
+                      )}
+
+                      {pending ? (
+                        isAdmin || isRequester ? (
+                          <button
+                            type="button"
+                            className="clients-btn clients-btn-accent"
+                            onClick={() => handleCancelDeletionRequest(client)}
+                          >
+                            Törlés visszavonása
+                          </button>
+                        ) : null
+                      ) : isAdmin ? (
+                        <button
+                          type="button"
+                          className="clients-btn clients-btn-danger"
+                          onClick={() => handleDelete(client)}
+                        >
+                          Törlés
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="clients-btn clients-btn-danger"
+                          onClick={() => handleRequestDelete(client)}
+                        >
+                          Törlés
+                        </button>
+                      )}
+                      {isAdmin && pending && (
+                        <button
+                          type="button"
+                          className="clients-btn clients-btn-danger"
+                          onClick={() => handleDelete(client)}
+                        >
+                          Törlés jóváhagyása
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -264,13 +317,21 @@ export default function ClientsPage() {
             })}
           </tbody>
         </table>
-      );
+      </div>
+    );
   }
 
   return (
-    <main className="leads-page">
-      <div className="leads-header">
-        <h1>Ügyfelek</h1>
+    <main className="clients-page">
+      <div className="clients-header">
+        <div>
+          <h1>Ügyfelek</h1>
+          {!loading && clients.length > 0 && (
+            <p className="clients-header-count">
+              {clients.length} ügyfél összesen · {activeClients.length} aktív
+            </p>
+          )}
+        </div>
       </div>
 
       {error && <p className="login-error">{error}</p>}
@@ -279,14 +340,14 @@ export default function ClientsPage() {
 
       {!loading && clients.length > 0 && (
         <>
-          <h2 className="sm-section-title">Aktív ügyfelek ({activeClients.length})</h2>
+          <h2 className="clients-section-title">Aktív ügyfelek ({activeClients.length})</h2>
           {activeClients.length === 0 ? (
             <p className="chat-empty-hint">Nincs aktív ügyfél.</p>
           ) : (
             renderTable(activeClients)
           )}
 
-          <h2 className="sm-section-title">Passzív ügyfelek ({passiveClients.length})</h2>
+          <h2 className="clients-section-title">Passzív ügyfelek ({passiveClients.length})</h2>
           {passiveClients.length === 0 ? (
             <p className="chat-empty-hint">Nincs passzív ügyfél.</p>
           ) : (
