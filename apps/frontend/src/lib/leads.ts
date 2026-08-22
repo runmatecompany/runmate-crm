@@ -1,14 +1,33 @@
 import { authFetch } from "./api";
 
-export type LeadStatus = "to_call" | "call_back" | "interested" | "became_customer" | "not_interested";
+// A HR pipeline állapotai — a sorrend egyben a Kanban oszlopainak
+// sorrendje is (lásd pages/LeadsPage.tsx STATUS_ORDER). A "became_customer"
+// szándékosan nincs itt: az invoice_sent lépés után a rendszer automatikusan
+// ügyféllé alakítja a leadet, nincs többé kézzel választható "Ügyfél lett"
+// állapot (a backend a régi adatok miatt még ismeri, de a Kanban nem
+// ajánlja fel).
+export type LeadStatus =
+  | "to_call"
+  | "call_back"
+  | "interested"
+  | "audit"
+  | "meeting_scheduled"
+  | "contract_sent"
+  | "invoice_sent"
+  | "became_customer"
+  | "not_interested";
 
-export const LEAD_STATUS_OPTIONS: { value: LeadStatus; label: string }[] = [
-  { value: "to_call", label: "Hívandó" },
-  { value: "call_back", label: "Visszahívandó" },
-  { value: "interested", label: "Érdekli" },
-  { value: "became_customer", label: "Ügyfél lett" },
-  { value: "not_interested", label: "Nem érdekli" },
-];
+export const LEAD_STATUS_LABELS: Record<LeadStatus, string> = {
+  to_call: "Megkeresendő",
+  call_back: "Visszahívandó",
+  interested: "Érdekli",
+  audit: "Audit",
+  meeting_scheduled: "Tárgyalásra vár",
+  contract_sent: "Szerződés kiküldve",
+  invoice_sent: "Számlázva",
+  became_customer: "Ügyfél lett",
+  not_interested: "Nem érdekli",
+};
 
 export interface Lead {
   id: number;
@@ -25,6 +44,11 @@ export interface Lead {
   tiktok_url: string | null;
   youtube_url: string | null;
   status: LeadStatus;
+  meeting_date: string | null;
+  contract_drive_link: string | null;
+  contract_sent_at: string | null;
+  invoice_drive_link: string | null;
+  invoice_sent_at: string | null;
   created_by: number | null;
   created_by_name: string | null;
   created_at: string;
@@ -85,14 +109,34 @@ export async function updateLead(token: string, id: number, input: LeadFormInput
   return data.lead;
 }
 
-export async function updateLeadStatus(token: string, id: number, status: LeadStatus, note?: string): Promise<Lead> {
+export interface UpdateLeadStatusExtra {
+  note?: string;
+  meetingDate?: string;
+  contractDriveLink?: string;
+  invoiceDriveLink?: string;
+}
+
+export interface UpdateLeadStatusResult {
+  lead: Lead;
+  emailSent: boolean | null;
+}
+
+export async function updateLeadStatus(
+  token: string,
+  id: number,
+  status: LeadStatus,
+  extra?: UpdateLeadStatusExtra
+): Promise<UpdateLeadStatusResult> {
   const res = await authFetch(token, `/leads/${id}/status`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ status, note }),
+    body: JSON.stringify({ status, ...extra }),
   });
-  const data = await res.json();
-  return data.lead;
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error ?? "Nem sikerült frissíteni az állapotot");
+  }
+  return res.json();
 }
 
 export async function deleteLead(token: string, id: number): Promise<void> {

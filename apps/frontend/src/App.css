@@ -3667,11 +3667,13 @@ button:hover {
 
 .mt-card-actions {
   display: flex;
+  flex-wrap: wrap;
   border-top: 1px solid var(--border);
 }
 
 .mt-card-actions button {
-  flex: 1;
+  flex: 1 1 auto;
+  min-width: 5.5em;
   border: none;
   border-radius: 0;
   background: transparent;

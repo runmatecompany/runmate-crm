@@ -20,8 +20,18 @@ import {
 import { canAccessClientsModule } from "./clients.js";
 import { getClientById } from "../db/clients.js";
 import { provisionClientDriveFolders } from "../lib/googleDrive/onboarding.js";
+import { sendContractLinkEmail, sendInvoiceLinkEmail } from "../lib/leads/notify.js";
 
-const LEAD_STATUS_VALUES = ["to_call", "call_back", "interested", "became_customer", "not_interested"] as const;
+const LEAD_STATUS_VALUES = [
+  "to_call",
+  "call_back",
+  "interested",
+  "audit",
+  "meeting_scheduled",
+  "contract_sent",
+  "invoice_sent",
+  "not_interested",
+] as const;
 
 const leadDetailsSchema = {
   companyName: { type: "string", minLength: 1 },
@@ -56,6 +66,9 @@ const statusBodySchema = {
   properties: {
     status: { type: "string", enum: [...LEAD_STATUS_VALUES] },
     note: { type: "string" },
+    meetingDate: { type: "string" },
+    contractDriveLink: { type: "string" },
+    invoiceDriveLink: { type: "string" },
   },
 } as const;
 
@@ -190,22 +203,54 @@ export default async function leadsRoutes(fastify: FastifyInstance) {
     }
   );
 
-  fastify.patch<{ Params: { id: string }; Body: { status: LeadStatus; note?: string } }>(
-    "/leads/:id/status",
-    { onRequest: [fastify.authenticate], schema: { body: statusBodySchema } },
-    async (request, reply) => {
-      if (!(await canAccessLeadsModule(request.user.sub, request.user.role))) {
-        return reply.code(403).send({ error: "Nincs hozzáférésed a Leadek modulhoz" });
-      }
-      if (request.body.status === "interested" && !request.body.note?.trim()) {
-        return reply.code(400).send({ error: "Az 'Érdekli' állapothoz kötelező jegyzetet megadni" });
-      }
-      const existing = await getLeadById(Number(request.params.id));
-      if (!existing) return reply.code(404).send({ error: "Lead not found" });
-      const lead = await updateLeadStatus(existing.id, request.body.status, request.body.note?.trim());
-      return { lead };
+  fastify.patch<{
+    Params: { id: string };
+    Body: {
+      status: LeadStatus;
+      note?: string;
+      meetingDate?: string;
+      contractDriveLink?: string;
+      invoiceDriveLink?: string;
+    };
+  }>("/leads/:id/status", { onRequest: [fastify.authenticate], schema: { body: statusBodySchema } }, async (
+    request,
+    reply
+  ) => {
+    if (!(await canAccessLeadsModule(request.user.sub, request.user.role))) {
+      return reply.code(403).send({ error: "Nincs hozzáférésed a Leadek modulhoz" });
     }
-  );
+    if (request.body.status === "interested" && !request.body.note?.trim()) {
+      return reply.code(400).send({ error: "Az 'Érdekli' állapothoz kötelező jegyzetet megadni" });
+    }
+    const existing = await getLeadById(Number(request.params.id));
+    if (!existing) return reply.code(404).send({ error: "Lead not found" });
+
+    const lead = await updateLeadStatus(existing.id, request.body.status, {
+      note: request.body.note?.trim(),
+      meetingDate: request.body.meetingDate,
+      contractDriveLink: request.body.contractDriveLink?.trim(),
+      invoiceDriveLink: request.body.invoiceDriveLink?.trim(),
+    });
+    if (!lead) return reply.code(404).send({ error: "Lead not found" });
+
+    // Szerződés/számla-link mentésekor best-effort emailt is küldünk a
+    // leadnek a linkkel — ha nincs email címe vagy nincs beállítva küldő
+    // fiók, a mentés attól még sikeres marad, csak jelezzük vissza, hogy
+    // az email nem ment el (a UI ez alapján mutat egy figyelmeztetést).
+    let emailSent: boolean | null = null;
+    try {
+      if (request.body.contractDriveLink?.trim()) {
+        emailSent = await sendContractLinkEmail(lead, request.body.contractDriveLink.trim());
+      } else if (request.body.invoiceDriveLink?.trim()) {
+        emailSent = await sendInvoiceLinkEmail(lead, request.body.invoiceDriveLink.trim());
+      }
+    } catch (err) {
+      fastify.log.error(err, "Failed to send contract/invoice link email");
+      emailSent = false;
+    }
+
+    return { lead, emailSent };
+  });
 
   // Egy megszerzett lead ügyféllé alakítása: became_customer-re állítja a
   // leadet, és létrehozza a kapcsolódó Ügyfelek-sort — mindkét modulhoz kell

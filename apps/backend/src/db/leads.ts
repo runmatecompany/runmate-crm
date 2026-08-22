@@ -1,6 +1,21 @@
 import { pool } from "./pool.js";
 
-export type LeadStatus = "to_call" | "call_back" | "interested" | "became_customer" | "not_interested";
+// A HR pipeline állapotai: to_call → call_back/interested (bármikor
+// visszatérhet ide) → audit → meeting_scheduled → contract_sent →
+// invoice_sent (ez után automatikusan ügyféllé alakul, lásd
+// routes/leads.ts), vagy bármikor not_interested. A became_customer a DB
+// CHECK constraint-ben megmaradt visszafelé-kompatibilitásból, de az új
+// folyamatban már nem elérhető állapot (a Kanban nem ajánlja fel).
+export type LeadStatus =
+  | "to_call"
+  | "call_back"
+  | "interested"
+  | "audit"
+  | "meeting_scheduled"
+  | "contract_sent"
+  | "invoice_sent"
+  | "became_customer"
+  | "not_interested";
 
 export interface LeadRow {
   id: number;
@@ -17,6 +32,11 @@ export interface LeadRow {
   tiktok_url: string | null;
   youtube_url: string | null;
   status: LeadStatus;
+  meeting_date: string | null;
+  contract_drive_link: string | null;
+  contract_sent_at: string | null;
+  invoice_drive_link: string | null;
+  invoice_sent_at: string | null;
   created_by: number | null;
   created_by_name: string | null;
   created_at: string;
@@ -27,7 +47,9 @@ const LEAD_SELECT = `
   SELECT
     l.id, l.company_name, l.contact_name, l.phone, l.email, l.address, l.city, l.notes, l.website_url,
     l.facebook_url, l.instagram_url, l.tiktok_url, l.youtube_url,
-    l.status, l.created_by, cu.name AS created_by_name,
+    l.status, l.meeting_date, l.contract_drive_link, l.contract_sent_at,
+    l.invoice_drive_link, l.invoice_sent_at,
+    l.created_by, cu.name AS created_by_name,
     l.created_at, l.updated_at
   FROM leads l
   LEFT JOIN users cu ON cu.id = l.created_by
@@ -127,17 +149,43 @@ export async function updateLeadDetails(id: number, input: UpdateLeadDetailsInpu
   return getLeadById(id);
 }
 
+export interface UpdateLeadStatusExtra {
+  note?: string;
+  meetingDate?: string;
+  contractDriveLink?: string;
+  invoiceDriveLink?: string;
+}
+
 // "interested"-re váltáskor kötelező egy jegyzet (lásd routes/leads.ts
 // validáció) — ha meg van adva, a meglévő jegyzetek végéhez fűzzük, nem
-// írjuk felül őket.
-export async function updateLeadStatus(id: number, status: LeadStatus, note?: string): Promise<LeadRow | undefined> {
+// írjuk felül őket. A pipeline további lépéseinél (meeting_scheduled,
+// contract_sent, invoice_sent) az adott lépéshez tartozó extra mező is
+// egyszerre íródik, hogy egy állapotváltás egy tranzakció legyen.
+export async function updateLeadStatus(
+  id: number,
+  status: LeadStatus,
+  extra?: UpdateLeadStatusExtra
+): Promise<LeadRow | undefined> {
+  const note = extra?.note;
   const { rowCount } = await pool.query(
     `UPDATE leads SET
        status = $2,
        notes = CASE WHEN $3::text IS NOT NULL THEN COALESCE(notes || E'\n', '') || $3 ELSE notes END,
+       meeting_date = COALESCE($4::date, meeting_date),
+       contract_drive_link = COALESCE($5::text, contract_drive_link),
+       contract_sent_at = CASE WHEN $5::text IS NOT NULL THEN now() ELSE contract_sent_at END,
+       invoice_drive_link = COALESCE($6::text, invoice_drive_link),
+       invoice_sent_at = CASE WHEN $6::text IS NOT NULL THEN now() ELSE invoice_sent_at END,
        updated_at = now()
      WHERE id = $1`,
-    [id, status, note ?? null]
+    [
+      id,
+      status,
+      note ?? null,
+      extra?.meetingDate ?? null,
+      extra?.contractDriveLink ?? null,
+      extra?.invoiceDriveLink ?? null,
+    ]
   );
   if (!rowCount) return undefined;
   return getLeadById(id);

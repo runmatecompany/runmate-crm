@@ -1,12 +1,36 @@
 import { pool } from "./pool.js";
 import { getClientById } from "./clients.js";
 import { ensureWebProjectForService } from "./webProjects.js";
+import { createManualTask } from "./tasks.js";
 
 const PLATFORM_NAMES = ["Facebook", "Instagram", "TikTok", "YouTube"] as const;
 
 function joinPlatforms(list?: string[]): string | null {
   if (!list || list.length === 0) return null;
   return list.join("\n");
+}
+
+// A Web szolgáltatásokhoz hasonlóan a tartalom-szolgáltatásoknál (Short
+// videók, Képes posztok, Clippelés) is legyen azonnal egy látható,
+// konkrét teendő az onboarding lezárása után, ne csak egy szűrő-jelző
+// maradjon a service_* mezőkben. Nincs saját "content_items" auto-
+// létrehozás (azok tényleges tartalom-tervezéskor jönnek létre egyenként),
+// ehelyett egy kickoff-feladat a Feladatok modulban. Idempotens: ha már
+// van ilyen című feladat ennél az ügyfélnél, nem hoz létre másikat (az
+// onboarding többször is menthető szerkesztés közben).
+async function ensureKickoffTask(
+  clientId: number,
+  companyName: string,
+  serviceLabel: string,
+  createdBy: number
+): Promise<void> {
+  const title = `${serviceLabel} indítása: ${companyName}`;
+  const { rowCount } = await pool.query(
+    `SELECT 1 FROM manual_tasks WHERE client_id = $1 AND title = $2`,
+    [clientId, title]
+  );
+  if ((rowCount ?? 0) > 0) return;
+  await createManualTask({ title, clientId, createdBy });
 }
 
 // A platform_facebook/instagram/tiktok/youtube oszlopokat a
@@ -196,7 +220,15 @@ export async function upsertClientOnboarding(
 
   // A Web modulban nincs kézi "+ Új projekt" — a projektek automatikusan
   // jönnek létre, amikor itt bejelölik a Weboldal/Landing szolgáltatást.
-  if (input.serviceWebsiteBuild || input.serviceLandingPage) {
+  // A tartalom-szolgáltatásoknál (nincs önálló "projekt" fogalmuk, mint a
+  // Webnek) egy kickoff-feladat jön létre helyette a Feladatok modulban.
+  if (
+    input.serviceWebsiteBuild ||
+    input.serviceLandingPage ||
+    input.serviceShortVideos ||
+    input.serviceImagePosts ||
+    input.serviceClipping
+  ) {
     const client = await getClientById(clientId);
     if (client) {
       if (input.serviceWebsiteBuild) {
@@ -204,6 +236,15 @@ export async function upsertClientOnboarding(
       }
       if (input.serviceLandingPage) {
         await ensureWebProjectForService(clientId, "landing_page", client.company_name, createdBy);
+      }
+      if (input.serviceShortVideos) {
+        await ensureKickoffTask(clientId, client.company_name, "Short videók", createdBy);
+      }
+      if (input.serviceImagePosts) {
+        await ensureKickoffTask(clientId, client.company_name, "Képes posztok", createdBy);
+      }
+      if (input.serviceClipping) {
+        await ensureKickoffTask(clientId, client.company_name, "Clippelés", createdBy);
       }
     }
   }
