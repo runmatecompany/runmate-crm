@@ -88,76 +88,13 @@ export default function UserAccessModal({ user, onClose }: UserAccessModalProps)
         <h2>{user.name} jogosultságai</h2>
         <p className="chat-modal-hint">
           Az első pipa dönti el, hogy az adott modul egyáltalán megjelenjen-e {user.name} számára. Ha a modulnak
-          több eleme van, azok almenüpontként, alább választhatók ki.
+          több eleme van, azok almenüpontként, alább választhatók ki. A sorrend a bal oldali menüsávot követi.
         </p>
 
         {loading && <p className="chat-empty-hint">Betöltés...</p>}
 
         {!loading && (
           <div className="chat-member-picker">
-            <label className="chat-colleague-pick email-account-access-option user-access-module">
-              <input
-                type="checkbox"
-                checked={leadsAccess}
-                onChange={(e) => setLeadsAccessState(e.currentTarget.checked)}
-              />
-              {menuItemLabel("leads", "Leadek")} modul
-            </label>
-
-            <label className="chat-colleague-pick email-account-access-option user-access-module">
-              <input
-                type="checkbox"
-                checked={clientsAccess}
-                onChange={(e) => setClientsAccessState(e.currentTarget.checked)}
-              />
-              {menuItemLabel("clients", "Ügyfelek")} modul
-            </label>
-
-            <label className="chat-colleague-pick email-account-access-option user-access-module">
-              <input
-                type="checkbox"
-                checked={socialMediaAccess}
-                onChange={(e) => setSocialMediaAccessState(e.currentTarget.checked)}
-              />
-              {menuItemLabel("social", "Social Media")} modul
-            </label>
-
-            <label className="chat-colleague-pick email-account-access-option user-access-module">
-              <input
-                type="checkbox"
-                checked={tasksAccess}
-                onChange={(e) => setTasksAccessState(e.currentTarget.checked)}
-              />
-              {menuItemLabel("tasks", "Feladatok")} modul
-            </label>
-
-            <label className="chat-colleague-pick email-account-access-option user-access-module">
-              <input
-                type="checkbox"
-                checked={leadGenAccess}
-                onChange={(e) => setLeadGenAccessState(e.currentTarget.checked)}
-              />
-              {menuItemLabel("leadgen", "Lead Gen")} modul
-            </label>
-
-            <label className="chat-colleague-pick email-account-access-option user-access-module">
-              <input
-                type="checkbox"
-                checked={webAccess}
-                onChange={(e) => setWebAccessState(e.currentTarget.checked)}
-              />
-              {menuItemLabel("web", "Web")} modul
-            </label>
-
-            <label className="chat-colleague-pick email-account-access-option user-access-module">
-              <input
-                type="checkbox"
-                checked={supportAccess}
-                onChange={(e) => setSupportAccessState(e.currentTarget.checked)}
-              />
-              {menuItemLabel("support", "Support")} modul
-            </label>
-
             <label className="chat-colleague-pick email-account-access-option user-access-module">
               <input
                 type="checkbox"
@@ -187,6 +124,77 @@ export default function UserAccessModal({ user, onClose }: UserAccessModalProps)
                 </label>
               ))}
             </div>
+
+            {/* A Sales csoport (Leadek + Lead Gen) a Sidebar-ban is közös
+                almenü alá tartozik (lib/menuItems.ts "sales" szülő) — itt is
+                együtt jelenik meg, hogy a jogosultság-lista szerkezete
+                kövesse a tényleges navigációt. A két jogosultság továbbra is
+                külön kapcsolható, mert valaki dolgozhat csak Lead Gen-en
+                anélkül, hogy a beérkező Leadeket is látná, vagy fordítva. */}
+            <p className="user-access-group-title">{menuItemLabel("sales", "Sales")}</p>
+            <div className="user-access-submenu">
+              <label className="chat-colleague-pick email-account-access-option">
+                <input
+                  type="checkbox"
+                  checked={leadsAccess}
+                  onChange={(e) => setLeadsAccessState(e.currentTarget.checked)}
+                />
+                {menuItemLabel("leads", "Leadek")}
+              </label>
+              <label className="chat-colleague-pick email-account-access-option">
+                <input
+                  type="checkbox"
+                  checked={leadGenAccess}
+                  onChange={(e) => setLeadGenAccessState(e.currentTarget.checked)}
+                />
+                {menuItemLabel("leadgen", "Lead Gen")}
+              </label>
+            </div>
+
+            <label className="chat-colleague-pick email-account-access-option user-access-module">
+              <input
+                type="checkbox"
+                checked={clientsAccess}
+                onChange={(e) => setClientsAccessState(e.currentTarget.checked)}
+              />
+              {menuItemLabel("clients", "Ügyfelek")} modul
+            </label>
+
+            <label className="chat-colleague-pick email-account-access-option user-access-module">
+              <input
+                type="checkbox"
+                checked={tasksAccess}
+                onChange={(e) => setTasksAccessState(e.currentTarget.checked)}
+              />
+              {menuItemLabel("tasks", "Feladatok")} modul
+            </label>
+
+            <label className="chat-colleague-pick email-account-access-option user-access-module">
+              <input
+                type="checkbox"
+                checked={webAccess}
+                onChange={(e) => setWebAccessState(e.currentTarget.checked)}
+              />
+              {menuItemLabel("web", "Web")} modul
+            </label>
+
+            <label className="chat-colleague-pick email-account-access-option user-access-module">
+              <input
+                type="checkbox"
+                checked={socialMediaAccess}
+                onChange={(e) => setSocialMediaAccessState(e.currentTarget.checked)}
+              />
+              {menuItemLabel("social", "Social Media")} modul
+            </label>
+
+            <label className="chat-colleague-pick email-account-access-option user-access-module">
+              <input
+                type="checkbox"
+                checked={supportAccess}
+                onChange={(e) => setSupportAccessState(e.currentTarget.checked)}
+              />
+              {menuItemLabel("support", "Support")} modul
+            </label>
           </div>
         )}
 

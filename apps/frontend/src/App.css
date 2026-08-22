@@ -2764,6 +2764,12 @@ button:hover {
   font-weight: 600;
 }
 
+.user-access-group-title {
+  margin: 0.4em 0 0;
+  font-weight: 600;
+  font-size: 0.95em;
+}
+
 .user-access-submenu {
   display: flex;
   flex-direction: column;
