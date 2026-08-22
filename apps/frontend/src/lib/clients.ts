@@ -11,6 +11,10 @@ export interface Client {
   email: string | null;
   address: string | null;
   notes: string | null;
+  billing_name: string | null;
+  tax_number: string | null;
+  billing_address: string | null;
+  bank_account: string | null;
   lead_id: number | null;
   next_shoot_date: string | null;
   drive_folder_id: string | null;
@@ -32,6 +36,21 @@ export interface Client {
   updated_at: string;
 }
 
+export interface ClientContact {
+  id: number;
+  client_id: number;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  created_at: string;
+}
+
+export interface ClientContactInput {
+  name: string;
+  email?: string;
+  phone?: string;
+}
+
 export interface ClientFormInput {
   companyName: string;
   contactName?: string;
@@ -40,6 +59,11 @@ export interface ClientFormInput {
   address?: string;
   notes?: string;
   clientType?: ClientType;
+  billingName?: string;
+  taxNumber?: string;
+  billingAddress?: string;
+  bankAccount?: string;
+  contacts?: ClientContactInput[];
 }
 
 export interface ClientsListResult {
@@ -70,6 +94,12 @@ export async function updateClient(token: string, id: number, input: ClientFormI
   });
   const data = await res.json();
   return data.client;
+}
+
+export async function listClientContacts(token: string, id: number): Promise<ClientContact[]> {
+  const res = await authFetch(token, `/clients/${id}/contacts`);
+  const data = await res.json();
+  return data.contacts;
 }
 
 export async function deleteClient(token: string, id: number): Promise<void> {

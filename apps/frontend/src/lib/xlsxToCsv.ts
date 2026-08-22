@@ -5,12 +5,11 @@ function csvEscape(value: string): string {
   return value;
 }
 
-// Közös Excel→CSV-szöveg átalakító — a Lead Gen import (CsvImportModal) és
-// a Lead AI-kitöltés (LeadFormModal) is ezt használja. Az `xlsx` (SheetJS)
-// csomag npm-re publikált verziója helyett szándékosan exceljs-t
-// használunk: az xlsx-nek ismert, magas súlyosságú biztonsági rése van
-// (prototype pollution, ReDoS), ez a függvény pedig felhasználó által
-// feltöltött, nem megbízható fájlokat dolgoz fel.
+// Excel→CSV-szöveg átalakító a Lead AI-kitöltéshez (LeadFormModal). Az
+// `xlsx` (SheetJS) csomag npm-re publikált verziója helyett szándékosan
+// exceljs-t használunk: az xlsx-nek ismert, magas súlyosságú biztonsági
+// rése van (prototype pollution, ReDoS), ez a függvény pedig felhasználó
+// által feltöltött, nem megbízható fájlokat dolgoz fel.
 export async function xlsxFileToCsvText(file: File): Promise<string> {
   const buffer = await file.arrayBuffer();
   const workbook = new ExcelJS.Workbook();

@@ -6,7 +6,6 @@ import { MENU_ITEMS } from "../lib/menuItems";
 import ChatPage from "./ChatPage";
 import MessagesPage from "./MessagesPage";
 import LeadsPage from "./LeadsPage";
-import LeadGenPage from "./LeadGenPage";
 import ClientsPage from "./ClientsPage";
 import TasksPage from "./TasksPage";
 import WebPage, { type WebTab } from "./WebPage";
@@ -62,8 +61,6 @@ export default function DashboardPage() {
         <MessagesPage />
       ) : activeId === "leads" ? (
         <LeadsPage />
-      ) : activeId === "leadgen" ? (
-        <LeadGenPage />
       ) : activeId === "clients" ? (
         <ClientsPage />
       ) : activeId === "tasks" ? (

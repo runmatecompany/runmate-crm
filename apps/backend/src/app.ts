@@ -23,7 +23,6 @@ import adminGoogleCalendarRoutes from "./routes/admin/googleCalendar.js";
 import calendarFileRoutes from "./routes/calendarFile.js";
 import googleDriveRoutes from "./routes/googleDrive.js";
 import adminUserAccessRoutes from "./routes/admin/userAccess.js";
-import leadGenRoutes from "./routes/leadgen.js";
 import webRoutes from "./routes/web.js";
 import supportRoutes from "./routes/support.js";
 
@@ -66,7 +65,6 @@ export function buildApp() {
   app.register(calendarFileRoutes);
   app.register(googleDriveRoutes);
   app.register(adminUserAccessRoutes);
-  app.register(leadGenRoutes);
   app.register(webRoutes);
   app.register(supportRoutes);
 

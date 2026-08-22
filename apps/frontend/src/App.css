@@ -1194,6 +1194,70 @@ button:hover {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
 }
 
+.client-form-modal {
+  width: min(560px, calc(100vw - 3em));
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+.client-form-section-title {
+  margin: 0.6em 0 0;
+  font-size: 0.9em;
+  font-weight: 600;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border);
+  padding-top: 0.8em;
+}
+
+.client-contacts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4em;
+}
+
+.client-contact-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr auto;
+  gap: 0.4em;
+  align-items: center;
+}
+
+.client-contact-remove {
+  background: transparent;
+  border: 1px solid var(--border);
+  box-shadow: none;
+  color: var(--text-muted);
+  padding: 0.4em 0.7em;
+}
+
+.client-contact-remove:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.client-contact-add {
+  align-self: flex-start;
+  background: transparent;
+  border: 1px solid var(--border);
+  box-shadow: none;
+  color: var(--accent);
+  font-size: 0.85em;
+  padding: 0.4em 0.8em;
+}
+
+.client-contact-add:hover {
+  border-color: var(--accent);
+}
+
+.wp-created-by {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  font-size: 0.85em;
+  color: var(--text-muted);
+  margin: -0.2em 0 0.2em;
+}
+
 .web-project-modal {
   width: min(680px, calc(100vw - 3em));
   max-height: 85vh;
@@ -4324,6 +4388,22 @@ button:hover {
 .support-ticket-card-date {
   font-size: 0.78em;
   color: var(--text-muted);
+}
+
+.support-ticket-dismiss {
+  flex-shrink: 0;
+  align-self: flex-start;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  color: var(--text-muted);
+  font-size: 1.2em;
+  line-height: 1;
+  padding: 0.1em 0.3em;
+}
+
+.support-ticket-dismiss:hover {
+  color: var(--danger);
 }
 
 .support-ticket-card-preview {

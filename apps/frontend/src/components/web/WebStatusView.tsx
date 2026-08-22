@@ -37,13 +37,13 @@ export default function WebStatusView({ clients, projects, onOpen }: WebStatusVi
           <div className="mt-stat-value">{stats.activeClients}</div>
           <div className="mt-stat-label">Web-ügyfél</div>
         </div>
-        <div className="mt-stat mt-stat--success">
-          <div className="mt-stat-value">{stats.live}</div>
-          <div className="mt-stat-label">Élesítve</div>
-        </div>
         <div className="mt-stat mt-stat--warning">
           <div className="mt-stat-value">{stats.inProgress}</div>
           <div className="mt-stat-label">Folyamatban</div>
+        </div>
+        <div className="mt-stat mt-stat--success">
+          <div className="mt-stat-value">{stats.live}</div>
+          <div className="mt-stat-label">Élesítve</div>
         </div>
       </div>
 

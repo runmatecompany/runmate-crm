@@ -22,7 +22,6 @@ interface SidebarProps {
 // kezelni.
 const MODULE_ACCESS_KEY: Partial<Record<string, keyof MyAccess>> = {
   leads: "leadsAccess",
-  leadgen: "leadGenAccess",
   clients: "clientsAccess",
   tasks: "tasksAccess",
   web: "webAccess",

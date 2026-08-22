@@ -398,6 +398,7 @@ export default function TasksPage() {
                       </div>
                     )
                   ) : (
+                    client.service_short_videos &&
                     videoTarget != null && (
                       <div className="mt-progress-row">
                         <div className="mt-progress-label">
@@ -424,7 +425,7 @@ export default function TasksPage() {
                     </button>
                   )}
 
-                  {postTarget != null && (
+                  {client.service_image_posts && postTarget != null && (
                     <div className="mt-progress-row">
                       <div className="mt-progress-label">
                         <span>Képes poszt</span>

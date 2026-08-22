@@ -19,7 +19,6 @@ export default function UserAccessModal({ user, onClose }: UserAccessModalProps)
   const [clientsAccess, setClientsAccessState] = useState(false);
   const [socialMediaAccess, setSocialMediaAccessState] = useState(false);
   const [tasksAccess, setTasksAccessState] = useState(false);
-  const [leadGenAccess, setLeadGenAccessState] = useState(false);
   const [webAccess, setWebAccessState] = useState(false);
   const [supportAccess, setSupportAccessState] = useState(false);
   const [emailModuleAccess, setEmailModuleAccessState] = useState(false);
@@ -37,7 +36,6 @@ export default function UserAccessModal({ user, onClose }: UserAccessModalProps)
         setClientsAccessState(access.clientsAccess);
         setSocialMediaAccessState(access.socialMediaAccess);
         setTasksAccessState(access.tasksAccess);
-        setLeadGenAccessState(access.leadGenAccess);
         setWebAccessState(access.webAccess);
         setSupportAccessState(access.supportAccess);
         setEmailModuleAccessState(access.emailModuleAccess);
@@ -69,7 +67,6 @@ export default function UserAccessModal({ user, onClose }: UserAccessModalProps)
         clientsAccess,
         socialMediaAccess,
         tasksAccess,
-        leadGenAccess,
         webAccess,
         supportAccess,
         emailModuleAccess,
@@ -125,31 +122,14 @@ export default function UserAccessModal({ user, onClose }: UserAccessModalProps)
               ))}
             </div>
 
-            {/* A Sales csoport (Leadek + Lead Gen) a Sidebar-ban is közös
-                almenü alá tartozik (lib/menuItems.ts "sales" szülő) — itt is
-                együtt jelenik meg, hogy a jogosultság-lista szerkezete
-                kövesse a tényleges navigációt. A két jogosultság továbbra is
-                külön kapcsolható, mert valaki dolgozhat csak Lead Gen-en
-                anélkül, hogy a beérkező Leadeket is látná, vagy fordítva. */}
-            <p className="user-access-group-title">{menuItemLabel("sales", "Sales")}</p>
-            <div className="user-access-submenu">
-              <label className="chat-colleague-pick email-account-access-option">
-                <input
-                  type="checkbox"
-                  checked={leadsAccess}
-                  onChange={(e) => setLeadsAccessState(e.currentTarget.checked)}
-                />
-                {menuItemLabel("leads", "Leadek")}
-              </label>
-              <label className="chat-colleague-pick email-account-access-option">
-                <input
-                  type="checkbox"
-                  checked={leadGenAccess}
-                  onChange={(e) => setLeadGenAccessState(e.currentTarget.checked)}
-                />
-                {menuItemLabel("leadgen", "Lead Gen")}
-              </label>
-            </div>
+            <label className="chat-colleague-pick email-account-access-option user-access-module">
+              <input
+                type="checkbox"
+                checked={leadsAccess}
+                onChange={(e) => setLeadsAccessState(e.currentTarget.checked)}
+              />
+              {menuItemLabel("leads", "Leadek")} modul
+            </label>
 
             <label className="chat-colleague-pick email-account-access-option user-access-module">
               <input

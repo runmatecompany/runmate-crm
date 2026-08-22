@@ -208,14 +208,9 @@ export default function WebPage({ tab }: WebPageProps) {
                               )}
                               <span>{project.assigned_to_name ?? "Nincs kiosztva"}</span>
                             </div>
-                            <div className="mt-card-meta">
-                              Létrehozta: {project.created_by_name}
-                              {project.last_actor_name &&
-                              project.last_actor_name !== project.created_by_name &&
-                              project.last_actor_name !== project.assigned_to_name
-                                ? ` · utoljára: ${project.last_actor_name}`
-                                : ""}
-                            </div>
+                            {project.last_actor_name && project.last_actor_name !== project.assigned_to_name && (
+                              <div className="mt-card-meta">utoljára: {project.last_actor_name}</div>
+                            )}
                           </button>
                           <div className="mt-card-actions">
                             {status !== STATUS_ORDER[0] && (

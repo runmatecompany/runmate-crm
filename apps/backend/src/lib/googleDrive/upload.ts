@@ -13,10 +13,15 @@ import {
   recordVideoSubfolder,
   type VideoSubfolderKind,
 } from "../../db/googleDrive.js";
-import { findOrCreateFolder, startResumableUpload } from "./api.js";
+import { findOrCreateFolder, folderExists, startResumableUpload } from "./api.js";
 
 // A hónap-mappa ("{ügyfélmappa}/ÉÉÉÉ-HH") lusta létrehozással jön létre, és a
-// content_upload_folders táblában gyorsítótárazva marad.
+// content_upload_folders táblában gyorsítótárazva marad. A gyorsítótárazott
+// azonosítót mindig ellenőrizzük, mielőtt megbíznánk benne — ha valaki
+// kézzel törölte a mappát a Drive-on, a rá hivatkozó további almappa-
+// létrehozás csendben, hiba nélkül a gyökérszinten jönne létre (lásd
+// api.ts folderExists), ezért itt is, nem csak az ügyfél-gyökérmappánál
+// (onboarding.ts getReadyClient) kell a pótlás.
 export async function ensureMonthFolder(
   client: OAuth2Client,
   clientId: number,
@@ -24,7 +29,7 @@ export async function ensureMonthFolder(
   yearMonth: string
 ): Promise<string> {
   const cached = await getCachedMonthFolder(clientId, yearMonth);
-  if (cached) return cached;
+  if (cached && (await folderExists(client, cached))) return cached;
   const folder = await findOrCreateFolder(client, clientFolderId, yearMonth);
   await recordMonthFolder(clientId, yearMonth, folder.id);
   return folder.id;
@@ -41,7 +46,7 @@ export async function ensureVideoSubfolder(
   kind: VideoSubfolderKind
 ): Promise<string> {
   const cached = await getCachedVideoSubfolder(clientId, yearMonth, kind);
-  if (cached) return cached;
+  if (cached && (await folderExists(client, cached))) return cached;
 
   const monthFolderId = await ensureMonthFolder(client, clientId, clientFolderId, yearMonth);
   const videosFolder = await findOrCreateFolder(client, monthFolderId, "Videók");

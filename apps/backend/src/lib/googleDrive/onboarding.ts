@@ -77,13 +77,15 @@ export async function ensureContentItemVideoSubfolder(
   await ensureVideoSubfolder(ready.oauth, ready.client.id, ready.client.drive_folder_id!, yearMonth, kind);
 }
 
-// Amikor egy ügyfélnél bejelölik a Weboldal/Landing szolgáltatást (lásd
-// db/clientOnboarding.ts), a hozzá automatikusan létrejövő web_projects sor
-// mellé egy "Web" almappa is jöjjön létre az ügyfél Drive-mappájában, azon
-// belül pedig magának a projektnek is egy almappája — ide töltődnek majd fel
-// a kész oldal fájljai, hogy bármelyik kolléga elérje, ne csak aki a saját
-// gépén elkészítette. Szándékosan best-effort, mint a többi Drive-hívás; a
-// böngésző-végpont (routes/web.ts) is meghívja lustán, ha még hiányozna.
+// Ugyanaz a mappaszerkezet, mint a Clippelésnél: Ügyfél → folyó hónap →
+// szolgáltatás (itt "Web") → projekt. Mindig a JELENLEGI hónap mappáját
+// oldja fel/hozza létre — hónapváltáskor magától az új hónap mappájában
+// folytatódik a feltöltés, a korábbi hónapok anyaga a Drive-on változatlanul
+// megmarad, csak nem ez a böngésző/feltöltő célja. A web_projects.drive_folder_id
+// mindig "a jelenlegi hónap mappájára" mutat — minden híváskor frissül, nem
+// egyszeri, örökre rögzített érték. Szándékosan best-effort, mint a többi
+// Drive-hívás; a böngésző-végpont (routes/web.ts) is meghívja minden
+// kéréskor, hogy hónapváltáskor magától átálljon.
 export async function ensureWebProjectDriveFolder(
   clientId: number,
   projectId: number,
@@ -91,7 +93,9 @@ export async function ensureWebProjectDriveFolder(
 ): Promise<string | null> {
   const ready = await getReadyClient(clientId);
   if (!ready) return null;
-  const webFolder = await findOrCreateFolder(ready.oauth, ready.client.drive_folder_id!, "Web");
+  const yearMonth = new Date().toISOString().slice(0, 7);
+  const monthFolderId = await ensureMonthFolder(ready.oauth, clientId, ready.client.drive_folder_id!, yearMonth);
+  const webFolder = await findOrCreateFolder(ready.oauth, monthFolderId, "Web");
   const projectFolder = await findOrCreateFolder(ready.oauth, webFolder.id, projectTitle);
   await setWebProjectDriveFolder(projectId, projectFolder.id);
   return projectFolder.id;

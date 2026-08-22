@@ -8,7 +8,6 @@ import { hasLeadsAccess } from "../db/leads.js";
 import { hasClientsAccess } from "../db/clients.js";
 import { hasSocialMediaAccess } from "../db/contentItems.js";
 import { hasTasksAccess } from "../db/tasks.js";
-import { hasLeadGenAccess } from "../db/leadgenAccess.js";
 import { hasWebAccess } from "../db/webProjects.js";
 import { hasSupportAccess } from "../db/supportTickets.js";
 import { hasEmailModuleAccess } from "../db/emailAccounts.js";
@@ -61,7 +60,6 @@ export default async function meRoutes(fastify: FastifyInstance) {
         clientsAccess: true,
         socialMediaAccess: true,
         tasksAccess: true,
-        leadGenAccess: true,
         webAccess: true,
         supportAccess: true,
         emailModuleAccess: true,
@@ -72,7 +70,6 @@ export default async function meRoutes(fastify: FastifyInstance) {
       clientsAccess,
       socialMediaAccess,
       tasksAccess,
-      leadGenAccess,
       webAccess,
       supportAccess,
       emailModuleAccess,
@@ -81,7 +78,6 @@ export default async function meRoutes(fastify: FastifyInstance) {
       hasClientsAccess(userId),
       hasSocialMediaAccess(userId),
       hasTasksAccess(userId),
-      hasLeadGenAccess(userId),
       hasWebAccess(userId),
       hasSupportAccess(userId),
       hasEmailModuleAccess(userId),
@@ -91,7 +87,6 @@ export default async function meRoutes(fastify: FastifyInstance) {
       clientsAccess,
       socialMediaAccess,
       tasksAccess,
-      leadGenAccess,
       webAccess,
       supportAccess,
       emailModuleAccess,

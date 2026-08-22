@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useAuth } from "../../lib/auth";
+import { useRealtime } from "../../lib/realtime";
 import { listColleagues, type Colleague } from "../../lib/chat";
+import Avatar from "../Avatar";
 import {
   browseWebDrive,
   createWebDriveItem,
@@ -29,6 +31,7 @@ interface WebProjectFormModalProps {
 export default function WebProjectFormModal({ project, onClose, onSave }: WebProjectFormModalProps) {
   useEscapeToClose(onClose);
   const { auth } = useAuth();
+  const { names } = useRealtime();
   const token = auth?.token ?? null;
 
   const [colleagues, setColleagues] = useState<Colleague[]>([]);
@@ -86,6 +89,10 @@ export default function WebProjectFormModal({ project, onClose, onSave }: WebPro
         <p className="chat-empty-hint">
           {project.client_name} · {TYPE_LABELS[project.project_type]}
         </p>
+        <div className="wp-created-by">
+          <Avatar userId={project.created_by} name={project.created_by_name} size={22} />
+          <span>Létrehozta: {names[project.created_by] ?? project.created_by_name}</span>
+        </div>
 
         <label htmlFor="wp-title">Projekt neve</label>
         <input
@@ -123,6 +130,7 @@ export default function WebProjectFormModal({ project, onClose, onSave }: WebPro
         <label htmlFor="wp-notes">Jegyzet</label>
         <textarea
           id="wp-notes"
+          className="lead-notes-textarea"
           rows={4}
           value={notes}
           onChange={(e) => setNotes(e.currentTarget.value)}

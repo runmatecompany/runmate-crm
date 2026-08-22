@@ -7,6 +7,22 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleString("hu-HU", { dateStyle: "medium", timeStyle: "short" });
 }
 
+// Csak nálam (ezen a gépen, ezzel a felhasználóval) tűnjön el egy megoldott
+// jelzés — nem törlődik, csak a saját listámból rejtem el, hogy ne
+// gyűljenek fel felesleges régi kártyák.
+function dismissedKey(userId: number): string {
+  return `runmate-dismissed-support-${userId}`;
+}
+
+function loadDismissed(userId: number): Set<number> {
+  try {
+    const raw = localStorage.getItem(dismissedKey(userId));
+    return raw ? new Set(JSON.parse(raw)) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
 export default function SupportPage() {
   const { auth } = useAuth();
   const token = auth?.token ?? null;
@@ -16,6 +32,23 @@ export default function SupportPage() {
   const [loading, setLoading] = useState(true);
   const [openTicket, setOpenTicket] = useState<SupportTicket | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [dismissedIds, setDismissedIds] = useState<Set<number>>(() =>
+    auth ? loadDismissed(auth.user.id) : new Set()
+  );
+
+  function handleDismiss(ticketId: number) {
+    if (!auth) return;
+    setDismissedIds((prev) => {
+      const next = new Set(prev);
+      next.add(ticketId);
+      try {
+        localStorage.setItem(dismissedKey(auth.user.id), JSON.stringify(Array.from(next)));
+      } catch {
+        // localStorage nem elérhető — a rejtés csak ebben a munkamenetben marad meg
+      }
+      return next;
+    });
+  }
 
   const refresh = useCallback(() => {
     if (!token) return;
@@ -57,7 +90,7 @@ export default function SupportPage() {
   }
 
   const openTickets = tickets.filter((t) => t.status === "open");
-  const resolvedTickets = tickets.filter((t) => t.status === "resolved");
+  const resolvedTickets = tickets.filter((t) => t.status === "resolved" && !dismissedIds.has(t.id));
 
   function renderCard(ticket: SupportTicket) {
     const preview = ticket.body.length > 140 ? `${ticket.body.slice(0, 140)}...` : ticket.body;
@@ -83,6 +116,19 @@ export default function SupportPage() {
           </div>
           <div className="support-ticket-card-preview">{preview}</div>
         </div>
+        {ticket.status === "resolved" && (
+          <button
+            type="button"
+            className="support-ticket-dismiss"
+            title="Elrejtés a listából"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDismiss(ticket.id);
+            }}
+          >
+            ×
+          </button>
+        )}
       </div>
     );
   }

@@ -5,7 +5,6 @@ export interface UserAccess {
   clientsAccess: boolean;
   socialMediaAccess: boolean;
   tasksAccess: boolean;
-  leadGenAccess: boolean;
   webAccess: boolean;
   supportAccess: boolean;
   emailModuleAccess: boolean;
@@ -17,7 +16,6 @@ export interface MyAccess {
   clientsAccess: boolean;
   socialMediaAccess: boolean;
   tasksAccess: boolean;
-  leadGenAccess: boolean;
   webAccess: boolean;
   supportAccess: boolean;
   emailModuleAccess: boolean;

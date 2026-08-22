@@ -14,6 +14,7 @@ import {
   type ClientStatus,
 } from "../db/clients.js";
 import { createManualTask } from "../db/tasks.js";
+import { listClientContacts, replaceClientContacts } from "../db/clientContacts.js";
 import { getClientAiProfile, upsertClientAiProfile } from "../db/clientAiProfiles.js";
 import { getClientOnboarding, upsertClientOnboarding } from "../db/clientOnboarding.js";
 import { hasSocialMediaAccess } from "../db/contentItems.js";
@@ -30,6 +31,16 @@ import { getUserAuthorizedClient } from "../lib/googleDrive/personalOauth.js";
 import { provisionClientDriveFolders, ensureWebProjectDriveFolder } from "../lib/googleDrive/onboarding.js";
 import { getWebProjectByClientAndType } from "../db/webProjects.js";
 
+const clientContactSchema = {
+  type: "object",
+  required: ["name"],
+  properties: {
+    name: { type: "string", minLength: 1 },
+    email: { type: "string" },
+    phone: { type: "string" },
+  },
+} as const;
+
 const clientDetailsSchema = {
   companyName: { type: "string", minLength: 1 },
   contactName: { type: "string" },
@@ -38,6 +49,11 @@ const clientDetailsSchema = {
   address: { type: "string" },
   notes: { type: "string" },
   clientType: { type: "string", enum: ["monthly", "one_off"] },
+  billingName: { type: "string" },
+  taxNumber: { type: "string" },
+  billingAddress: { type: "string" },
+  bankAccount: { type: "string" },
+  contacts: { type: "array", items: clientContactSchema },
 };
 
 const createClientBodySchema = {
@@ -52,6 +68,12 @@ const updateClientBodySchema = {
   properties: clientDetailsSchema,
 } as const;
 
+interface ClientContactBody {
+  name: string;
+  email?: string;
+  phone?: string;
+}
+
 interface ClientDetailsBody {
   companyName: string;
   contactName?: string;
@@ -60,6 +82,11 @@ interface ClientDetailsBody {
   address?: string;
   notes?: string;
   clientType?: "monthly" | "one_off";
+  billingName?: string;
+  taxNumber?: string;
+  billingAddress?: string;
+  bankAccount?: string;
+  contacts?: ClientContactBody[];
 }
 
 const clientStatusBodySchema = {
@@ -218,7 +245,23 @@ export default async function clientsRoutes(fastify: FastifyInstance) {
       const existing = await getClientById(Number(request.params.id));
       if (!existing) return reply.code(404).send({ error: "Client not found" });
       const client = await updateClientDetails(existing.id, request.body);
+      if (request.body.contacts) {
+        await replaceClientContacts(existing.id, request.body.contacts);
+      }
       return { client };
+    }
+  );
+
+  fastify.get<{ Params: { id: string } }>(
+    "/clients/:id/contacts",
+    { onRequest: [fastify.authenticate] },
+    async (request, reply) => {
+      if (!(await canAccessClientsModule(request.user.sub, request.user.role))) {
+        return reply.code(403).send({ error: "Nincs hozzáférésed az Ügyfelek modulhoz" });
+      }
+      const clientId = Number(request.params.id);
+      if (!(await getClientById(clientId))) return reply.code(404).send({ error: "Client not found" });
+      return { contacts: await listClientContacts(clientId) };
     }
   );
 
@@ -376,15 +419,11 @@ export default async function clientsRoutes(fastify: FastifyInstance) {
       try {
         if (request.body.serviceWebsiteBuild) {
           const project = await getWebProjectByClientAndType(clientId, "website");
-          if (project && !project.drive_folder_id) {
-            await ensureWebProjectDriveFolder(clientId, project.id, project.title);
-          }
+          if (project) await ensureWebProjectDriveFolder(clientId, project.id, project.title);
         }
         if (request.body.serviceLandingPage) {
           const project = await getWebProjectByClientAndType(clientId, "landing_page");
-          if (project && !project.drive_folder_id) {
-            await ensureWebProjectDriveFolder(clientId, project.id, project.title);
-          }
+          if (project) await ensureWebProjectDriveFolder(clientId, project.id, project.title);
         }
       } catch (err) {
         fastify.log.error(err, "Drive folder provisioning failed for web project");

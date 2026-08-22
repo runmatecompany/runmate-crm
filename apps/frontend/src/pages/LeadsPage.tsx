@@ -19,6 +19,7 @@ import LeadFormModal from "../components/leads/LeadFormModal";
 import LeadDetail from "../components/leads/LeadDetail";
 import LeadInterestedNoteModal from "../components/leads/LeadInterestedNoteModal";
 import LeadCallbackModal from "../components/leads/LeadCallbackModal";
+import LeadNotInterestedNoteModal from "../components/leads/LeadNotInterestedNoteModal";
 
 export default function LeadsPage() {
   const { auth } = useAuth();
@@ -34,6 +35,7 @@ export default function LeadsPage() {
   const [loading, setLoading] = useState(true);
   const [interestedNoteLead, setInterestedNoteLead] = useState<Lead | null>(null);
   const [callbackLead, setCallbackLead] = useState<Lead | null>(null);
+  const [notInterestedLead, setNotInterestedLead] = useState<Lead | null>(null);
 
   const refresh = useCallback(() => {
     if (!token) return;
@@ -60,7 +62,18 @@ export default function LeadsPage() {
       setCallbackLead(lead);
       return;
     }
+    if (status === "not_interested") {
+      setNotInterestedLead(lead);
+      return;
+    }
     await updateLeadStatus(token, lead.id, status);
+    refresh();
+  }
+
+  async function handleSaveNotInterested(note: string) {
+    if (!token || !notInterestedLead) return;
+    await updateLeadStatus(token, notInterestedLead.id, "not_interested", note);
+    setNotInterestedLead(null);
     refresh();
   }
 
@@ -277,6 +290,14 @@ export default function LeadsPage() {
           companyName={callbackLead.company_name}
           onClose={() => setCallbackLead(null)}
           onSave={handleSaveCallback}
+        />
+      )}
+
+      {notInterestedLead && (
+        <LeadNotInterestedNoteModal
+          companyName={notInterestedLead.company_name}
+          onClose={() => setNotInterestedLead(null)}
+          onSave={handleSaveNotInterested}
         />
       )}
     </main>

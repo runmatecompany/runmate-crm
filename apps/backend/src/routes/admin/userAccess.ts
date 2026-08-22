@@ -4,7 +4,6 @@ import { grantClientsAccess, hasClientsAccess, revokeClientsAccess } from "../..
 import { grantSocialMediaAccess, hasSocialMediaAccess, revokeSocialMediaAccess } from "../../db/contentItems.js";
 import { revokeAllDriveFolderGrants } from "../../lib/clipping.js";
 import { grantTasksAccess, hasTasksAccess, revokeTasksAccess } from "../../db/tasks.js";
-import { grantLeadGenAccess, hasLeadGenAccess, revokeLeadGenAccess } from "../../db/leadgenAccess.js";
 import { grantWebAccess, hasWebAccess, revokeWebAccess } from "../../db/webProjects.js";
 import { grantSupportAccess, hasSupportAccess, revokeSupportAccess } from "../../db/supportTickets.js";
 import {
@@ -20,7 +19,7 @@ import {
 const accessBodySchema = {
   type: "object",
   required: [
-    "leadsAccess", "clientsAccess", "socialMediaAccess", "tasksAccess", "leadGenAccess", "webAccess",
+    "leadsAccess", "clientsAccess", "socialMediaAccess", "tasksAccess", "webAccess",
     "supportAccess", "emailModuleAccess", "emailAccountIds",
   ],
   properties: {
@@ -28,7 +27,6 @@ const accessBodySchema = {
     clientsAccess: { type: "boolean" },
     socialMediaAccess: { type: "boolean" },
     tasksAccess: { type: "boolean" },
-    leadGenAccess: { type: "boolean" },
     webAccess: { type: "boolean" },
     supportAccess: { type: "boolean" },
     emailModuleAccess: { type: "boolean" },
@@ -50,7 +48,6 @@ export default async function adminUserAccessRoutes(fastify: FastifyInstance) {
       clientsAccess,
       socialMediaAccess,
       tasksAccess,
-      leadGenAccess,
       webAccess,
       supportAccess,
       emailModuleAccess,
@@ -60,7 +57,6 @@ export default async function adminUserAccessRoutes(fastify: FastifyInstance) {
       hasClientsAccess(userId),
       hasSocialMediaAccess(userId),
       hasTasksAccess(userId),
-      hasLeadGenAccess(userId),
       hasWebAccess(userId),
       hasSupportAccess(userId),
       hasEmailModuleAccess(userId),
@@ -71,7 +67,6 @@ export default async function adminUserAccessRoutes(fastify: FastifyInstance) {
       clientsAccess,
       socialMediaAccess,
       tasksAccess,
-      leadGenAccess,
       webAccess,
       supportAccess,
       emailModuleAccess,
@@ -86,7 +81,6 @@ export default async function adminUserAccessRoutes(fastify: FastifyInstance) {
       clientsAccess: boolean;
       socialMediaAccess: boolean;
       tasksAccess: boolean;
-      leadGenAccess: boolean;
       webAccess: boolean;
       supportAccess: boolean;
       emailModuleAccess: boolean;
@@ -99,7 +93,6 @@ export default async function adminUserAccessRoutes(fastify: FastifyInstance) {
       clientsAccess,
       socialMediaAccess,
       tasksAccess,
-      leadGenAccess,
       webAccess,
       supportAccess,
       emailModuleAccess,
@@ -136,12 +129,6 @@ export default async function adminUserAccessRoutes(fastify: FastifyInstance) {
       await grantTasksAccess(userId, request.user.sub);
     } else {
       await revokeTasksAccess(userId);
-    }
-
-    if (leadGenAccess) {
-      await grantLeadGenAccess(userId, request.user.sub);
-    } else {
-      await revokeLeadGenAccess(userId);
     }
 
     if (webAccess) {

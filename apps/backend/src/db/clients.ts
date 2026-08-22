@@ -12,6 +12,10 @@ export interface ClientRow {
   email: string | null;
   address: string | null;
   notes: string | null;
+  billing_name: string | null;
+  tax_number: string | null;
+  billing_address: string | null;
+  bank_account: string | null;
   lead_id: number | null;
   next_shoot_date: string | null;
   drive_folder_id: string | null;
@@ -44,6 +48,7 @@ export interface ClientRow {
 const CLIENT_SELECT = `
   SELECT
     c.id, c.company_name, c.contact_name, c.phone, c.email, c.address, c.notes,
+    c.billing_name, c.tax_number, c.billing_address, c.bank_account,
     c.lead_id, c.next_shoot_date, c.drive_folder_id,
     c.created_by, cu.name AS created_by_name,
     op.completed_at AS onboarding_completed_at, op.monthly_video_target, op.monthly_post_target,
@@ -80,13 +85,19 @@ export interface CreateClientInput {
   address?: string;
   notes?: string;
   clientType?: ClientType;
+  billingName?: string;
+  taxNumber?: string;
+  billingAddress?: string;
+  bankAccount?: string;
   createdBy: number;
 }
 
 export async function createClient(input: CreateClientInput): Promise<ClientRow> {
   const { rows } = await pool.query<{ id: number }>(
-    `INSERT INTO clients (company_name, contact_name, phone, email, address, notes, client_type, created_by)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+    `INSERT INTO clients
+       (company_name, contact_name, phone, email, address, notes, client_type,
+        billing_name, tax_number, billing_address, bank_account, created_by)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
      RETURNING id`,
     [
       input.companyName,
@@ -96,6 +107,10 @@ export async function createClient(input: CreateClientInput): Promise<ClientRow>
       input.address ?? null,
       input.notes ?? null,
       input.clientType ?? null,
+      input.billingName ?? null,
+      input.taxNumber ?? null,
+      input.billingAddress ?? null,
+      input.bankAccount ?? null,
       input.createdBy,
     ]
   );
@@ -111,6 +126,10 @@ export interface UpdateClientDetailsInput {
   address?: string;
   notes?: string;
   clientType?: ClientType;
+  billingName?: string;
+  taxNumber?: string;
+  billingAddress?: string;
+  bankAccount?: string;
 }
 
 export async function updateClientDetails(
@@ -120,7 +139,7 @@ export async function updateClientDetails(
   const { rowCount } = await pool.query(
     `UPDATE clients SET
        company_name = $2, contact_name = $3, phone = $4, email = $5, address = $6, notes = $7,
-       client_type = $8,
+       client_type = $8, billing_name = $9, tax_number = $10, billing_address = $11, bank_account = $12,
        updated_at = now()
      WHERE id = $1`,
     [
@@ -132,6 +151,10 @@ export async function updateClientDetails(
       input.address ?? null,
       input.notes ?? null,
       input.clientType ?? null,
+      input.billingName ?? null,
+      input.taxNumber ?? null,
+      input.billingAddress ?? null,
+      input.bankAccount ?? null,
     ]
   );
   if (!rowCount) return undefined;

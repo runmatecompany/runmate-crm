@@ -68,10 +68,10 @@ async function getReadyWebProjectFolder(
     return { error: "Nincs beállítva Google-kapcsolat (Beállítások > Google-integráció)", status: 400 };
   }
 
-  let folderId = project.drive_folder_id;
-  if (!folderId) {
-    folderId = await ensureWebProjectDriveFolder(project.client_id, project.id, project.title);
-  }
+  // Mindig újra feloldjuk a JELENLEGI hónap mappáját (nem csak akkor, ha
+  // még sosincs eltárolt azonosító) — így ha közben hónap váltott, a
+  // böngésző/feltöltés magától átáll az új hónap "Web" mappájára.
+  const folderId = await ensureWebProjectDriveFolder(project.client_id, project.id, project.title);
   if (!folderId) {
     return { error: "Nem sikerült létrehozni a projekt Drive-mappáját", status: 502 };
   }
