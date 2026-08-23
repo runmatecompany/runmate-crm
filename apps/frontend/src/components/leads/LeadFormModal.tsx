@@ -99,13 +99,13 @@ export default function LeadFormModal({ lead, token, onClose, onSave }: LeadForm
   }
 
   // Csak az üres mezőket tölti ki — amit a felhasználó már beírt, azt nem írja felül.
+  // Csak a Megkeresendő-lépéshez szükséges mezőket tölti ki (új lead
+  // felvételekor csak ezek látszanak/menthetők) — email/cím/jegyzet
+  // kinyerése kimarad, azok később, a megfelelő lépésnél kerülnek be.
   function applyExtractedFields(fields: ExtractedLeadFields) {
     if (fields.companyName) setCompanyName((prev) => (prev.trim() ? prev : fields.companyName!));
     if (fields.contactName) setContactName((prev) => (prev.trim() ? prev : fields.contactName!));
     if (fields.phone) setPhone((prev) => (prev.trim() ? prev : fields.phone!));
-    if (fields.email) setEmail((prev) => (prev.trim() ? prev : fields.email!));
-    if (fields.address) setAddress((prev) => (prev.trim() ? prev : fields.address!));
-    if (fields.notes) setNotes((prev) => (prev.trim() ? prev : fields.notes!));
   }
 
   async function runExtraction(imgs: PendingImage[], docs: PendingDocument[]) {
@@ -257,11 +257,18 @@ export default function LeadFormModal({ lead, token, onClose, onSave }: LeadForm
         contactName: contactName.trim() || undefined,
         contactPosition: contactPosition.trim() || undefined,
         phone: phone.trim() || undefined,
-        email: email.trim() || undefined,
-        address: address.trim() || undefined,
-        city: city.trim() || undefined,
-        websiteUrl: websiteUrl.trim() || undefined,
-        notes: notes.trim() || undefined,
+        // Email/cím/város/weboldal/jegyzet csak szerkesztéskor menthető —
+        // új lead felvételekor ezek a mezők nem is látszanak (lásd lent),
+        // úgyhogy nem küldjük el a state-ben esetleg megmaradt régi értéket.
+        ...(lead
+          ? {
+              email: email.trim() || undefined,
+              address: address.trim() || undefined,
+              city: city.trim() || undefined,
+              websiteUrl: websiteUrl.trim() || undefined,
+              notes: notes.trim() || undefined,
+            }
+          : {}),
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Nem sikerült menteni a leadet");
@@ -363,41 +370,45 @@ export default function LeadFormModal({ lead, token, onClose, onSave }: LeadForm
           </div>
         </div>
 
-        <div className="lead-form-row">
-          <div>
-            <label htmlFor="lead-email">Email</label>
-            <input id="lead-email" value={email} onChange={(e) => setEmail(e.currentTarget.value)} />
-          </div>
-        </div>
+        {lead && (
+          <>
+            <div className="lead-form-row">
+              <div>
+                <label htmlFor="lead-email">Email</label>
+                <input id="lead-email" value={email} onChange={(e) => setEmail(e.currentTarget.value)} />
+              </div>
+            </div>
 
-        <div className="lead-form-row">
-          <div>
-            <label htmlFor="lead-address">Cím</label>
-            <input id="lead-address" value={address} onChange={(e) => setAddress(e.currentTarget.value)} />
-          </div>
-          <div>
-            <label htmlFor="lead-city">Város</label>
-            <input id="lead-city" value={city} onChange={(e) => setCity(e.currentTarget.value)} />
-          </div>
-        </div>
+            <div className="lead-form-row">
+              <div>
+                <label htmlFor="lead-address">Cím</label>
+                <input id="lead-address" value={address} onChange={(e) => setAddress(e.currentTarget.value)} />
+              </div>
+              <div>
+                <label htmlFor="lead-city">Város</label>
+                <input id="lead-city" value={city} onChange={(e) => setCity(e.currentTarget.value)} />
+              </div>
+            </div>
 
-        <label htmlFor="lead-website">Weboldal</label>
-        <input
-          id="lead-website"
-          value={websiteUrl}
-          onChange={(e) => setWebsiteUrl(e.currentTarget.value)}
-          placeholder="https://..."
-        />
+            <label htmlFor="lead-website">Weboldal</label>
+            <input
+              id="lead-website"
+              value={websiteUrl}
+              onChange={(e) => setWebsiteUrl(e.currentTarget.value)}
+              placeholder="https://..."
+            />
 
-        <label htmlFor="lead-notes">Jegyzet</label>
-        <textarea
-          id="lead-notes"
-          className="lead-notes-textarea"
-          rows={4}
-          value={notes}
-          onChange={(e) => setNotes(e.currentTarget.value)}
-          placeholder="Bármilyen extra infó a leadről..."
-        />
+            <label htmlFor="lead-notes">Jegyzet</label>
+            <textarea
+              id="lead-notes"
+              className="lead-notes-textarea"
+              rows={4}
+              value={notes}
+              onChange={(e) => setNotes(e.currentTarget.value)}
+              placeholder="Bármilyen extra infó a leadről..."
+            />
+          </>
+        )}
 
         {error && <p className="login-error">{error}</p>}
 
