@@ -8,6 +8,15 @@ export interface MenuItem {
 }
 
 export const MENU_ITEMS: MenuItem[] = [
+  {
+    id: "admin",
+    label: "Admin",
+    children: [
+      { id: "admin-accounts", label: "Fiókok" },
+      { id: "admin-email", label: "Email fiókok" },
+      { id: "admin-social-media", label: "Social Media" },
+    ],
+  },
   { id: "messages", label: "Üzenetek" },
   { id: "chat", label: "Chat" },
   { id: "leads", label: "Értékesítés" },
@@ -35,15 +44,6 @@ export const MENU_ITEMS: MenuItem[] = [
   },
   { id: "support", label: "Support" },
   { id: "settings", label: "Beállítások" },
-  {
-    id: "admin",
-    label: "Admin",
-    children: [
-      { id: "admin-accounts", label: "Fiókok" },
-      { id: "admin-email", label: "Email fiókok" },
-      { id: "admin-social-media", label: "Social Media" },
-    ],
-  },
 ];
 
 export function menuItemLabel(id: string, fallback: string): string {

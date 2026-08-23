@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "../../lib/auth";
-import { updateLead, updateLeadStatus, type Lead, type LeadSector } from "../../lib/leads";
+import { updateLead, type Lead, type LeadSector } from "../../lib/leads";
 
 interface LeadAuditViewProps {
   lead: Lead;
@@ -10,8 +10,9 @@ interface LeadAuditViewProps {
 
 // Az Audit lépés egész oldalas képernyője — csak az ehhez a lépéshez
 // tartozó adatokat mutatja/engedi szerkeszteni (szektor, weboldal, social
-// media linkek, jegyzet). "Audit kész"-re mentjük a mezőket (updateLead),
-// majd egyben tovább is visszük a leadet Tárgyalásra vár állapotba.
+// media linkek, jegyzet). "Mentés" csak a mezőket menti — az állapotváltás
+// (Tárgyalásra vár felé) a Kanban kártya saját "Audit kész" gombjával
+// történik, lásd LeadsPage.tsx renderCardActions.
 export default function LeadAuditView({ lead, onBack, onChanged }: LeadAuditViewProps) {
   const { auth } = useAuth();
   const token = auth?.token ?? null;
@@ -75,19 +76,6 @@ export default function LeadAuditView({ lead, onBack, onChanged }: LeadAuditView
       if (!saved) return;
     }
     onBack();
-  }
-
-  async function handleAuditDone() {
-    if (!token) return;
-    const saved = await saveFields();
-    if (!saved) return;
-    try {
-      await updateLeadStatus(token, lead.id, "meeting_scheduled");
-      onChanged();
-      onBack();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Nem sikerült lezárni az auditot");
-    }
   }
 
   return (
@@ -189,8 +177,8 @@ export default function LeadAuditView({ lead, onBack, onChanged }: LeadAuditView
 
         {error && <p className="login-error">{error}</p>}
 
-        <button type="button" disabled={saving} onClick={handleAuditDone}>
-          {saving ? "Mentés..." : "Audit kész"}
+        <button type="button" disabled={saving} onClick={saveFields}>
+          {saving ? "Mentés..." : "Mentés"}
         </button>
       </div>
     </div>

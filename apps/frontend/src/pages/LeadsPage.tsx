@@ -242,6 +242,11 @@ export default function LeadsPage() {
           Audit megnyitása
         </button>
       );
+      buttons.push(
+        <button key="audit-done" type="button" onClick={() => void handleSimpleStatus(lead, "meeting_scheduled")}>
+          Audit kész
+        </button>
+      );
     } else if (lead.status === "meeting_scheduled") {
       buttons.push(
         <button key="meeting-details" type="button" onClick={() => setMeetingLead(lead)}>
@@ -280,7 +285,7 @@ export default function LeadsPage() {
       );
     }
 
-    if (lead.status !== "call_back" && !CLOSED_STATUSES.includes(lead.status)) {
+    if (lead.status !== "call_back" && lead.status !== "audit" && !CLOSED_STATUSES.includes(lead.status)) {
       buttons.push(
         <button key="callback" type="button" onClick={() => setCallbackLead(lead)}>
           Visszahívandó

@@ -37,7 +37,10 @@ const ADMIN_TABS: Record<string, AdminTab> = {
 export default function DashboardPage() {
   const { auth, logout } = useAuth();
   const { requestedRoomId, requestedOnboardingClientId } = useNavigation();
-  const [activeId, setActiveId] = useState(MENU_ITEMS[0].id);
+  // A kezdő fül mindig "messages", függetlenül attól, hol áll a sidebar
+  // sorrendjében (az Admin modul pl. szándékosan legfelül jelenik meg, de
+  // nem ez a bejelentkezés utáni alapértelmezett nézet).
+  const [activeId, setActiveId] = useState("messages");
 
   useEffect(() => {
     if (requestedRoomId != null) {
