@@ -339,7 +339,7 @@ export default function LeadsPage() {
       {loading && <p className="chat-empty-hint">Betöltés...</p>}
 
       {!loading && (
-        <div className="sm-kanban sm-kanban--scroll">
+        <div className="sm-kanban">
           {STATUS_ORDER.map((status) => {
             const columnLeads = filteredLeads.filter((l) => l.status === status);
             return (
