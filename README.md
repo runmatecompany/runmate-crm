@@ -118,12 +118,12 @@ A `192.168.x.x` jellegű LAN-cím csak akkor működik, ha a kolléga gépe **fi
 
 **Egyszeri beállítás a szervergépen** (már megtörtént ezen a gépen):
 1. Tailscale telepítése + bejelentkezés (`tailscale up`).
-2. A gép Tailscale-címe lekérdezhető: `tailscale ip -4` (jelenleg: `100.110.136.77`).
+2. A gép Tailscale-címe lekérdezhető: `tailscale ip -4` (formátuma: `100.x.x.x`).
 
 **Minden új kolléga meghívása** (a géped tulajdonosaként, https://login.tailscale.com/admin/machines oldalon):
 1. Keresd meg a szervergépet a listában → `...` menü → **"Share"**.
 2. Küldd el neki a generált linket.
 3. Ő telepíti a Tailscale appot ([tailscale.com/download](https://tailscale.com/download)), elfogadja a megosztást saját (ingyenes) fiókjával.
-4. Ezután a CRM appban a szerver címe: `http://100.110.136.77:3001` (a Tailscale IP-vel, nem a LAN IP-vel) — ez bárhonnan működik, nem csak azonos Wi-Fi-n.
+4. Ezután a CRM appban a szerver címe: `http://100.x.x.x:3001` (a szervergép Tailscale IP-jével, nem a LAN IP-vel) — ez bárhonnan működik, nem csak azonos Wi-Fi-n.
 
 A tűzfalszabály (3. pont, "Központi szerver beüzemelése") a Tailscale-en érkező forgalmat is engedi, mert portalapú, nem hálózat-specifikus.
