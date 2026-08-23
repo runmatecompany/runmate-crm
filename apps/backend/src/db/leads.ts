@@ -1,31 +1,32 @@
 import { pool } from "./pool.js";
 
-// A HR pipeline állapotai: to_call → call_back/interested (bármikor
-// visszatérhet ide) → audit → meeting_scheduled → contract_sent →
-// invoice_sent (ez után automatikusan ügyféllé alakul, lásd
-// routes/leads.ts), vagy bármikor not_interested. A became_customer a DB
-// CHECK constraint-ben megmaradt visszafelé-kompatibilitásból, de az új
-// folyamatban már nem elérhető állapot (a Kanban nem ajánlja fel).
+// Az Értékesítés pipeline állapotai. A "call_back" bármelyik nem-lezárt
+// állapotból felvehető (univerzális "most nem értem el" jelölés, lásd
+// routes/leads.ts) — nem egy fix, lineáris lépés, hanem oda-vissza
+// mozgatható jelölő. A "became_customer"/"interested"/"contract_sent"/
+// "invoice_sent" a DB CHECK constraint korábbi verzióiban léteztek, a
+// 052-es migráció óta már nem elérhető állapotok (a Kanban nem ajánlja fel).
 export type LeadStatus =
   | "to_call"
   | "call_back"
-  | "interested"
   | "audit"
   | "meeting_scheduled"
-  | "contract_sent"
-  | "invoice_sent"
-  | "became_customer"
-  | "not_interested";
+  | "decision_pending"
+  | "accepted"
+  | "not_interested"
+  | "declined";
 
 export interface LeadRow {
   id: number;
   company_name: string;
   contact_name: string | null;
+  contact_position: string | null;
   phone: string | null;
   email: string | null;
   address: string | null;
   city: string | null;
   notes: string | null;
+  sector: "b2b" | "b2c" | null;
   website_url: string | null;
   facebook_url: string | null;
   instagram_url: string | null;
@@ -33,6 +34,7 @@ export interface LeadRow {
   youtube_url: string | null;
   status: LeadStatus;
   meeting_date: string | null;
+  call_back_reason: string | null;
   contract_drive_link: string | null;
   contract_sent_at: string | null;
   invoice_drive_link: string | null;
@@ -45,9 +47,9 @@ export interface LeadRow {
 
 const LEAD_SELECT = `
   SELECT
-    l.id, l.company_name, l.contact_name, l.phone, l.email, l.address, l.city, l.notes, l.website_url,
-    l.facebook_url, l.instagram_url, l.tiktok_url, l.youtube_url,
-    l.status, l.meeting_date, l.contract_drive_link, l.contract_sent_at,
+    l.id, l.company_name, l.contact_name, l.contact_position, l.phone, l.email, l.address, l.city, l.notes,
+    l.sector, l.website_url, l.facebook_url, l.instagram_url, l.tiktok_url, l.youtube_url,
+    l.status, l.meeting_date, l.call_back_reason, l.contract_drive_link, l.contract_sent_at,
     l.invoice_drive_link, l.invoice_sent_at,
     l.created_by, cu.name AS created_by_name,
     l.created_at, l.updated_at
@@ -68,6 +70,7 @@ export async function getLeadById(id: number): Promise<LeadRow | undefined> {
 export interface CreateLeadInput {
   companyName: string;
   contactName?: string;
+  contactPosition?: string;
   phone?: string;
   email?: string;
   address?: string;
@@ -83,13 +86,14 @@ export interface CreateLeadInput {
 
 export async function createLead(input: CreateLeadInput): Promise<LeadRow> {
   const { rows } = await pool.query<{ id: number }>(
-    `INSERT INTO leads (company_name, contact_name, phone, email, address, city, notes, website_url,
-       facebook_url, instagram_url, tiktok_url, youtube_url, created_by)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+    `INSERT INTO leads (company_name, contact_name, contact_position, phone, email, address, city, notes,
+       website_url, facebook_url, instagram_url, tiktok_url, youtube_url, created_by)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
      RETURNING id`,
     [
       input.companyName,
       input.contactName ?? null,
+      input.contactPosition ?? null,
       input.phone ?? null,
       input.email ?? null,
       input.address ?? null,
@@ -110,11 +114,13 @@ export async function createLead(input: CreateLeadInput): Promise<LeadRow> {
 export interface UpdateLeadDetailsInput {
   companyName: string;
   contactName?: string;
+  contactPosition?: string;
   phone?: string;
   email?: string;
   address?: string;
   city?: string;
   notes?: string;
+  sector?: "b2b" | "b2c";
   websiteUrl?: string;
   facebookUrl?: string;
   instagramUrl?: string;
@@ -125,19 +131,22 @@ export interface UpdateLeadDetailsInput {
 export async function updateLeadDetails(id: number, input: UpdateLeadDetailsInput): Promise<LeadRow | undefined> {
   const { rowCount } = await pool.query(
     `UPDATE leads SET
-       company_name = $2, contact_name = $3, phone = $4, email = $5, address = $6, city = $7, notes = $8,
-       website_url = $9, facebook_url = $10, instagram_url = $11, tiktok_url = $12, youtube_url = $13,
+       company_name = $2, contact_name = $3, contact_position = $4, phone = $5, email = $6, address = $7,
+       city = $8, notes = $9, sector = $10, website_url = $11, facebook_url = $12, instagram_url = $13,
+       tiktok_url = $14, youtube_url = $15,
        updated_at = now()
      WHERE id = $1`,
     [
       id,
       input.companyName,
       input.contactName ?? null,
+      input.contactPosition ?? null,
       input.phone ?? null,
       input.email ?? null,
       input.address ?? null,
       input.city ?? null,
       input.notes ?? null,
+      input.sector ?? null,
       input.websiteUrl ?? null,
       input.facebookUrl ?? null,
       input.instagramUrl ?? null,
@@ -152,15 +161,17 @@ export async function updateLeadDetails(id: number, input: UpdateLeadDetailsInpu
 export interface UpdateLeadStatusExtra {
   note?: string;
   meetingDate?: string;
-  contractDriveLink?: string;
-  invoiceDriveLink?: string;
+  address?: string;
+  callBackReason?: string;
 }
 
-// "interested"-re váltáskor kötelező egy jegyzet (lásd routes/leads.ts
-// validáció) — ha meg van adva, a meglévő jegyzetek végéhez fűzzük, nem
-// írjuk felül őket. A pipeline további lépéseinél (meeting_scheduled,
-// contract_sent, invoice_sent) az adott lépéshez tartozó extra mező is
-// egyszerre íródik, hogy egy állapotváltás egy tranzakció legyen.
+// A jegyzet (ha meg van adva) mindig a meglévő jegyzetek végéhez fűződik,
+// sosem írja felül őket — ez az állapotváltásokhoz kötött indoklások
+// (Nem érdekli, Nemet mondott) egységes naplózási módja. A
+// call_back_reason viszont felülíródik/törlődik: csak akkor marad meg,
+// ha az új állapot maga is "call_back" — minden más állapotba lépéskor
+// nullázódik, hogy ne maradjon ott egy régi indoklás egy újra visszahívott
+// leadnél.
 export async function updateLeadStatus(
   id: number,
   status: LeadStatus,
@@ -172,20 +183,11 @@ export async function updateLeadStatus(
        status = $2,
        notes = CASE WHEN $3::text IS NOT NULL THEN COALESCE(notes || E'\n', '') || $3 ELSE notes END,
        meeting_date = COALESCE($4::date, meeting_date),
-       contract_drive_link = COALESCE($5::text, contract_drive_link),
-       contract_sent_at = CASE WHEN $5::text IS NOT NULL THEN now() ELSE contract_sent_at END,
-       invoice_drive_link = COALESCE($6::text, invoice_drive_link),
-       invoice_sent_at = CASE WHEN $6::text IS NOT NULL THEN now() ELSE invoice_sent_at END,
+       address = COALESCE($5::text, address),
+       call_back_reason = CASE WHEN $2 = 'call_back' THEN COALESCE($6::text, call_back_reason) ELSE NULL END,
        updated_at = now()
      WHERE id = $1`,
-    [
-      id,
-      status,
-      note ?? null,
-      extra?.meetingDate ?? null,
-      extra?.contractDriveLink ?? null,
-      extra?.invoiceDriveLink ?? null,
-    ]
+    [id, status, note ?? null, extra?.meetingDate ?? null, extra?.address ?? null, extra?.callBackReason ?? null]
   );
   if (!rowCount) return undefined;
   return getLeadById(id);

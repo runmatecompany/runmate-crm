@@ -1,31 +1,31 @@
 import { useState, type FormEvent } from "react";
 import { useEscapeToClose } from "../../lib/useEscapeToClose";
 
-interface LeadInterestedNoteModalProps {
+interface LeadCallbackReasonModalProps {
   companyName: string;
   onClose: () => void;
-  onSave: (note: string) => Promise<void>;
+  onSave: (reason: string) => Promise<void>;
 }
 
-// A hívás közbeni jegyzeteléshez — nagyobb, kényelmesen írható mező, nem
-// egy sorba szorított prompt(). A jegyzet kötelező (lásd routes/leads.ts
-// szerver-oldali ellenőrzését is), amíg üres, nem menthető.
-export default function LeadInterestedNoteModal({ companyName, onClose, onSave }: LeadInterestedNoteModalProps) {
+// "Visszahívandó" bármelyik nem-lezárt lépésről felvehető — ez az indoklás
+// mindig látszik a kártyán, amíg a lead ebben az állapotban van (lásd
+// LeadsPage.tsx), utána a kezelő bármelyik releváns lépésre továbbviheti.
+export default function LeadCallbackReasonModal({ companyName, onClose, onSave }: LeadCallbackReasonModalProps) {
   useEscapeToClose(onClose);
-  const [note, setNote] = useState("");
+  const [reason, setReason] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!note.trim()) {
-      setError("A jegyzet kitöltése kötelező.");
+    if (!reason.trim()) {
+      setError("Add meg, miért kell visszahívni.");
       return;
     }
     setSaving(true);
     setError(null);
     try {
-      await onSave(note.trim());
+      await onSave(reason.trim());
     } catch (err) {
       setError(err instanceof Error ? err.message : "Nem sikerült menteni");
       setSaving(false);
@@ -35,16 +35,16 @@ export default function LeadInterestedNoteModal({ companyName, onClose, onSave }
   return (
     <div className="chat-modal-backdrop">
       <form className="chat-modal lead-form" onSubmit={handleSubmit}>
-        <h2>{companyName} — Érdekli</h2>
-        <p className="chat-empty-hint">Jegyzetelj hívás közben — mi derült ki, mit ígértél, mikor kell visszahívni.</p>
+        <h2>{companyName} — Visszahívandó</h2>
+        <p className="chat-empty-hint">Miért kell visszahívni? Ez mindig látszik majd a kártyán.</p>
 
-        <label htmlFor="interested-note">Jegyzet</label>
+        <label htmlFor="callback-reason">Indoklás</label>
         <textarea
-          id="interested-note"
-          rows={8}
-          value={note}
-          onChange={(e) => setNote(e.currentTarget.value)}
-          placeholder="Pl. érdekli az Instagram-csomag, árajánlatot kér, hívjuk vissza csütörtökön 10-kor"
+          id="callback-reason"
+          rows={4}
+          value={reason}
+          onChange={(e) => setReason(e.currentTarget.value)}
+          placeholder="Pl. nem vette fel, foglalt volt, kért egy másik időpontot"
           autoFocus
         />
 

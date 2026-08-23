@@ -3,14 +3,16 @@ import { useEscapeToClose } from "../../lib/useEscapeToClose";
 
 interface LeadNotInterestedNoteModalProps {
   companyName: string;
+  title: string;
   onClose: () => void;
   onSave: (note: string) => Promise<void>;
 }
 
-// Ugyanaz a minta, mint az "Érdekli" jegyzetnél (LeadInterestedNoteModal) —
-// "Nem érdekli"-re váltáskor is rákérdez, mi volt az elutasítás oka, hogy ez
-// később (pl. hasonló leadeknél) tanulságként visszakereshető legyen.
-export default function LeadNotInterestedNoteModal({ companyName, onClose, onSave }: LeadNotInterestedNoteModalProps) {
+// Közös komponens a két "nem" kimenetre: "Nem érdekli" (korai elutasítás) és
+// "Nemet mondott" (tárgyalás utáni elutasítás) — a hívó fél (LeadsPage.tsx)
+// dönti el a title-lel, melyik kimenetről van szó, és melyik célállapotba
+// kell utána menteni.
+export default function LeadNotInterestedNoteModal({ companyName, title, onClose, onSave }: LeadNotInterestedNoteModalProps) {
   useEscapeToClose(onClose);
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
@@ -35,8 +37,10 @@ export default function LeadNotInterestedNoteModal({ companyName, onClose, onSav
   return (
     <div className="chat-modal-backdrop">
       <form className="chat-modal lead-form" onSubmit={handleSubmit}>
-        <h2>{companyName} — Nem érdekli</h2>
-        <p className="chat-empty-hint">Miért nem érdekli? Ez segít, ha később hasonló esettel találkozol.</p>
+        <h2>
+          {companyName} — {title}
+        </h2>
+        <p className="chat-empty-hint">Miért? Ez segít, ha később hasonló esettel találkozol.</p>
 
         <label htmlFor="not-interested-note">Jegyzet</label>
         <textarea

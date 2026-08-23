@@ -2678,6 +2678,26 @@ button:hover {
   color: var(--text);
 }
 
+.lead-sector-toggle {
+  display: flex;
+  gap: 0.5em;
+}
+
+.lead-sector-option {
+  flex: 1 1 auto;
+  padding: 0.5em 1em;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background-color: var(--surface-alt);
+  color: var(--text-muted);
+}
+
+.lead-sector-option.active {
+  background-color: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
+}
+
 .lead-image-upload {
   display: flex;
   flex-direction: column;

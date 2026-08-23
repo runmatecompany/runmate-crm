@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactElement } from "react";
 import { useAuth } from "../lib/auth";
 import { useNavigation } from "../lib/navigation";
 import {
@@ -16,32 +16,33 @@ import {
 import { createManualTask } from "../lib/tasks";
 import Avatar from "../components/Avatar";
 import LeadFormModal from "../components/leads/LeadFormModal";
-import LeadDetail from "../components/leads/LeadDetail";
-import LeadInterestedNoteModal from "../components/leads/LeadInterestedNoteModal";
-import LeadCallbackModal from "../components/leads/LeadCallbackModal";
-import LeadNotInterestedNoteModal from "../components/leads/LeadNotInterestedNoteModal";
-import LeadAuditModal from "../components/leads/LeadAuditModal";
+import LeadAuditView from "../components/leads/LeadAuditView";
 import LeadMeetingModal from "../components/leads/LeadMeetingModal";
-import LeadDriveLinkModal from "../components/leads/LeadDriveLinkModal";
+import LeadNotInterestedNoteModal from "../components/leads/LeadNotInterestedNoteModal";
+import LeadCallbackReasonModal from "../components/leads/LeadCallbackReasonModal";
 
-// A HR pipeline oszlopai — a "became_customer" szándékosan nincs itt: az
-// invoice_sent lépés után a lead automatikusan ügyféllé alakul (lásd
-// handleSaveInvoice), nincs többé kézzel választható "Ügyfél lett" oszlop.
+// Az Értékesítés pipeline oszlopai. A "call_back" bármelyik nem-lezárt
+// lépésről felvehető univerzális "most nem értem el" jelölés — nincs saját
+// "belépési" nyila a diagramon, bármelyik más lépésről elérhető, és onnan
+// Audit / Tárgyalásra vár / Nem érdekli felé lép tovább.
 const STATUS_ORDER: LeadStatus[] = [
   "to_call",
   "call_back",
-  "interested",
   "audit",
   "meeting_scheduled",
-  "contract_sent",
-  "invoice_sent",
+  "decision_pending",
+  "accepted",
   "not_interested",
+  "declined",
 ];
 
-// A korai szakaszban (Megkeresendő/Visszahívandó/Érdekli) bármelyik
-// következő lépésre válthat a lead — ugyanaz a rugalmasság, mint a régi
-// lapos állapot-legördülőnél volt, csak most gombokként.
-const EARLY_STAGE_STATUSES: LeadStatus[] = ["to_call", "call_back", "interested"];
+const CLOSED_STATUSES: LeadStatus[] = ["not_interested", "declined"];
+
+interface DeclineTarget {
+  lead: Lead;
+  status: "not_interested" | "declined";
+  title: string;
+}
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("hu-HU");
@@ -61,13 +62,9 @@ export default function LeadsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [interestedNoteLead, setInterestedNoteLead] = useState<Lead | null>(null);
+  const [declineTarget, setDeclineTarget] = useState<DeclineTarget | null>(null);
   const [callbackLead, setCallbackLead] = useState<Lead | null>(null);
-  const [notInterestedLead, setNotInterestedLead] = useState<Lead | null>(null);
-  const [auditLead, setAuditLead] = useState<Lead | null>(null);
   const [meetingLead, setMeetingLead] = useState<Lead | null>(null);
-  const [contractLead, setContractLead] = useState<Lead | null>(null);
-  const [invoiceLead, setInvoiceLead] = useState<Lead | null>(null);
 
   const refresh = useCallback(() => {
     if (!token) return;
@@ -106,62 +103,28 @@ export default function LeadsPage() {
     }
   }
 
-  async function handleSaveNotInterested(note: string) {
-    if (!token || !notInterestedLead) return;
-    await updateLeadStatus(token, notInterestedLead.id, "not_interested", { note });
-    setNotInterestedLead(null);
+  async function handleSaveDecline(note: string) {
+    if (!token || !declineTarget) return;
+    await updateLeadStatus(token, declineTarget.lead.id, declineTarget.status, { note });
+    setDeclineTarget(null);
     refresh();
   }
 
-  // "Visszahívandó"-ra váltáskor a dátum + jegyzet mellett automatikusan
-  // létrejön egy emlékeztető feladat is a Feladatok modulban.
-  async function handleSaveCallback(dueDate: string, note: string) {
+  async function handleSaveCallbackReason(reason: string) {
     if (!token || !callbackLead) return;
-    const formattedDate = new Date(dueDate).toLocaleDateString("hu-HU");
-    const statusNote = `Visszahívás időpontja: ${formattedDate}${note ? ` — ${note}` : ""}`;
-    await updateLeadStatus(token, callbackLead.id, "call_back", { note: statusNote });
-    await createManualTask(token, {
-      title: `Visszahívás: ${callbackLead.company_name}`,
-      description: [callbackLead.phone ? `Telefon: ${callbackLead.phone}` : null, note || null]
-        .filter(Boolean)
-        .join("\n"),
-      assignedTo: auth?.user.id,
-      dueDate,
-    });
+    await updateLeadStatus(token, callbackLead.id, "call_back", { callBackReason: reason });
     setCallbackLead(null);
     refresh();
   }
 
-  async function handleSaveInterestedNote(note: string) {
-    if (!token || !interestedNoteLead) return;
-    await updateLeadStatus(token, interestedNoteLead.id, "interested", { note });
-    setInterestedNoteLead(null);
-    refresh();
-  }
-
-  // Audit kimenete dönti el a következő állapotot: sikeres → Tárgyalásra
-  // vár, sikertelen → Nem érdekli.
-  async function handleSaveAudit(outcome: "success" | "fail", note: string) {
-    if (!token || !auditLead) return;
-    const statusNote = `Audit (${outcome === "success" ? "sikeres" : "sikertelen"})${note ? `: ${note}` : ""}`;
-    await updateLeadStatus(token, auditLead.id, outcome === "success" ? "meeting_scheduled" : "not_interested", {
-      note: statusNote,
-    });
-    setAuditLead(null);
-    refresh();
-  }
-
-  // A tárgyalás dátuma emlékeztető feladatot is létrehoz — ugyanaz a minta,
-  // mint a Visszahívandónál — de az állapot marad meeting_scheduled, a
-  // Szerződés kiküldése külön lépés, miután a tárgyalás megtörtént.
-  async function handleSaveMeeting(meetingDate: string, note: string) {
+  // A tárgyalás időpontja/címe mentése emlékeztető feladatot is létrehoz a
+  // Feladatok modulban, majd a lead egyben "decision_pending" állapotba kerül.
+  async function handleSaveMeeting(meetingDate: string, address: string) {
     if (!token || !meetingLead) return;
-    const formattedDate = new Date(meetingDate).toLocaleDateString("hu-HU");
-    const statusNote = `Tárgyalás időpontja: ${formattedDate}${note ? ` — ${note}` : ""}`;
-    await updateLeadStatus(token, meetingLead.id, "meeting_scheduled", { note: statusNote, meetingDate });
+    await updateLeadStatus(token, meetingLead.id, "decision_pending", { meetingDate, address });
     await createManualTask(token, {
       title: `Tárgyalás: ${meetingLead.company_name}`,
-      description: [meetingLead.phone ? `Telefon: ${meetingLead.phone}` : null, note || null]
+      description: [address ? `Helyszín: ${address}` : null, meetingLead.phone ? `Telefon: ${meetingLead.phone}` : null]
         .filter(Boolean)
         .join("\n"),
       assignedTo: auth?.user.id,
@@ -171,36 +134,9 @@ export default function LeadsPage() {
     refresh();
   }
 
-  async function handleSaveContract(driveLink: string) {
-    if (!token || !contractLead) return;
-    const result = await updateLeadStatus(token, contractLead.id, "contract_sent", { contractDriveLink: driveLink });
-    setContractLead(null);
-    refresh();
-    if (result.emailSent === false) {
-      alert("A szerződés-link elmentve, de az emailt nem sikerült kiküldeni (nincs email cím vagy nincs beállítva küldő fiók).");
-    }
-  }
-
-  // Számlázás mentése után a lead automatikusan ügyféllé alakul (a
-  // meglévő convertLeadToClient-tel, ugyanaz, mint a régi kézi "Ügyféllé
-  // alakítás" gomb csinálta), majd egyből megnyílik neki az Onboarding —
-  // ha a konverzió duplikáció miatt elbukik, a lead invoice_sent
-  // állapotban marad, a kártyán megjelenő "Ügyféllé alakítás" gombbal
-  // később manuálisan újrapróbálható.
-  async function handleSaveInvoice(driveLink: string) {
-    if (!token || !invoiceLead) return;
-    const result = await updateLeadStatus(token, invoiceLead.id, "invoice_sent", { invoiceDriveLink: driveLink });
-    setInvoiceLead(null);
-    if (result.emailSent === false) {
-      alert("A számla-link elmentve, de az emailt nem sikerült kiküldeni (nincs email cím vagy nincs beállítva küldő fiók).");
-    }
-    await handleConvert(result.lead, true);
-  }
-
-  async function handleConvert(lead: Lead, silent = false) {
+  async function handleConvert(lead: Lead) {
     if (!token) return;
     if (
-      !silent &&
       !confirm(
         `"${lead.company_name}" átkerül az Ügyfelek közé (a kutatásnál megadott weboldal/social linkekkel együtt), és eltűnik a Leadek listából. Folytatod?`
       )
@@ -211,7 +147,7 @@ export default function LeadsPage() {
     try {
       clientId = await convertLeadToClient(token, lead.id);
     } catch (err) {
-      if (!silent) alert(err instanceof Error ? err.message : "Nem sikerült ügyféllé alakítani a leadet");
+      alert(err instanceof Error ? err.message : "Nem sikerült ügyféllé alakítani a leadet");
       refresh();
       return;
     }
@@ -257,63 +193,110 @@ export default function LeadsPage() {
   if (openLead) {
     return (
       <main className="leads-page sm-page">
-        <LeadDetail lead={openLead} onBack={() => setOpenLeadId(null)} onChanged={refresh} />
+        <LeadAuditView lead={openLead} onBack={() => setOpenLeadId(null)} onChanged={refresh} />
       </main>
     );
   }
 
   function renderCardActions(lead: Lead) {
-    if (EARLY_STAGE_STATUSES.includes(lead.status)) {
-      return (
-        <>
-          <button type="button" onClick={() => setCallbackLead(lead)}>
-            Visszahívandó
-          </button>
-          <button type="button" onClick={() => setInterestedNoteLead(lead)}>
-            Érdekli
-          </button>
-          <button type="button" onClick={() => void handleSimpleStatus(lead, "audit")}>
-            Audit
-          </button>
-          <button type="button" onClick={() => setNotInterestedLead(lead)}>
-            Nem érdekli
-          </button>
-        </>
+    const buttons: ReactElement[] = [];
+
+    if (lead.status === "to_call") {
+      buttons.push(
+        <button key="interested" type="button" onClick={() => void handleSimpleStatus(lead, "audit")}>
+          Érdekli
+        </button>
       );
-    }
-    if (lead.status === "audit") {
-      return (
-        <button type="button" onClick={() => setAuditLead(lead)}>
-          Audit lezárása
+      buttons.push(
+        <button
+          key="not-interested"
+          type="button"
+          onClick={() => setDeclineTarget({ lead, status: "not_interested", title: "Nem érdekli" })}
+        >
+          Nem érdekli
+        </button>
+      );
+    } else if (lead.status === "call_back") {
+      buttons.push(
+        <button key="audit" type="button" onClick={() => void handleSimpleStatus(lead, "audit")}>
+          Audit
+        </button>
+      );
+      buttons.push(
+        <button key="meeting" type="button" onClick={() => void handleSimpleStatus(lead, "meeting_scheduled")}>
+          Tárgyalásra vár
+        </button>
+      );
+      buttons.push(
+        <button
+          key="not-interested"
+          type="button"
+          onClick={() => setDeclineTarget({ lead, status: "not_interested", title: "Nem érdekli" })}
+        >
+          Nem érdekli
+        </button>
+      );
+    } else if (lead.status === "audit") {
+      buttons.push(
+        <button key="open-audit" type="button" onClick={() => setOpenLeadId(lead.id)}>
+          Audit megnyitása
+        </button>
+      );
+    } else if (lead.status === "meeting_scheduled") {
+      buttons.push(
+        <button key="meeting-details" type="button" onClick={() => setMeetingLead(lead)}>
+          Időpont / Cím
+        </button>
+      );
+      buttons.push(
+        <button
+          key="not-interested"
+          type="button"
+          onClick={() => setDeclineTarget({ lead, status: "not_interested", title: "Nem érdekli" })}
+        >
+          Nem érdekli
+        </button>
+      );
+    } else if (lead.status === "decision_pending") {
+      buttons.push(
+        <button key="accepted" type="button" onClick={() => void handleSimpleStatus(lead, "accepted")}>
+          Elfogadta
+        </button>
+      );
+      buttons.push(
+        <button
+          key="declined"
+          type="button"
+          onClick={() => setDeclineTarget({ lead, status: "declined", title: "Nemet mondott" })}
+        >
+          Nemet mondott
+        </button>
+      );
+    } else if (lead.status === "accepted") {
+      buttons.push(
+        <button key="onboarding" type="button" onClick={() => void handleConvert(lead)}>
+          Onboarding megkezdése
         </button>
       );
     }
-    if (lead.status === "meeting_scheduled") {
-      return lead.meeting_date ? (
-        <button type="button" onClick={() => setContractLead(lead)}>
-          Szerződés kiküldése
-        </button>
-      ) : (
-        <button type="button" onClick={() => setMeetingLead(lead)}>
-          Tárgyalás időpontja
+
+    if (lead.status !== "call_back" && !CLOSED_STATUSES.includes(lead.status)) {
+      buttons.push(
+        <button key="callback" type="button" onClick={() => setCallbackLead(lead)}>
+          Visszahívandó
         </button>
       );
     }
-    if (lead.status === "contract_sent") {
-      return (
-        <button type="button" onClick={() => setInvoiceLead(lead)}>
-          Számlázás
+
+    if (isAdmin) {
+      buttons.push(
+        <button key="delete" type="button" className="mt-action-danger" onClick={() => void handleDelete(lead)}>
+          Törlés
         </button>
       );
     }
-    if (lead.status === "invoice_sent") {
-      return (
-        <button type="button" onClick={() => void handleConvert(lead)}>
-          Ügyféllé alakítás
-        </button>
-      );
-    }
-    return null;
+
+    return buttons;
   }
 
   return (
@@ -356,32 +339,21 @@ export default function LeadsPage() {
                           {lead.city && <span className="mt-client-pill">{lead.city}</span>}
                         </div>
                         <div className="mt-card-title">{lead.company_name}</div>
-                        {lead.contact_name && <div className="mt-card-desc">{lead.contact_name}</div>}
+                        {lead.contact_name && (
+                          <div className="mt-card-desc">
+                            {lead.contact_name}
+                            {lead.contact_position ? ` (${lead.contact_position})` : ""}
+                          </div>
+                        )}
                         {lead.phone && <div className="mt-card-desc">{lead.phone}</div>}
-                        {lead.meeting_date && lead.status === "meeting_scheduled" && (
-                          <div className="mt-card-meta">Tárgyalás: {formatDate(lead.meeting_date)}</div>
+                        {lead.status === "call_back" && lead.call_back_reason && (
+                          <div className="mt-card-meta">Ok: {lead.call_back_reason}</div>
                         )}
-                        {lead.contract_drive_link && lead.status !== "to_call" && (
-                          <a
-                            href={lead.contract_drive_link}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="mt-card-desc"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            Szerződés
-                          </a>
-                        )}
-                        {lead.invoice_drive_link && (
-                          <a
-                            href={lead.invoice_drive_link}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="mt-card-desc"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            Számla
-                          </a>
+                        {lead.meeting_date && (lead.status === "meeting_scheduled" || lead.status === "decision_pending") && (
+                          <div className="mt-card-meta">
+                            Tárgyalás: {formatDate(lead.meeting_date)}
+                            {lead.address ? ` · ${lead.address}` : ""}
+                          </div>
                         )}
                         {lead.created_by != null && lead.created_by_name && (
                           <div className="mt-card-footer">
@@ -390,17 +362,7 @@ export default function LeadsPage() {
                           </div>
                         )}
                       </button>
-                      <div className="mt-card-actions">
-                        {renderCardActions(lead)}
-                        <button type="button" onClick={() => setOpenLeadId(lead.id)}>
-                          Kutatás
-                        </button>
-                        {isAdmin && (
-                          <button type="button" className="mt-action-danger" onClick={() => void handleDelete(lead)}>
-                            Törlés
-                          </button>
-                        )}
-                      </div>
+                      <div className="mt-card-actions">{renderCardActions(lead)}</div>
                     </div>
                   ))}
                   {columnLeads.length === 0 && <p className="sm-kanban-col-empty">—</p>}
@@ -420,60 +382,25 @@ export default function LeadsPage() {
         />
       )}
 
-      {interestedNoteLead && (
-        <LeadInterestedNoteModal
-          companyName={interestedNoteLead.company_name}
-          onClose={() => setInterestedNoteLead(null)}
-          onSave={handleSaveInterestedNote}
+      {declineTarget && (
+        <LeadNotInterestedNoteModal
+          companyName={declineTarget.lead.company_name}
+          title={declineTarget.title}
+          onClose={() => setDeclineTarget(null)}
+          onSave={handleSaveDecline}
         />
       )}
 
       {callbackLead && (
-        <LeadCallbackModal
+        <LeadCallbackReasonModal
           companyName={callbackLead.company_name}
           onClose={() => setCallbackLead(null)}
-          onSave={handleSaveCallback}
+          onSave={handleSaveCallbackReason}
         />
-      )}
-
-      {notInterestedLead && (
-        <LeadNotInterestedNoteModal
-          companyName={notInterestedLead.company_name}
-          onClose={() => setNotInterestedLead(null)}
-          onSave={handleSaveNotInterested}
-        />
-      )}
-
-      {auditLead && (
-        <LeadAuditModal companyName={auditLead.company_name} onClose={() => setAuditLead(null)} onSave={handleSaveAudit} />
       )}
 
       {meetingLead && (
-        <LeadMeetingModal
-          companyName={meetingLead.company_name}
-          onClose={() => setMeetingLead(null)}
-          onSave={handleSaveMeeting}
-        />
-      )}
-
-      {contractLead && (
-        <LeadDriveLinkModal
-          companyName={contractLead.company_name}
-          kind="contract"
-          hasEmail={Boolean(contractLead.email)}
-          onClose={() => setContractLead(null)}
-          onSave={handleSaveContract}
-        />
-      )}
-
-      {invoiceLead && (
-        <LeadDriveLinkModal
-          companyName={invoiceLead.company_name}
-          kind="invoice"
-          hasEmail={Boolean(invoiceLead.email)}
-          onClose={() => setInvoiceLead(null)}
-          onSave={handleSaveInvoice}
-        />
+        <LeadMeetingModal lead={meetingLead} onClose={() => setMeetingLead(null)} onSave={handleSaveMeeting} />
       )}
     </main>
   );

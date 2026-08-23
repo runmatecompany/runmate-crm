@@ -20,27 +20,28 @@ import {
 import { canAccessClientsModule } from "./clients.js";
 import { getClientById } from "../db/clients.js";
 import { provisionClientDriveFolders } from "../lib/googleDrive/onboarding.js";
-import { sendContractLinkEmail, sendInvoiceLinkEmail } from "../lib/leads/notify.js";
 
 const LEAD_STATUS_VALUES = [
   "to_call",
   "call_back",
-  "interested",
   "audit",
   "meeting_scheduled",
-  "contract_sent",
-  "invoice_sent",
+  "decision_pending",
+  "accepted",
   "not_interested",
+  "declined",
 ] as const;
 
 const leadDetailsSchema = {
   companyName: { type: "string", minLength: 1 },
   contactName: { type: "string" },
+  contactPosition: { type: "string" },
   phone: { type: "string" },
   email: { type: "string" },
   address: { type: "string" },
   city: { type: "string" },
   notes: { type: "string" },
+  sector: { type: "string", enum: ["b2b", "b2c"] },
   websiteUrl: { type: "string" },
   facebookUrl: { type: "string" },
   instagramUrl: { type: "string" },
@@ -67,8 +68,8 @@ const statusBodySchema = {
     status: { type: "string", enum: [...LEAD_STATUS_VALUES] },
     note: { type: "string" },
     meetingDate: { type: "string" },
-    contractDriveLink: { type: "string" },
-    invoiceDriveLink: { type: "string" },
+    address: { type: "string" },
+    callBackReason: { type: "string" },
   },
 } as const;
 
@@ -104,11 +105,13 @@ const extractBodySchema = {
 interface LeadDetailsBody {
   companyName: string;
   contactName?: string;
+  contactPosition?: string;
   phone?: string;
   email?: string;
   address?: string;
   city?: string;
   notes?: string;
+  sector?: "b2b" | "b2c";
   websiteUrl?: string;
   facebookUrl?: string;
   instagramUrl?: string;
@@ -209,8 +212,8 @@ export default async function leadsRoutes(fastify: FastifyInstance) {
       status: LeadStatus;
       note?: string;
       meetingDate?: string;
-      contractDriveLink?: string;
-      invoiceDriveLink?: string;
+      address?: string;
+      callBackReason?: string;
     };
   }>("/leads/:id/status", { onRequest: [fastify.authenticate], schema: { body: statusBodySchema } }, async (
     request,
@@ -219,8 +222,8 @@ export default async function leadsRoutes(fastify: FastifyInstance) {
     if (!(await canAccessLeadsModule(request.user.sub, request.user.role))) {
       return reply.code(403).send({ error: "Nincs hozzáférésed a Leadek modulhoz" });
     }
-    if (request.body.status === "interested" && !request.body.note?.trim()) {
-      return reply.code(400).send({ error: "Az 'Érdekli' állapothoz kötelező jegyzetet megadni" });
+    if ((request.body.status === "not_interested" || request.body.status === "declined") && !request.body.note?.trim()) {
+      return reply.code(400).send({ error: "Kötelező indoklást megadni." });
     }
     const existing = await getLeadById(Number(request.params.id));
     if (!existing) return reply.code(404).send({ error: "Lead not found" });
@@ -228,33 +231,17 @@ export default async function leadsRoutes(fastify: FastifyInstance) {
     const lead = await updateLeadStatus(existing.id, request.body.status, {
       note: request.body.note?.trim(),
       meetingDate: request.body.meetingDate,
-      contractDriveLink: request.body.contractDriveLink?.trim(),
-      invoiceDriveLink: request.body.invoiceDriveLink?.trim(),
+      address: request.body.address?.trim(),
+      callBackReason: request.body.callBackReason?.trim(),
     });
     if (!lead) return reply.code(404).send({ error: "Lead not found" });
 
-    // Szerződés/számla-link mentésekor best-effort emailt is küldünk a
-    // leadnek a linkkel — ha nincs email címe vagy nincs beállítva küldő
-    // fiók, a mentés attól még sikeres marad, csak jelezzük vissza, hogy
-    // az email nem ment el (a UI ez alapján mutat egy figyelmeztetést).
-    let emailSent: boolean | null = null;
-    try {
-      if (request.body.contractDriveLink?.trim()) {
-        emailSent = await sendContractLinkEmail(lead, request.body.contractDriveLink.trim());
-      } else if (request.body.invoiceDriveLink?.trim()) {
-        emailSent = await sendInvoiceLinkEmail(lead, request.body.invoiceDriveLink.trim());
-      }
-    } catch (err) {
-      fastify.log.error(err, "Failed to send contract/invoice link email");
-      emailSent = false;
-    }
-
-    return { lead, emailSent };
+    return { lead };
   });
 
-  // Egy megszerzett lead ügyféllé alakítása: became_customer-re állítja a
-  // leadet, és létrehozza a kapcsolódó Ügyfelek-sort — mindkét modulhoz kell
-  // hozzáférés, hiszen mindkét modul adatát módosítja.
+  // Egy megszerzett lead ügyféllé alakítása: létrehozza a kapcsolódó
+  // Ügyfelek-sort, majd törli a leadet (lásd db/leads.ts convertLeadToClient)
+  // — mindkét modulhoz kell hozzáférés, hiszen mindkét modul adatát módosítja.
   fastify.post<{ Params: { id: string } }>(
     "/leads/:id/convert-to-client",
     { onRequest: [fastify.authenticate] },

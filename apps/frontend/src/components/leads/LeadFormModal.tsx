@@ -37,6 +37,7 @@ export default function LeadFormModal({ lead, token, onClose, onSave }: LeadForm
   useEscapeToClose(onClose);
   const [companyName, setCompanyName] = useState(lead?.company_name ?? "");
   const [contactName, setContactName] = useState(lead?.contact_name ?? "");
+  const [contactPosition, setContactPosition] = useState(lead?.contact_position ?? "");
   const [phone, setPhone] = useState(lead?.phone ?? "");
   const [email, setEmail] = useState(lead?.email ?? "");
   const [address, setAddress] = useState(lead?.address ?? "");
@@ -254,6 +255,7 @@ export default function LeadFormModal({ lead, token, onClose, onSave }: LeadForm
       await onSave({
         companyName: companyName.trim(),
         contactName: contactName.trim() || undefined,
+        contactPosition: contactPosition.trim() || undefined,
         phone: phone.trim() || undefined,
         email: email.trim() || undefined,
         address: address.trim() || undefined,
@@ -347,9 +349,21 @@ export default function LeadFormModal({ lead, token, onClose, onSave }: LeadForm
 
         <div className="lead-form-row">
           <div>
+            <label htmlFor="lead-position">Pozíció</label>
+            <input
+              id="lead-position"
+              value={contactPosition}
+              onChange={(e) => setContactPosition(e.currentTarget.value)}
+              placeholder="Pl. ügyvezető"
+            />
+          </div>
+          <div>
             <label htmlFor="lead-phone">Telefon</label>
             <input id="lead-phone" value={phone} onChange={(e) => setPhone(e.currentTarget.value)} />
           </div>
+        </div>
+
+        <div className="lead-form-row">
           <div>
             <label htmlFor="lead-email">Email</label>
             <input id="lead-email" value={email} onChange={(e) => setEmail(e.currentTarget.value)} />

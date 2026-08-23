@@ -1,43 +1,43 @@
 import { authFetch } from "./api";
 
-// A HR pipeline állapotai — a sorrend egyben a Kanban oszlopainak
-// sorrendje is (lásd pages/LeadsPage.tsx STATUS_ORDER). A "became_customer"
-// szándékosan nincs itt: az invoice_sent lépés után a rendszer automatikusan
-// ügyféllé alakítja a leadet, nincs többé kézzel választható "Ügyfél lett"
-// állapot (a backend a régi adatok miatt még ismeri, de a Kanban nem
-// ajánlja fel).
+// Az Értékesítés pipeline állapotai — a sorrend egyben a Kanban
+// oszlopainak sorrendje is (lásd pages/LeadsPage.tsx STATUS_ORDER). A
+// "call_back" bármelyik nem-lezárt állapotból felvehető univerzális "most
+// nem értem el" jelölés, nem egy fix lineáris lépés.
 export type LeadStatus =
   | "to_call"
   | "call_back"
-  | "interested"
   | "audit"
   | "meeting_scheduled"
-  | "contract_sent"
-  | "invoice_sent"
-  | "became_customer"
-  | "not_interested";
+  | "decision_pending"
+  | "accepted"
+  | "not_interested"
+  | "declined";
 
 export const LEAD_STATUS_LABELS: Record<LeadStatus, string> = {
   to_call: "Megkeresendő",
   call_back: "Visszahívandó",
-  interested: "Érdekli",
   audit: "Audit",
   meeting_scheduled: "Tárgyalásra vár",
-  contract_sent: "Szerződés kiküldve",
-  invoice_sent: "Számlázva",
-  became_customer: "Ügyfél lett",
+  decision_pending: "Elfogadásra vár",
+  accepted: "Elfogadta",
   not_interested: "Nem érdekli",
+  declined: "Nemet mondott",
 };
+
+export type LeadSector = "b2b" | "b2c";
 
 export interface Lead {
   id: number;
   company_name: string;
   contact_name: string | null;
+  contact_position: string | null;
   phone: string | null;
   email: string | null;
   address: string | null;
   city: string | null;
   notes: string | null;
+  sector: LeadSector | null;
   website_url: string | null;
   facebook_url: string | null;
   instagram_url: string | null;
@@ -45,10 +45,7 @@ export interface Lead {
   youtube_url: string | null;
   status: LeadStatus;
   meeting_date: string | null;
-  contract_drive_link: string | null;
-  contract_sent_at: string | null;
-  invoice_drive_link: string | null;
-  invoice_sent_at: string | null;
+  call_back_reason: string | null;
   created_by: number | null;
   created_by_name: string | null;
   created_at: string;
@@ -58,11 +55,13 @@ export interface Lead {
 export interface LeadFormInput {
   companyName: string;
   contactName?: string;
+  contactPosition?: string;
   phone?: string;
   email?: string;
   address?: string;
   city?: string;
   notes?: string;
+  sector?: LeadSector;
   websiteUrl?: string;
   facebookUrl?: string;
   instagramUrl?: string;
@@ -112,13 +111,12 @@ export async function updateLead(token: string, id: number, input: LeadFormInput
 export interface UpdateLeadStatusExtra {
   note?: string;
   meetingDate?: string;
-  contractDriveLink?: string;
-  invoiceDriveLink?: string;
+  address?: string;
+  callBackReason?: string;
 }
 
 export interface UpdateLeadStatusResult {
   lead: Lead;
-  emailSent: boolean | null;
 }
 
 export async function updateLeadStatus(
