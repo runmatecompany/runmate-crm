@@ -247,8 +247,8 @@ export default function LeadsPage() {
   if (!loading && !hasAccess) {
     return (
       <main className="leads-page">
-        <h1>HR</h1>
-        <p className="chat-empty-hint">Nincs hozzáférésed a HR modulhoz. Kérj hozzáférést egy adminisztrátortól.</p>
+        <h1>Értékesítés</h1>
+        <p className="chat-empty-hint">Nincs hozzáférésed az Értékesítés modulhoz. Kérj hozzáférést egy adminisztrátortól.</p>
       </main>
     );
   }
@@ -319,7 +319,7 @@ export default function LeadsPage() {
   return (
     <main className="leads-page">
       <div className="leads-header">
-        <h1>HR</h1>
+        <h1>Értékesítés</h1>
         <button type="button" onClick={() => setEditingLead("new")}>
           + Új lead
         </button>
@@ -339,7 +339,7 @@ export default function LeadsPage() {
       {loading && <p className="chat-empty-hint">Betöltés...</p>}
 
       {!loading && (
-        <div className="sm-kanban">
+        <div className="sm-kanban sm-kanban--scroll">
           {STATUS_ORDER.map((status) => {
             const columnLeads = filteredLeads.filter((l) => l.status === status);
             return (

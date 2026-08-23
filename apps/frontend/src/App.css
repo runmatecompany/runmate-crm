@@ -3123,6 +3123,19 @@ button:hover {
   max-height: calc(100vh - 14em);
 }
 
+/* Sok oszlopos pipeline-oknál (pl. HR) a rács tördelés helyett vízszintes
+   görgetés kell, fix oszlopszélességgel — így egy oszlop se nyomódik össze
+   annyira, hogy a kártya-gombok levágódjanak. */
+.sm-kanban--scroll {
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+}
+
+.sm-kanban--scroll .sm-kanban-col {
+  flex: 0 0 260px;
+}
+
 .sm-kanban-col-header {
   padding: 0.7em 0.8em;
   font-size: 0.82em;
