@@ -53,6 +53,7 @@ export default function Sidebar({ activeId, onSelect, userId, userName, onLogout
   // Amíg nem tudjuk, mihez van jogosultsága, a jogosultsághoz kötött
   // modulokat inkább nem mutatjuk, minthogy felvillanjanak, majd eltűnjenek.
   const visibleItems = MENU_ITEMS.filter((item) => {
+    if (item.id === "admin") return auth?.user.role === "admin";
     const key = MODULE_ACCESS_KEY[item.id];
     if (!key) return true;
     return access ? access[key] : false;

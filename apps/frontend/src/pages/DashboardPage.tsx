@@ -12,6 +12,7 @@ import WebPage, { type WebTab } from "./WebPage";
 import SocialMediaPage, { type SocialMediaTab } from "./SocialMediaPage";
 import SupportPage from "./SupportPage";
 import SettingsPage from "./SettingsPage";
+import AdminPage, { type AdminTab } from "./AdminPage";
 
 const SOCIAL_MEDIA_TABS: Record<string, SocialMediaTab> = {
   "social-status": "status",
@@ -25,6 +26,12 @@ const SOCIAL_MEDIA_TABS: Record<string, SocialMediaTab> = {
 const WEB_TABS: Record<string, WebTab> = {
   "web-status": "status",
   "web-projects": "projects",
+};
+
+const ADMIN_TABS: Record<string, AdminTab> = {
+  "admin-accounts": "accounts",
+  "admin-email": "email",
+  "admin-social-media": "social-media",
 };
 
 export default function DashboardPage() {
@@ -73,6 +80,8 @@ export default function DashboardPage() {
         <SupportPage />
       ) : activeId === "settings" ? (
         <SettingsPage />
+      ) : activeId in ADMIN_TABS ? (
+        <AdminPage tab={ADMIN_TABS[activeId]} />
       ) : (
         <main className="content">
           <h1>{activeLabel}</h1>
