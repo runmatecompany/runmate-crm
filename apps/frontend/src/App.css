@@ -1078,7 +1078,8 @@ button:hover {
   border-top: 1px solid var(--border);
 }
 
-.chat-input-row input {
+.chat-input-row input,
+.chat-input-row textarea {
   flex: 1;
 }
 
@@ -1118,8 +1119,13 @@ button:hover {
   display: flex;
 }
 
-.chat-draft-wrap input {
+.chat-draft-wrap textarea {
   width: 100%;
+  max-height: 8em;
+  overflow-y: auto;
+  resize: none;
+  font-family: inherit;
+  line-height: 1.4;
 }
 
 .chat-mention-popup {

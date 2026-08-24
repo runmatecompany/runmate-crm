@@ -64,7 +64,17 @@ export default function ChatPage() {
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTypingSentRef = useRef(0);
   const imageInputRef = useRef<HTMLInputElement>(null);
-  const draftInputRef = useRef<HTMLInputElement>(null);
+  const draftInputRef = useRef<HTMLTextAreaElement>(null);
+
+  // A jegyzet-mező (textarea) magától nő a tartalommal — Shift+Enter új
+  // sort kezd, és ennek látszania is kell, nem csak a fix 1 soros dobozon
+  // belül görgethetőnek lennie.
+  useEffect(() => {
+    const el = draftInputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [draft]);
 
   const refreshRooms = useCallback(async () => {
     if (!token) return;
@@ -228,7 +238,7 @@ export default function ChatPage() {
     setMentionActiveIndex(0);
   }
 
-  function handleDraftChange(e: ChangeEvent<HTMLInputElement>) {
+  function handleDraftChange(e: ChangeEvent<HTMLTextAreaElement>) {
     const value = e.currentTarget.value;
     setDraft(value);
     updateMentionState(value, e.currentTarget.selectionStart ?? value.length);
@@ -262,20 +272,29 @@ export default function ChatPage() {
     });
   }
 
-  function handleDraftKeyDown(e: KeyboardEvent<HTMLInputElement>) {
-    if (mentionStart == null || mentionSuggestions.length === 0) return;
-    if (e.key === "ArrowDown") {
+  function handleDraftKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
+    if (mentionStart != null && mentionSuggestions.length > 0) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setMentionActiveIndex((prev) => (prev + 1) % mentionSuggestions.length);
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setMentionActiveIndex((prev) => (prev - 1 + mentionSuggestions.length) % mentionSuggestions.length);
+      } else if (e.key === "Enter" || e.key === "Tab") {
+        e.preventDefault();
+        pickMention(mentionSuggestions[mentionActiveIndex]);
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        setMentionStart(null);
+      }
+      return;
+    }
+    // Enter küldi az üzenetet, Shift+Enter új sort kezd (a textarea alap
+    // viselkedése helyett expliciten kell kezelni, mert az Enter-t máskülönben
+    // a form submit-ja kapná el).
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      setMentionActiveIndex((prev) => (prev + 1) % mentionSuggestions.length);
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setMentionActiveIndex((prev) => (prev - 1 + mentionSuggestions.length) % mentionSuggestions.length);
-    } else if (e.key === "Enter" || e.key === "Tab") {
-      e.preventDefault();
-      pickMention(mentionSuggestions[mentionActiveIndex]);
-    } else if (e.key === "Escape") {
-      e.preventDefault();
-      setMentionStart(null);
+      e.currentTarget.form?.requestSubmit();
     }
   }
 
@@ -553,13 +572,14 @@ export default function ChatPage() {
                     ))}
                   </div>
                 )}
-                <input
+                <textarea
                   ref={draftInputRef}
+                  rows={1}
                   value={draft}
                   onChange={handleDraftChange}
                   onKeyDown={handleDraftKeyDown}
                   onBlur={() => setMentionStart(null)}
-                  placeholder={pendingImages.length > 0 ? "Írhatsz hozzá szöveget (nem kötelező)..." : "Írj üzenetet... (@ a tageléshez)"}
+                  placeholder={pendingImages.length > 0 ? "Írhatsz hozzá szöveget (nem kötelező)..." : "Írj ide valamit..."}
                 />
               </div>
               <button type="submit" disabled={sendingImage || (!draft.trim() && pendingImages.length === 0)}>
