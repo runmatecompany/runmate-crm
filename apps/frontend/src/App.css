@@ -2916,6 +2916,9 @@ button:hover {
 }
 
 .billing-issuer-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6em;
   max-width: 480px;
   padding: 1em;
   margin-top: 0.4em;
