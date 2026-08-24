@@ -15,6 +15,7 @@ export const MENU_ITEMS: MenuItem[] = [
       { id: "admin-accounts", label: "Fiókok" },
       { id: "admin-email", label: "Email fiókok" },
       { id: "admin-social-media", label: "Social Media" },
+      { id: "admin-billing", label: "Számlázás" },
     ],
   },
   { id: "messages", label: "Üzenetek" },

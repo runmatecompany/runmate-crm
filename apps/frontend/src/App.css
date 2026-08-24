@@ -2821,6 +2821,68 @@ button:hover {
   color: var(--text-muted);
 }
 
+/* --- Számlázás (admin, belső nyilvántartó) --- */
+
+.billing-settings {
+  max-width: 100%;
+}
+
+.billing-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.4em;
+}
+
+.billing-filters {
+  display: flex;
+  gap: 0.6em;
+  margin: 1em 0;
+}
+
+.billing-status-badge {
+  display: inline-block;
+  padding: 0.15em 0.6em;
+  border-radius: 999px;
+  font-size: 0.76em;
+  font-weight: 600;
+}
+
+.billing-status-unpaid {
+  background-color: var(--surface-alt);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+
+.billing-status-paid {
+  background-color: rgba(62, 207, 143, 0.15);
+  color: #3ecf8f;
+}
+
+.billing-status-overdue {
+  background-color: rgba(255, 107, 107, 0.15);
+  color: var(--danger);
+}
+
+.billing-row-actions {
+  display: flex;
+  gap: 0.4em;
+  white-space: nowrap;
+}
+
+.invoice-billing-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1em;
+  padding: 0.6em 0.8em;
+  border-radius: 8px;
+  background-color: var(--surface-alt);
+  border: 1px solid var(--border);
+  font-size: 0.85em;
+  color: var(--text-muted);
+  margin-bottom: 0.6em;
+}
+
 /* --- Profilok (felhasználó-központú jogosultságkezelés) --- */
 
 .profiles-settings {

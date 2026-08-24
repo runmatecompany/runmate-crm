@@ -32,6 +32,7 @@ const ADMIN_TABS: Record<string, AdminTab> = {
   "admin-accounts": "accounts",
   "admin-email": "email",
   "admin-social-media": "social-media",
+  "admin-billing": "billing",
 };
 
 export default function DashboardPage() {
