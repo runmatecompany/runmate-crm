@@ -49,14 +49,43 @@ export interface InvoiceInput {
   clientId: number;
   description: string;
   amount: string;
-  invoiceNumber?: string;
   issueDate: string;
   dueDate?: string;
   driveLink?: string;
   notes?: string;
 }
 
+// A számlaszám kiosztása tranzakción belül, sorzárolással történik, hogy
+// két párhuzamos létrehozás se kaphassa meg ugyanazt a sorszámot.
+// Évfordulón (next_invoice_year != aktuális év) a számláló nullázódik.
+// A visszaadott formátum "{év}-{sorszám 3 jeggyel}", pl. "2026-001".
+async function allocateInvoiceNumber(): Promise<string> {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const { rows } = await client.query<{ next_invoice_number: number; next_invoice_year: number }>(
+      `SELECT next_invoice_number, next_invoice_year FROM billing_issuer_settings WHERE id = 1 FOR UPDATE`
+    );
+    const currentYear = new Date().getFullYear();
+    const row = rows[0];
+    const sameYear = row != null && row.next_invoice_year === currentYear;
+    const number = sameYear ? row.next_invoice_number : 1;
+    await client.query(
+      `UPDATE billing_issuer_settings SET next_invoice_number = $1, next_invoice_year = $2 WHERE id = 1`,
+      [number + 1, currentYear]
+    );
+    await client.query("COMMIT");
+    return `${currentYear}-${String(number).padStart(3, "0")}`;
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
 export async function createInvoice(input: InvoiceInput, createdBy: number): Promise<InvoiceRow> {
+  const invoiceNumber = await allocateInvoiceNumber();
   const { rows } = await pool.query<{ id: number }>(
     `INSERT INTO invoices (client_id, description, amount, invoice_number, issue_date, due_date, drive_link, notes, created_by)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
@@ -65,7 +94,7 @@ export async function createInvoice(input: InvoiceInput, createdBy: number): Pro
       input.clientId,
       input.description,
       input.amount,
-      input.invoiceNumber ?? null,
+      invoiceNumber,
       input.issueDate,
       input.dueDate ?? null,
       input.driveLink ?? null,
@@ -77,18 +106,19 @@ export async function createInvoice(input: InvoiceInput, createdBy: number): Pro
   return created!;
 }
 
+// A számlaszám szándékosan nem paraméter itt — egyszer, létrehozáskor
+// osztódik ki, szerkesztéskor nem írható át (lásd a terv "Döntések" pontját).
 export async function updateInvoice(id: number, input: InvoiceInput): Promise<InvoiceRow | undefined> {
   const { rowCount } = await pool.query(
     `UPDATE invoices SET
-       client_id = $2, description = $3, amount = $4, invoice_number = $5, issue_date = $6,
-       due_date = $7, drive_link = $8, notes = $9, updated_at = now()
+       client_id = $2, description = $3, amount = $4, issue_date = $5,
+       due_date = $6, drive_link = $7, notes = $8, updated_at = now()
      WHERE id = $1`,
     [
       id,
       input.clientId,
       input.description,
       input.amount,
-      input.invoiceNumber ?? null,
       input.issueDate,
       input.dueDate ?? null,
       input.driveLink ?? null,

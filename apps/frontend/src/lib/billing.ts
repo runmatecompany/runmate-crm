@@ -25,7 +25,6 @@ export interface InvoiceFormInput {
   clientId: number;
   description: string;
   amount: string;
-  invoiceNumber?: string;
   issueDate: string;
   dueDate?: string;
   driveLink?: string;
@@ -70,4 +69,59 @@ export async function setInvoiceStatus(token: string, id: number, status: Invoic
 
 export async function deleteInvoice(token: string, id: number): Promise<void> {
   await authFetch(token, `/invoices/${id}`, { method: "DELETE" });
+}
+
+// A PDF-letöltés hitelesített végpont, ezért nem lehet sima <a href>/
+// window.open-nal elérni (nem tud Authorization fejlécet küldeni) — a chat
+// képfeltöltés mintáját követve blob-ként töltjük le, majd object URL-ként
+// nyitjuk meg egy új fülön.
+export async function fetchInvoicePdfBlobUrl(token: string, id: number): Promise<string | null> {
+  try {
+    const res = await authFetch(token, `/invoices/${id}/pdf`);
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return URL.createObjectURL(blob);
+  } catch {
+    return null;
+  }
+}
+
+export async function sendInvoiceEmail(token: string, id: number): Promise<void> {
+  const res = await authFetch(token, `/invoices/${id}/send-email`, { method: "POST" });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error ?? "Nem sikerült elküldeni az emailt");
+  }
+}
+
+export interface BillingIssuerSettings {
+  business_name: string | null;
+  address: string | null;
+  email: string | null;
+  iban: string | null;
+  sender_account_id: number | null;
+}
+
+export interface IssuerSettingsInput {
+  businessName?: string;
+  address?: string;
+  email?: string;
+  iban?: string;
+  senderAccountId?: number | null;
+}
+
+export async function getIssuerSettings(token: string): Promise<BillingIssuerSettings> {
+  const res = await authFetch(token, "/billing/issuer-settings");
+  const data = await res.json();
+  return data.settings;
+}
+
+export async function setIssuerSettings(token: string, input: IssuerSettingsInput): Promise<BillingIssuerSettings> {
+  const res = await authFetch(token, "/billing/issuer-settings", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  const data = await res.json();
+  return data.settings;
 }

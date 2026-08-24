@@ -1,5 +1,10 @@
 import type { FastifyInstance } from "fastify";
 import { createInvoice, deleteInvoice, getInvoiceById, listInvoices, setInvoiceStatus, updateInvoice, type InvoiceInput, type InvoiceStatus } from "../db/invoices.js";
+import { getIssuerSettings, setIssuerSettings, type UpdateIssuerSettingsInput } from "../db/billingIssuerSettings.js";
+import { getClientById } from "../db/clients.js";
+import { getAccountById } from "../db/emailAccounts.js";
+import { sendMail } from "../lib/mail/send.js";
+import { buildInvoicePdf } from "../lib/billing/pdf.js";
 
 const invoiceBodySchema = {
   type: "object",
@@ -8,7 +13,6 @@ const invoiceBodySchema = {
     clientId: { type: "number" },
     description: { type: "string", minLength: 1 },
     amount: { type: "string", minLength: 1 },
-    invoiceNumber: { type: "string" },
     issueDate: { type: "string" },
     dueDate: { type: "string" },
     driveLink: { type: "string" },
@@ -24,9 +28,23 @@ const statusBodySchema = {
   },
 } as const;
 
-// Belső számla-nyilvántartó — pénzügyi adat, ezért admin-only, nincs
-// egyénileg kiosztható <module>_access, ugyanúgy közvetlen role-ellenőrzés,
-// mint a lead-törlésnél.
+const issuerSettingsBodySchema = {
+  type: "object",
+  properties: {
+    businessName: { type: "string" },
+    address: { type: "string" },
+    email: { type: "string" },
+    iban: { type: "string" },
+    senderAccountId: { type: ["number", "null"] },
+  },
+} as const;
+
+function invoicePdfFilename(invoiceNumber: string | null): string {
+  return `szamla-${invoiceNumber ?? "piszkozat"}.pdf`;
+}
+
+// Számlázás — pénzügyi adat, ezért admin-only, nincs egyénileg kiosztható
+// <module>_access, ugyanúgy közvetlen role-ellenőrzés, mint a lead-törlésnél.
 export default async function billingRoutes(fastify: FastifyInstance) {
   fastify.get("/invoices", { onRequest: [fastify.authenticate] }, async (request, reply) => {
     if (request.user.role !== "admin") {
@@ -86,4 +104,80 @@ export default async function billingRoutes(fastify: FastifyInstance) {
     if (!deleted) return reply.code(404).send({ error: "Invoice not found" });
     return { ok: true };
   });
+
+  fastify.get<{ Params: { id: string } }>("/invoices/:id/pdf", { onRequest: [fastify.authenticate] }, async (
+    request,
+    reply
+  ) => {
+    if (request.user.role !== "admin") {
+      return reply.code(403).send({ error: "Csak admin férhet hozzá a Számlázás modulhoz" });
+    }
+    const invoice = await getInvoiceById(Number(request.params.id));
+    if (!invoice) return reply.code(404).send({ error: "Invoice not found" });
+    const client = await getClientById(invoice.client_id);
+    if (!client) return reply.code(404).send({ error: "Client not found" });
+    const issuer = await getIssuerSettings();
+    const pdf = await buildInvoicePdf(invoice, issuer, client);
+    reply.header("Content-Disposition", `attachment; filename="${invoicePdfFilename(invoice.invoice_number)}"`);
+    return reply.type("application/pdf").send(pdf);
+  });
+
+  fastify.post<{ Params: { id: string } }>(
+    "/invoices/:id/send-email",
+    { onRequest: [fastify.authenticate] },
+    async (request, reply) => {
+      if (request.user.role !== "admin") {
+        return reply.code(403).send({ error: "Csak admin férhet hozzá a Számlázás modulhoz" });
+      }
+      const invoice = await getInvoiceById(Number(request.params.id));
+      if (!invoice) return reply.code(404).send({ error: "Invoice not found" });
+      const client = await getClientById(invoice.client_id);
+      if (!client) return reply.code(404).send({ error: "Client not found" });
+      if (!client.email) {
+        return reply.code(400).send({ error: "Az ügyfélnek nincs megadva email címe" });
+      }
+      const issuer = await getIssuerSettings();
+      if (!issuer.sender_account_id) {
+        return reply.code(400).send({ error: "Nincs beállítva küldő email-fiók a Kibocsátó adatainál" });
+      }
+      const account = await getAccountById(issuer.sender_account_id);
+      if (!account) {
+        return reply.code(400).send({ error: "A beállított küldő email-fiók nem található" });
+      }
+      const pdf = await buildInvoicePdf(invoice, issuer, client);
+      try {
+        await sendMail(account, {
+          to: client.email,
+          subject: `Számla ${invoice.invoice_number ?? ""} — ${issuer.business_name ?? ""}`.trim(),
+          html: `<p>Mellékelve küldjük a(z) ${invoice.invoice_number ?? ""} számú számlát.</p>`,
+          attachments: [
+            { filename: invoicePdfFilename(invoice.invoice_number), content: pdf, contentType: "application/pdf" },
+          ],
+        });
+      } catch (err) {
+        fastify.log.error(err, "Failed to send invoice email");
+        return reply.code(502).send({ error: "Nem sikerült elküldeni az emailt" });
+      }
+      return { ok: true };
+    }
+  );
+
+  fastify.get("/billing/issuer-settings", { onRequest: [fastify.authenticate] }, async (request, reply) => {
+    if (request.user.role !== "admin") {
+      return reply.code(403).send({ error: "Csak admin férhet hozzá a Számlázás modulhoz" });
+    }
+    return { settings: await getIssuerSettings() };
+  });
+
+  fastify.put<{ Body: UpdateIssuerSettingsInput }>(
+    "/billing/issuer-settings",
+    { onRequest: [fastify.authenticate], schema: { body: issuerSettingsBodySchema } },
+    async (request, reply) => {
+      if (request.user.role !== "admin") {
+        return reply.code(403).send({ error: "Csak admin férhet hozzá a Számlázás modulhoz" });
+      }
+      const settings = await setIssuerSettings(request.body);
+      return { settings };
+    }
+  );
 }

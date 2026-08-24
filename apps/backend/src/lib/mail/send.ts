@@ -2,10 +2,17 @@ import nodemailer from "nodemailer";
 import type { EmailAccountRow } from "../../db/emailAccounts.js";
 import { toSmtpOptions } from "./config.js";
 
+export interface OutgoingMailAttachment {
+  filename: string;
+  content: Buffer;
+  contentType?: string;
+}
+
 export interface OutgoingMail {
   to: string;
   subject: string;
   html: string;
+  attachments?: OutgoingMailAttachment[];
 }
 
 // A meglévő "email fiók" SMTP-adataival tényleges levelet küld — a fiók
@@ -18,5 +25,6 @@ export async function sendMail(account: EmailAccountRow, message: OutgoingMail):
     to: message.to,
     subject: message.subject,
     html: message.html,
+    attachments: message.attachments,
   });
 }

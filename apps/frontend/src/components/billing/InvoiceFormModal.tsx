@@ -21,7 +21,6 @@ export default function InvoiceFormModal({ invoice, clients, onClose, onSave }: 
   const [clientId, setClientId] = useState<number | "">(invoice?.client_id ?? "");
   const [description, setDescription] = useState(invoice?.description ?? "");
   const [amount, setAmount] = useState(invoice?.amount ?? "");
-  const [invoiceNumber, setInvoiceNumber] = useState(invoice?.invoice_number ?? "");
   const [issueDate, setIssueDate] = useState(invoice?.issue_date?.slice(0, 10) ?? todayIso());
   const [dueDate, setDueDate] = useState(invoice?.due_date?.slice(0, 10) ?? "");
   const [driveLink, setDriveLink] = useState(invoice?.drive_link ?? "");
@@ -55,7 +54,6 @@ export default function InvoiceFormModal({ invoice, clients, onClose, onSave }: 
         clientId: Number(clientId),
         description: description.trim(),
         amount: amount.trim(),
-        invoiceNumber: invoiceNumber.trim() || undefined,
         issueDate,
         dueDate: dueDate || undefined,
         driveLink: driveLink.trim() || undefined,
@@ -73,7 +71,9 @@ export default function InvoiceFormModal({ invoice, clients, onClose, onSave }: 
         <h2>{invoice ? "Számla szerkesztése" : "Új számla"}</h2>
 
         {invoice ? (
-          <p className="chat-empty-hint">Ügyfél: {invoice.client_name}</p>
+          <p className="chat-empty-hint">
+            Ügyfél: {invoice.client_name} · Számlaszám: {invoice.invoice_number ?? "—"}
+          </p>
         ) : (
           <>
             <label htmlFor="invoice-client">Ügyfél</label>
@@ -122,18 +122,6 @@ export default function InvoiceFormModal({ invoice, clients, onClose, onSave }: 
               placeholder="0.00"
             />
           </div>
-          <div>
-            <label htmlFor="invoice-number">Számlaszám</label>
-            <input
-              id="invoice-number"
-              value={invoiceNumber}
-              onChange={(e) => setInvoiceNumber(e.currentTarget.value)}
-              placeholder="A külső rendszerből, nem kötelező"
-            />
-          </div>
-        </div>
-
-        <div className="lead-form-row">
           <div>
             <label htmlFor="invoice-issue-date">Kiállítás dátuma</label>
             <input
