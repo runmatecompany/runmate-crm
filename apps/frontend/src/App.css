@@ -2840,12 +2840,33 @@ button:hover {
   margin: 1em 0;
 }
 
+.billing-table-wrap {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow-x: auto;
+  background-color: var(--surface);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.billing-table-wrap table {
+  width: 100%;
+}
+
+.billing-amount-cell {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .billing-status-badge {
   display: inline-block;
   padding: 0.15em 0.6em;
   border-radius: 999px;
   font-size: 0.76em;
   font-weight: 600;
+  border: none;
+  box-shadow: none;
+  cursor: pointer;
 }
 
 .billing-status-unpaid {
@@ -2866,8 +2887,15 @@ button:hover {
 
 .billing-row-actions {
   display: flex;
-  gap: 0.4em;
+  gap: 0.3em;
+  justify-content: flex-end;
   white-space: nowrap;
+}
+
+.billing-icon-btn {
+  padding: 0.35em 0.55em;
+  font-size: 0.95em;
+  line-height: 1;
 }
 
 .billing-issuer-section {

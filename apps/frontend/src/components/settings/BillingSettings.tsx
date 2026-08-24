@@ -249,14 +249,14 @@ export default function BillingSettings() {
       {loading && <p className="chat-empty-hint">Betöltés...</p>}
 
       {!loading && (
-        <div className="clients-table-wrap">
+        <div className="billing-table-wrap">
           <table className="clients-table">
             <thead>
               <tr>
                 <th>Számlaszám</th>
                 <th>Ügyfél</th>
                 <th>Tétel</th>
-                <th>Összeg</th>
+                <th className="billing-amount-cell">Összeg</th>
                 <th>Kiállítva</th>
                 <th>Határidő</th>
                 <th>Állapot</th>
@@ -266,42 +266,60 @@ export default function BillingSettings() {
             <tbody>
               {filteredInvoices.map((invoice) => {
                 const overdue = isOverdue(invoice);
+                const statusLabel = invoice.status === "paid" ? "Fizetve" : overdue ? "Lejárt" : "Kiadva";
+                const statusClass =
+                  invoice.status === "paid" ? "billing-status-paid" : overdue ? "billing-status-overdue" : "billing-status-unpaid";
                 return (
                   <tr key={invoice.id}>
                     <td className="clients-muted-cell">{invoice.invoice_number ?? "—"}</td>
                     <td>{invoice.client_name}</td>
                     <td>{invoice.description}</td>
-                    <td>{formatAmount(invoice.amount)}</td>
+                    <td className="billing-amount-cell">{formatAmount(invoice.amount)}</td>
                     <td className="clients-muted-cell">{formatDate(invoice.issue_date)}</td>
                     <td className="clients-muted-cell">{invoice.due_date ? formatDate(invoice.due_date) : "—"}</td>
                     <td>
-                      <span
-                        className={
-                          invoice.status === "paid"
-                            ? "billing-status-badge billing-status-paid"
-                            : overdue
-                              ? "billing-status-badge billing-status-overdue"
-                              : "billing-status-badge billing-status-unpaid"
-                        }
+                      <button
+                        type="button"
+                        className={`billing-status-badge ${statusClass}`}
+                        title={invoice.status === "paid" ? "Kattints: vissza nem fizetettre" : "Kattints: fizetettnek jelölés"}
+                        onClick={() => void handleToggleStatus(invoice)}
                       >
-                        {invoice.status === "paid" ? "Fizetve" : overdue ? "Lejárt" : "Kiadva"}
-                      </span>
+                        {statusLabel}
+                      </button>
                     </td>
                     <td className="billing-row-actions">
-                      <button type="button" onClick={() => void handleDownloadPdf(invoice)}>
-                        PDF letöltése
+                      <button
+                        type="button"
+                        className="billing-icon-btn"
+                        title="PDF letöltése"
+                        onClick={() => void handleDownloadPdf(invoice)}
+                      >
+                        📄
                       </button>
-                      <button type="button" disabled={sendingId === invoice.id} onClick={() => void handleSendEmail(invoice)}>
-                        {sendingId === invoice.id ? "Küldés..." : "Küldés emailben"}
+                      <button
+                        type="button"
+                        className="billing-icon-btn"
+                        title="Küldés emailben"
+                        disabled={sendingId === invoice.id}
+                        onClick={() => void handleSendEmail(invoice)}
+                      >
+                        {sendingId === invoice.id ? "…" : "✉️"}
                       </button>
-                      <button type="button" onClick={() => void handleToggleStatus(invoice)}>
-                        {invoice.status === "paid" ? "Vissza nem fizetettre" : "Fizetettnek jelöl"}
+                      <button
+                        type="button"
+                        className="billing-icon-btn"
+                        title="Szerkesztés"
+                        onClick={() => setEditingInvoice(invoice)}
+                      >
+                        ✎
                       </button>
-                      <button type="button" onClick={() => setEditingInvoice(invoice)}>
-                        Szerkesztés
-                      </button>
-                      <button type="button" className="mt-action-danger" onClick={() => void handleDelete(invoice)}>
-                        Törlés
+                      <button
+                        type="button"
+                        className="billing-icon-btn mt-action-danger"
+                        title="Törlés"
+                        onClick={() => void handleDelete(invoice)}
+                      >
+                        🗑
                       </button>
                     </td>
                   </tr>
