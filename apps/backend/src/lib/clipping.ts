@@ -11,6 +11,7 @@ import {
 } from "../db/userGoogleDrive.js";
 import { getAuthorizedClient } from "./googleCalendar/oauth.js";
 import { grantPermission, listFolderChildren, revokePermission } from "./googleDrive/api.js";
+import { getReadyClient } from "./googleDrive/onboarding.js";
 import { ensureVideoSubfolder, uploadStreamToFolder } from "./googleDrive/upload.js";
 
 export class ClippingUploadError extends Error {}
@@ -48,16 +49,17 @@ async function getReadyClippingContext(clientId: number) {
   if (!paymentConfirmed) {
     throw new ClippingUploadError("A fizetés még nincs jóváhagyva erre a hónapra — a feltöltés nem indítható");
   }
-  const client = await getClientById(clientId);
-  if (!client?.drive_folder_id) {
-    throw new ClippingUploadError("Az ügyfélnek nincs Drive-mappája");
+  // getReadyClient ellenőrzi (és pótolja, ha kell) az ügyfél Drive-
+  // gyökérmappáját — enélkül egy elavult (pl. kézzel törölt) mappa-
+  // azonosítóra hivatkozva a feltöltés vagy néma, gyökérszintű
+  // mappa-eltévedéssel, vagy (a jogosultság-adásnál) egy nyers 404-es
+  // szerverhibával futott volna el, ahogy Kate Mesterjósnőnél is történt.
+  const ready = await getReadyClient(clientId);
+  if (!ready) {
+    throw new ClippingUploadError("Nincs Google Drive kapcsolat beállítva, vagy az ügyfélnek nincs Drive-mappája");
   }
-  const oauth = await getAuthorizedClient();
-  if (!oauth) {
-    throw new ClippingUploadError("Nincs Google Drive kapcsolat beállítva");
-  }
-  const folderId = await ensureVideoSubfolder(oauth, clientId, client.drive_folder_id, yearMonth, "edited");
-  return { oauth, folderId };
+  const folderId = await ensureVideoSubfolder(ready.oauth, clientId, ready.client.drive_folder_id!, yearMonth, "edited");
+  return { oauth: ready.oauth, folderId };
 }
 
 export interface ClippingProgress {
@@ -172,15 +174,11 @@ export async function ensureVagoFolderAccess(userId: number, clientId: number, v
   const existing = await getFolderGrant(userId, clientId);
   if (existing) return;
 
-  const client = await getClientById(clientId);
-  if (!client?.drive_folder_id) {
-    throw new ClippingUploadError("Az ügyfélnek nincs Drive-mappája");
+  const ready = await getReadyClient(clientId);
+  if (!ready) {
+    throw new ClippingUploadError("Nincs Google Drive kapcsolat beállítva, vagy az ügyfélnek nincs Drive-mappája");
   }
-  const serviceOauth = await getAuthorizedClient();
-  if (!serviceOauth) {
-    throw new ClippingUploadError("Nincs Google Drive kapcsolat beállítva");
-  }
-  const permissionId = await grantPermission(serviceOauth, client.drive_folder_id, vagoEmail);
+  const permissionId = await grantPermission(ready.oauth, ready.client.drive_folder_id!, vagoEmail);
   await recordFolderGrant(userId, clientId, permissionId);
 }
 

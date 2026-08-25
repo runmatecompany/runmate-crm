@@ -31,8 +31,10 @@ export async function provisionClientDriveFolders(client: ClientRow): Promise<vo
 // vált — pl. valaki kézzel törölte a mappát a Drive-on). Enélkül az
 // ellenőrzés nélkül egy elavult mappa-azonosítóra hivatkozó "szülő" alatt a
 // Drive csendben, hiba nélkül a gyökérszinten hozná létre az új almappákat.
-// Null, ha bármelyik feltétel nem teljesül.
-async function getReadyClient(clientId: number): Promise<{ oauth: OAuth2Client; client: ClientRow } | null> {
+// Null, ha bármelyik feltétel nem teljesül. Exportálva, mert a Clippelés
+// feltöltési folyamat (lib/clipping.ts) is ugyanerre a validált/pótolt
+// mappa-azonosítóra szorul, nem csak az itteni ensure-függvények.
+export async function getReadyClient(clientId: number): Promise<{ oauth: OAuth2Client; client: ClientRow } | null> {
   const oauth = await getAuthorizedClient();
   if (!oauth) return null;
 
