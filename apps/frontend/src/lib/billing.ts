@@ -71,18 +71,27 @@ export async function deleteInvoice(token: string, id: number): Promise<void> {
   await authFetch(token, `/invoices/${id}`, { method: "DELETE" });
 }
 
-// A PDF-letöltés hitelesített végpont, ezért nem lehet sima <a href>/
-// window.open-nal elérni (nem tud Authorization fejlécet küldeni) — a chat
-// képfeltöltés mintáját követve blob-ként töltjük le, majd object URL-ként
-// nyitjuk meg egy új fülön.
-export async function fetchInvoicePdfBlobUrl(token: string, id: number): Promise<string | null> {
+// A PDF-letöltés hitelesített végpont, ezért nem lehet sima <a href>-fel
+// elérni (nem tud Authorization fejlécet küldeni) — blob-ként töltjük le,
+// majd egy ideiglenes <a download> linkkel mentjük fájlba. (window.open-nal
+// próbáltuk korábban, de a Tauri webview nem nyit új ablakot/fület rá —
+// letöltés-triggerelésre viszont ugyanez a webview rendben reagál.)
+export async function downloadInvoicePdf(token: string, id: number, filename: string): Promise<boolean> {
   try {
     const res = await authFetch(token, `/invoices/${id}/pdf`);
-    if (!res.ok) return null;
+    if (!res.ok) return false;
     const blob = await res.blob();
-    return URL.createObjectURL(blob);
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    return true;
   } catch {
-    return null;
+    return false;
   }
 }
 

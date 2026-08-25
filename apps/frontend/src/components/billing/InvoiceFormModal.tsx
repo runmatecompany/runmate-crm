@@ -14,6 +14,21 @@ function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+const DUE_DATE_WEEK_OPTIONS = [1, 2, 3, 4];
+
+// UTC-ben számol, hogy a szerver helyi időzónájától (és a böngésző/webview
+// időzónájától) függetlenül mindig ugyanazt a naptári napot adja vissza —
+// lásd a hasonló, korábban javított pg DATE-eltolódási hibát.
+function addWeeksUtc(dateStr: string, weeks: number): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d + weeks * 7)).toISOString().slice(0, 10);
+}
+
+function formatDateHu(dateStr: string): string {
+  const [y, m, d] = dateStr.split("-");
+  return `${y}.${m}.${d}.`;
+}
+
 // Az ügyfél csak létrehozáskor választható — szerkesztéskor fix, mint a
 // WebProjectFormModal-nál (project.client_id sosem változik utólag).
 export default function InvoiceFormModal({ invoice, clients, onClose, onSave }: InvoiceFormModalProps) {
@@ -27,6 +42,8 @@ export default function InvoiceFormModal({ invoice, clients, onClose, onSave }: 
   const [notes, setNotes] = useState(invoice?.notes ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const activeWeeks = DUE_DATE_WEEK_OPTIONS.find((weeks) => dueDate === addWeeksUtc(issueDate, weeks));
 
   const selectedClient = clients.find((c) => c.id === (invoice ? invoice.client_id : clientId));
   const hasBillingInfo =
@@ -132,11 +149,22 @@ export default function InvoiceFormModal({ invoice, clients, onClose, onSave }: 
               required
             />
           </div>
-          <div>
-            <label htmlFor="invoice-due-date">Fizetési határidő</label>
-            <input id="invoice-due-date" type="date" value={dueDate} onChange={(e) => setDueDate(e.currentTarget.value)} />
-          </div>
         </div>
+
+        <label>Fizetési határidő</label>
+        <div className="lead-sector-toggle">
+          {DUE_DATE_WEEK_OPTIONS.map((weeks) => (
+            <button
+              key={weeks}
+              type="button"
+              className={activeWeeks === weeks ? "lead-sector-option active" : "lead-sector-option"}
+              onClick={() => setDueDate(addWeeksUtc(issueDate, weeks))}
+            >
+              {weeks} hét
+            </button>
+          ))}
+        </div>
+        {dueDate && <p className="chat-empty-hint">Határidő: {formatDateHu(dueDate)}</p>}
 
         <label htmlFor="invoice-drive-link">Drive-link (a számla PDF-jéhez)</label>
         <input

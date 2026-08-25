@@ -5,7 +5,7 @@ import { listAdminEmailAccounts, type EmailAccountAdminView } from "../../lib/em
 import {
   createInvoice,
   deleteInvoice,
-  fetchInvoicePdfBlobUrl,
+  downloadInvoicePdf,
   getIssuerSettings,
   listInvoices,
   sendInvoiceEmail,
@@ -196,12 +196,10 @@ export default function BillingSettings() {
 
   async function handleDownloadPdf(invoice: Invoice) {
     if (!token) return;
-    const url = await fetchInvoicePdfBlobUrl(token, invoice.id);
-    if (!url) {
-      alert("Nem sikerült létrehozni a PDF-et.");
-      return;
+    const ok = await downloadInvoicePdf(token, invoice.id, `szamla-${invoice.invoice_number ?? invoice.id}.pdf`);
+    if (!ok) {
+      alert("Nem sikerült letölteni a PDF-et.");
     }
-    window.open(url, "_blank");
   }
 
   async function handleSendEmail(invoice: Invoice) {
