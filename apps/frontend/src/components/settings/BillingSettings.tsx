@@ -16,6 +16,7 @@ import {
   type InvoiceFormInput,
 } from "../../lib/billing";
 import InvoiceFormModal from "../billing/InvoiceFormModal";
+import { exportInvoicesToXlsx } from "../../lib/invoiceExport";
 
 function formatAmount(amount: string): string {
   return Number(amount).toLocaleString("de-AT", { style: "currency", currency: "EUR" });
@@ -135,6 +136,7 @@ export default function BillingSettings() {
   const [statusFilter, setStatusFilter] = useState<"all" | "unpaid" | "paid" | "overdue">("all");
   const [editingInvoice, setEditingInvoice] = useState<Invoice | "new" | null>(null);
   const [sendingId, setSendingId] = useState<number | null>(null);
+  const [exportYear, setExportYear] = useState(new Date().getFullYear());
 
   useEffect(() => {
     if (!token) return;
@@ -161,6 +163,12 @@ export default function BillingSettings() {
     if (statusFilter === "overdue") return isOverdue(inv);
     return true;
   });
+
+  // Az export évek a ténylegesen létező számlák évei közül választhatók (+
+  // a jelenlegi év mindig szerepel, hogy induláskor is legyen mit exportálni).
+  const availableYears = Array.from(
+    new Set([new Date().getFullYear(), ...invoices.map((inv) => Number(inv.issue_date.slice(0, 4)))])
+  ).sort((a, b) => b - a);
 
   async function handleSave(input: InvoiceFormInput) {
     if (!token) return;
@@ -212,6 +220,15 @@ export default function BillingSettings() {
     }
   }
 
+  function handleExport() {
+    const yearInvoices = invoices.filter((inv) => inv.issue_date.startsWith(String(exportYear)));
+    if (yearInvoices.length === 0) {
+      alert(`Nincs ${exportYear}. évi számla.`);
+      return;
+    }
+    void exportInvoicesToXlsx(yearInvoices, String(exportYear));
+  }
+
   return (
     <div className="billing-settings">
       <div className="billing-header">
@@ -243,6 +260,17 @@ export default function BillingSettings() {
           <option value="overdue">Lejárt</option>
           <option value="paid">Fizetve</option>
         </select>
+        <span className="billing-filters-spacer" />
+        <select value={exportYear} onChange={(e) => setExportYear(Number(e.currentTarget.value))}>
+          {availableYears.map((year) => (
+            <option key={year} value={year}>
+              {year}
+            </option>
+          ))}
+        </select>
+        <button type="button" onClick={handleExport}>
+          Export (Excel)
+        </button>
       </div>
 
       {error && <p className="login-error">{error}</p>}

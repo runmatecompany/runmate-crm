@@ -2836,8 +2836,14 @@ button:hover {
 
 .billing-filters {
   display: flex;
+  align-items: center;
+  flex-wrap: wrap;
   gap: 0.6em;
   margin: 1em 0;
+}
+
+.billing-filters-spacer {
+  flex: 1;
 }
 
 .billing-table-wrap {
