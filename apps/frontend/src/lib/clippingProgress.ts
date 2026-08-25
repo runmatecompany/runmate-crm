@@ -26,6 +26,14 @@ export async function confirmClippingPayment(token: string, clientId: number): P
   return data.progress;
 }
 
+// Jelzi, hogy a havi klip-mennyiség kész és posztolásra átadható —
+// idempotens: ismételt hívásra nem jön létre újabb feladat, csak
+// alreadySent: true jön vissza.
+export async function sendClippingForPosting(token: string, clientId: number): Promise<{ alreadySent: boolean }> {
+  const res = await authFetch(token, `/clients/${clientId}/clipping-progress/send-for-posting`, { method: "POST" });
+  return res.json();
+}
+
 // A vágó egyszerre több kész klipet is bedobhat, de a feltöltés a
 // szerver oldali sorszámozás (mappa aktuális állása alapján, lásd
 // lib/clipping.ts beginClippingUpload) miatt csak szigorúan egymás

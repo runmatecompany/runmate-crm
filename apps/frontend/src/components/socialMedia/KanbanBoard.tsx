@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { useAuth } from "../../lib/auth";
 import type { Client } from "../../lib/clients";
-import { confirmClippingPayment, getClippingProgress, type ClippingProgress } from "../../lib/clippingProgress";
+import {
+  confirmClippingPayment,
+  getClippingProgress,
+  sendClippingForPosting,
+  type ClippingProgress,
+} from "../../lib/clippingProgress";
 import ClipUploadModal from "./ClipUploadModal";
 import {
   CONTENT_STATUS_LABELS,
@@ -63,6 +68,16 @@ export default function KanbanBoard({ items, clients, onOpen, onChanged }: Kanba
     if (!token) return;
     const progress = await confirmClippingPayment(token, clientId);
     setClipProgress((prev) => ({ ...prev, [clientId]: progress }));
+  }
+
+  async function handleSendClippingForPosting(clientId: number) {
+    if (!token) return;
+    try {
+      const { alreadySent } = await sendClippingForPosting(token, clientId);
+      alert(alreadySent ? "Ez a hónap már el lett küldve posztolásra" : "Elküldve posztolásra");
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Nem sikerült elküldeni posztolásra");
+    }
   }
 
   async function runAction(item: ContentItem, action: Parameters<typeof transitionContentItem>[2], value?: string) {
@@ -196,6 +211,15 @@ export default function KanbanBoard({ items, clients, onOpen, onChanged }: Kanba
                       {clip?.paymentConfirmed && (
                         <button type="button" className="sm-kanban-card-action" onClick={() => setUploadTarget(client)}>
                           Klip feltöltése
+                        </button>
+                      )}
+                      {clip?.paymentConfirmed && clip.done != null && clip.target != null && clip.done >= clip.target && (
+                        <button
+                          type="button"
+                          className="sm-kanban-card-action"
+                          onClick={() => void handleSendClippingForPosting(client.id)}
+                        >
+                          Küldés posztolásra
                         </button>
                       )}
                     </div>

@@ -9,6 +9,8 @@ import {
   listFolderGrantsForUser,
   recordFolderGrant,
 } from "../db/userGoogleDrive.js";
+import { pool } from "../db/pool.js";
+import { createManualTask } from "../db/tasks.js";
 import { getAuthorizedClient } from "./googleCalendar/oauth.js";
 import { grantPermission, listFolderChildren, revokePermission } from "./googleDrive/api.js";
 import { getReadyClient } from "./googleDrive/onboarding.js";
@@ -116,6 +118,41 @@ export async function getClippingProgress(clientId: number): Promise<ClippingPro
 
 export async function confirmCurrentMonthClippingPayment(clientId: number): Promise<void> {
   await confirmClippingPayment(clientId, currentYearMonth());
+}
+
+// A vágó "Küldés posztolásra" gombja a "Vágásra vár" oszlopban — csak
+// akkor jelenik meg a frontenden, ha a havi cél már meg van, de a
+// szerver is ellenőrzi, nehogy valaki idő előtt elküldhesse. Ugyanaz az
+// idempotens, cím alapú minta, mint a kickoff-feladatoknál
+// (clientOnboarding.ts ensureKickoffTask) — ismételt kattintásra nem jön
+// létre duplikált feladat, csak jelezzük, hogy már el lett küldve.
+export async function sendClippingForPosting(clientId: number, createdBy: number): Promise<{ alreadySent: boolean }> {
+  const progress = await getClippingProgress(clientId);
+  if (!progress.eligible || !progress.paymentConfirmed) {
+    throw new ClippingUploadError("A fizetés még nincs jóváhagyva erre a hónapra");
+  }
+  if (progress.target == null || progress.done == null || progress.done < progress.target) {
+    throw new ClippingUploadError("Még nincs meg a havi klip-mennyiség");
+  }
+  const client = await getClientById(clientId);
+  if (!client) throw new ClippingUploadError("Az ügyfél nem található");
+
+  const yearMonth = currentYearMonth();
+  const title = `Posztolásra kész klipek – ${client.company_name} (${yearMonth})`;
+  const { rowCount } = await pool.query(`SELECT 1 FROM manual_tasks WHERE client_id = $1 AND title = $2`, [
+    clientId,
+    title,
+  ]);
+  if ((rowCount ?? 0) > 0) {
+    return { alreadySent: true };
+  }
+  await createManualTask({
+    title,
+    description: `Elkészült a havi ${progress.target} klip (${client.company_name}), postázásra kész.`,
+    clientId,
+    createdBy,
+  });
+  return { alreadySent: false };
 }
 
 export interface ClippingUploadContext {

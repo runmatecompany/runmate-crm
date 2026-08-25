@@ -24,6 +24,7 @@ import {
   confirmCurrentMonthClippingPayment,
   ensureVagoFolderAccess,
   getClippingProgress,
+  sendClippingForPosting,
   uploadNumberedClip,
 } from "../lib/clipping.js";
 import { getUserDriveConnection } from "../db/userGoogleDrive.js";
@@ -466,6 +467,33 @@ export default async function clientsRoutes(fastify: FastifyInstance) {
       await confirmCurrentMonthClippingPayment(clientId);
       const progress = await getClippingProgress(clientId);
       return { progress };
+    }
+  );
+
+  // Miután megvan a havi klip-mennyiség, a vágó (vagy admin) jelezheti,
+  // hogy a klipek posztolásra készek — ez egy idempotens manuális
+  // feladatot hoz létre (lásd sendClippingForPosting), nem küld ki
+  // semmit automatikusan.
+  fastify.post<{ Params: { id: string } }>(
+    "/clients/:id/clipping-progress/send-for-posting",
+    { onRequest: [fastify.authenticate] },
+    async (request, reply) => {
+      const { sub: userId, role } = request.user;
+      const access = role === "admin" || (await hasClientsAccess(userId)) || (await hasSocialMediaAccess(userId));
+      if (!access) {
+        return reply.code(403).send({ error: "Nincs hozzáférésed ehhez" });
+      }
+      const clientId = Number(request.params.id);
+      if (!(await getClientById(clientId))) return reply.code(404).send({ error: "Client not found" });
+      try {
+        const result = await sendClippingForPosting(clientId, userId);
+        return result;
+      } catch (err) {
+        if (err instanceof ClippingUploadError) {
+          return reply.code(400).send({ error: err.message });
+        }
+        throw err;
+      }
     }
   );
 
