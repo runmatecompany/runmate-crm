@@ -18,6 +18,7 @@ import { listClientContacts, replaceClientContacts } from "../db/clientContacts.
 import { getClientAiProfile, upsertClientAiProfile } from "../db/clientAiProfiles.js";
 import { getClientOnboarding, upsertClientOnboarding } from "../db/clientOnboarding.js";
 import { hasSocialMediaAccess } from "../db/contentItems.js";
+import { listClippingPostQueue, removeClippingPostQueueEntry } from "../db/clippingPostQueue.js";
 import {
   beginClippingUpload,
   ClippingUploadError,
@@ -470,10 +471,9 @@ export default async function clientsRoutes(fastify: FastifyInstance) {
     }
   );
 
-  // Miután megvan a havi klip-mennyiség, a vágó (vagy admin) jelezheti,
-  // hogy a klipek posztolásra készek — ez egy idempotens manuális
-  // feladatot hoz létre (lásd sendClippingForPosting), nem küld ki
-  // semmit automatikusan.
+  // Miután megvan a havi klip-mennyiség, a vágó (vagy admin) átküldheti a
+  // havi adagot a "Posztolni valók" modulba — innentől eltűnik a
+  // "Vágásra vár" oszlopból (lásd sendClippingForPosting).
   fastify.post<{ Params: { id: string } }>(
     "/clients/:id/clipping-progress/send-for-posting",
     { onRequest: [fastify.authenticate] },
@@ -486,7 +486,7 @@ export default async function clientsRoutes(fastify: FastifyInstance) {
       const clientId = Number(request.params.id);
       if (!(await getClientById(clientId))) return reply.code(404).send({ error: "Client not found" });
       try {
-        const result = await sendClippingForPosting(clientId, userId);
+        const result = await sendClippingForPosting(clientId);
         return result;
       } catch (err) {
         if (err instanceof ClippingUploadError) {
@@ -494,6 +494,34 @@ export default async function clientsRoutes(fastify: FastifyInstance) {
         }
         throw err;
       }
+    }
+  );
+
+  // A "Posztolni valók" modul klip-adagok listája — ide kerülnek a
+  // "Küldés posztolásra" gombbal átküldött havi klip-adagok, amíg valaki
+  // ki nem posztolja és jelzi "posztolva"-ként.
+  fastify.get("/clipping-post-queue", { onRequest: [fastify.authenticate] }, async (request, reply) => {
+    const { sub: userId, role } = request.user;
+    const access = role === "admin" || (await hasClientsAccess(userId)) || (await hasSocialMediaAccess(userId));
+    if (!access) {
+      return reply.code(403).send({ error: "Nincs hozzáférésed ehhez" });
+    }
+    const entries = await listClippingPostQueue();
+    return { entries };
+  });
+
+  fastify.post<{ Params: { id: string } }>(
+    "/clipping-post-queue/:id/posted",
+    { onRequest: [fastify.authenticate] },
+    async (request, reply) => {
+      const { sub: userId, role } = request.user;
+      const access = role === "admin" || (await hasClientsAccess(userId)) || (await hasSocialMediaAccess(userId));
+      if (!access) {
+        return reply.code(403).send({ error: "Nincs hozzáférésed ehhez" });
+      }
+      const removed = await removeClippingPostQueueEntry(Number(request.params.id));
+      if (!removed) return reply.code(404).send({ error: "Bejegyzés nem található" });
+      return { ok: true };
     }
   );
 

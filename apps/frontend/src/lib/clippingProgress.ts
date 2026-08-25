@@ -12,6 +12,7 @@ export interface ClippingProgress {
   target: number | null;
   done: number | null;
   nextClipNumber: number | null;
+  sentForPosting: boolean;
 }
 
 export async function getClippingProgress(token: string, clientId: number): Promise<ClippingProgress> {
@@ -27,11 +28,32 @@ export async function confirmClippingPayment(token: string, clientId: number): P
 }
 
 // Jelzi, hogy a havi klip-mennyiség kész és posztolásra átadható —
-// idempotens: ismételt hívásra nem jön létre újabb feladat, csak
-// alreadySent: true jön vissza.
+// idempotens: ismételt hívásra nem jön létre újabb bejegyzés, csak
+// alreadySent: true jön vissza. A klip-adag ettől kezdve a "Posztolni
+// valók" modulban (listClippingPostQueue) jelenik meg, a "Vágásra vár"
+// kanbanból pedig eltűnik.
 export async function sendClippingForPosting(token: string, clientId: number): Promise<{ alreadySent: boolean }> {
   const res = await authFetch(token, `/clients/${clientId}/clipping-progress/send-for-posting`, { method: "POST" });
   return res.json();
+}
+
+export interface ClippingPostQueueEntry {
+  id: number;
+  client_id: number;
+  client_name: string;
+  year_month: string;
+  clip_count: number;
+  created_at: string;
+}
+
+export async function listClippingPostQueue(token: string): Promise<ClippingPostQueueEntry[]> {
+  const res = await authFetch(token, "/clipping-post-queue");
+  const data = await res.json();
+  return data.entries;
+}
+
+export async function markClippingPosted(token: string, id: number): Promise<void> {
+  await authFetch(token, `/clipping-post-queue/${id}/posted`, { method: "POST" });
 }
 
 // A vágó egyszerre több kész klipet is bedobhat, de a feltöltés a

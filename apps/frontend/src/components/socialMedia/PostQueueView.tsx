@@ -1,6 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "../../lib/auth";
 import { PLATFORM_LABELS, getCardAction, transitionContentItem, type ContentItem } from "../../lib/socialMedia";
+import {
+  listClippingPostQueue,
+  markClippingPosted,
+  type ClippingPostQueueEntry,
+} from "../../lib/clippingProgress";
 
 interface PostQueueViewProps {
   items: ContentItem[];
@@ -10,15 +15,25 @@ interface PostQueueViewProps {
 
 // A jóváhagyott vágású, posztolásra kész tartalmak (status: "scheduling") —
 // ide kerülnek át a kanbanról, miután a vágás jóváhagyásra került, egészen
-// addig, amíg tényleg ki nem lettek posztolva.
+// addig, amíg tényleg ki nem lettek posztolva. A Clippelés-ügyfelek havi
+// klip-adagjai a "Küldés posztolásra" gombbal kerülnek ide (lásd
+// clipping_post_queue) — ezeknek nincs egyedi tartalom-kártyájuk, csak egy
+// ügyfél+hónap+darabszám bejegyzés.
 export default function PostQueueView({ items, onOpen, onChanged }: PostQueueViewProps) {
   const { auth } = useAuth();
   const token = auth?.token ?? null;
   const [busyId, setBusyId] = useState<number | null>(null);
+  const [clipQueue, setClipQueue] = useState<ClippingPostQueueEntry[]>([]);
+  const [busyClipId, setBusyClipId] = useState<number | null>(null);
 
   const queueItems = items
     .filter((i) => i.status === "scheduling")
     .sort((a, b) => a.client_name.localeCompare(b.client_name));
+
+  useEffect(() => {
+    if (!token) return;
+    listClippingPostQueue(token).then(setClipQueue);
+  }, [token]);
 
   async function handlePost(item: ContentItem) {
     if (!token) return;
@@ -37,7 +52,22 @@ export default function PostQueueView({ items, onOpen, onChanged }: PostQueueVie
     }
   }
 
-  if (queueItems.length === 0) return <p className="chat-empty-hint">Nincs posztolásra váró tartalom.</p>;
+  async function handleClipPosted(entry: ClippingPostQueueEntry) {
+    if (!token) return;
+    setBusyClipId(entry.id);
+    try {
+      await markClippingPosted(token, entry.id);
+      setClipQueue((prev) => prev.filter((e) => e.id !== entry.id));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Nem sikerült jelezni, hogy posztolva lett");
+    } finally {
+      setBusyClipId(null);
+    }
+  }
+
+  if (queueItems.length === 0 && clipQueue.length === 0) {
+    return <p className="chat-empty-hint">Nincs posztolásra váró tartalom.</p>;
+  }
 
   return (
     <table className="leads-table">
@@ -50,6 +80,18 @@ export default function PostQueueView({ items, onOpen, onChanged }: PostQueueVie
         </tr>
       </thead>
       <tbody>
+        {clipQueue.map((entry) => (
+          <tr key={`clip-${entry.id}`}>
+            <td>{entry.client_name}</td>
+            <td>{entry.clip_count} klip ({entry.year_month})</td>
+            <td>—</td>
+            <td>
+              <button type="button" disabled={busyClipId === entry.id} onClick={() => handleClipPosted(entry)}>
+                {busyClipId === entry.id ? "Mentés..." : "Posztolva"}
+              </button>
+            </td>
+          </tr>
+        ))}
         {queueItems.map((item) => {
           const cardAction = getCardAction(item.status);
           return (

@@ -3611,6 +3611,27 @@ button:hover {
   background-color: var(--accent-hover);
 }
 
+.sm-kanban-card-actions {
+  display: flex;
+}
+
+.sm-kanban-card-actions .sm-kanban-card-action {
+  flex: 1;
+  width: auto;
+}
+
+.sm-kanban-card-actions .sm-kanban-card-action + .sm-kanban-card-action {
+  border-left: 1px solid var(--border);
+}
+
+.sm-kanban-card-action-green {
+  background-color: #3ecf8e;
+}
+
+.sm-kanban-card-action-green:hover {
+  background-color: #34b87c;
+}
+
 .sm-kanban-card-review-actions {
   display: flex;
   border-top: 1px solid var(--border);

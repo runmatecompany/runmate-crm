@@ -73,8 +73,11 @@ export default function KanbanBoard({ items, clients, onOpen, onChanged }: Kanba
   async function handleSendClippingForPosting(clientId: number) {
     if (!token) return;
     try {
-      const { alreadySent } = await sendClippingForPosting(token, clientId);
-      alert(alreadySent ? "Ez a hónap már el lett küldve posztolásra" : "Elküldve posztolásra");
+      await sendClippingForPosting(token, clientId);
+      setClipProgress((prev) => {
+        const existing = prev[clientId];
+        return existing ? { ...prev, [clientId]: { ...existing, sentForPosting: true } } : prev;
+      });
     } catch (err) {
       alert(err instanceof Error ? err.message : "Nem sikerült elküldeni posztolásra");
     }
@@ -184,47 +187,53 @@ export default function KanbanBoard({ items, clients, onOpen, onChanged }: Kanba
             </div>
             <div className="sm-kanban-col-body">
               {column.key === "editing" &&
-                clippingClients.map((client) => {
-                  const clip = clipProgress[client.id];
-                  return (
-                    <div key={`clip-${client.id}`} className="sm-kanban-card sm-kanban-clip-card">
-                      <div className="sm-kanban-card-client">{client.company_name}</div>
-                      <div className="sm-kanban-card-title">Clippelés</div>
-                      {clip?.paymentConfirmed === false ? (
-                        <div className="sm-kanban-card-meta">
-                          <span className="sm-kanban-card-badge sm-kanban-card-badge-payment">🔒 Fizetésre vár</span>
-                        </div>
-                      ) : (
-                        <div className="sm-kanban-card-meta">
-                          {clip?.done ?? "…"}/{clip?.target ?? "?"} kész
-                        </div>
-                      )}
-                      {isAdmin && clip?.paymentConfirmed === false && (
-                        <button
-                          type="button"
-                          className="sm-kanban-card-action"
-                          onClick={() => void handleConfirmClipPayment(client.id)}
-                        >
-                          Fizetés jóváhagyása
-                        </button>
-                      )}
-                      {clip?.paymentConfirmed && (
-                        <button type="button" className="sm-kanban-card-action" onClick={() => setUploadTarget(client)}>
-                          Klip feltöltése
-                        </button>
-                      )}
-                      {clip?.paymentConfirmed && clip.done != null && clip.target != null && clip.done >= clip.target && (
-                        <button
-                          type="button"
-                          className="sm-kanban-card-action"
-                          onClick={() => void handleSendClippingForPosting(client.id)}
-                        >
-                          Küldés posztolásra
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
+                clippingClients
+                  .filter((client) => !clipProgress[client.id]?.sentForPosting)
+                  .map((client) => {
+                    const clip = clipProgress[client.id];
+                    const quotaMet =
+                      clip?.paymentConfirmed && clip.done != null && clip.target != null && clip.done >= clip.target;
+                    return (
+                      <div key={`clip-${client.id}`} className="sm-kanban-card sm-kanban-clip-card">
+                        <div className="sm-kanban-card-client">{client.company_name}</div>
+                        <div className="sm-kanban-card-title">Clippelés</div>
+                        {clip?.paymentConfirmed === false ? (
+                          <div className="sm-kanban-card-meta">
+                            <span className="sm-kanban-card-badge sm-kanban-card-badge-payment">🔒 Fizetésre vár</span>
+                          </div>
+                        ) : (
+                          <div className="sm-kanban-card-meta">
+                            {clip?.done ?? "…"}/{clip?.target ?? "?"} kész
+                          </div>
+                        )}
+                        {isAdmin && clip?.paymentConfirmed === false && (
+                          <button
+                            type="button"
+                            className="sm-kanban-card-action"
+                            onClick={() => void handleConfirmClipPayment(client.id)}
+                          >
+                            Fizetés jóváhagyása
+                          </button>
+                        )}
+                        {clip?.paymentConfirmed && (
+                          <div className="sm-kanban-card-actions">
+                            <button type="button" className="sm-kanban-card-action" onClick={() => setUploadTarget(client)}>
+                              Klip feltöltése
+                            </button>
+                            {quotaMet && (
+                              <button
+                                type="button"
+                                className="sm-kanban-card-action sm-kanban-card-action-green"
+                                onClick={() => void handleSendClippingForPosting(client.id)}
+                              >
+                                Küldés posztolásra
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
               {columnItems.map((item) => {
                 const cardAction = getCardAction(item.status);
                 const isUploading = uploadingItemId === item.id;

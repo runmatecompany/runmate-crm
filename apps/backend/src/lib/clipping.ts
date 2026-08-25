@@ -9,8 +9,7 @@ import {
   listFolderGrantsForUser,
   recordFolderGrant,
 } from "../db/userGoogleDrive.js";
-import { pool } from "../db/pool.js";
-import { createManualTask } from "../db/tasks.js";
+import { addToClippingPostQueue, isClippingInPostQueue } from "../db/clippingPostQueue.js";
 import { getAuthorizedClient } from "./googleCalendar/oauth.js";
 import { grantPermission, listFolderChildren, revokePermission } from "./googleDrive/api.js";
 import { getReadyClient } from "./googleDrive/onboarding.js";
@@ -70,6 +69,7 @@ export interface ClippingProgress {
   target: number | null;
   done: number | null;
   nextClipNumber: number | null;
+  sentForPosting: boolean;
 }
 
 // A kész klippek száma NEM a rendszerben nyilvántartott content_items-ekből
@@ -82,7 +82,7 @@ export async function getClippingProgress(clientId: number): Promise<ClippingPro
   const profile = await getClientOnboarding(clientId);
   const dailyTarget = profile?.clipping_daily_target;
   if (!profile?.service_clipping || (!dailyTarget && !profile.monthly_video_target)) {
-    return { eligible: false, paymentConfirmed: false, target: null, done: null, nextClipNumber: null };
+    return { eligible: false, paymentConfirmed: false, target: null, done: null, nextClipNumber: null, sentForPosting: false };
   }
 
   const yearMonth = currentYearMonth();
@@ -90,13 +90,15 @@ export async function getClippingProgress(clientId: number): Promise<ClippingPro
 
   const paymentConfirmed = await isClippingPaymentConfirmed(clientId, yearMonth);
   if (!paymentConfirmed) {
-    return { eligible: true, paymentConfirmed: false, target, done: null, nextClipNumber: null };
+    return { eligible: true, paymentConfirmed: false, target, done: null, nextClipNumber: null, sentForPosting: false };
   }
+
+  const sentForPosting = await isClippingInPostQueue(clientId, yearMonth);
 
   const client = await getClientById(clientId);
   const oauth = await getAuthorizedClient();
   if (!client?.drive_folder_id || !oauth) {
-    return { eligible: true, paymentConfirmed: true, target, done: null, nextClipNumber: null };
+    return { eligible: true, paymentConfirmed: true, target, done: null, nextClipNumber: null, sentForPosting };
   }
 
   const folderId = await ensureVideoSubfolder(oauth, clientId, client.drive_folder_id, yearMonth, "edited");
@@ -113,6 +115,7 @@ export async function getClippingProgress(clientId: number): Promise<ClippingPro
     target,
     done: doneNumbers.size,
     nextClipNumber: doneNumbers.size > 0 ? Math.max(...doneNumbers) + 1 : 1,
+    sentForPosting,
   };
 }
 
@@ -122,11 +125,13 @@ export async function confirmCurrentMonthClippingPayment(clientId: number): Prom
 
 // A vágó "Küldés posztolásra" gombja a "Vágásra vár" oszlopban — csak
 // akkor jelenik meg a frontenden, ha a havi cél már meg van, de a
-// szerver is ellenőrzi, nehogy valaki idő előtt elküldhesse. Ugyanaz az
-// idempotens, cím alapú minta, mint a kickoff-feladatoknál
-// (clientOnboarding.ts ensureKickoffTask) — ismételt kattintásra nem jön
-// létre duplikált feladat, csak jelezzük, hogy már el lett küldve.
-export async function sendClippingForPosting(clientId: number, createdBy: number): Promise<{ alreadySent: boolean }> {
+// szerver is ellenőrzi, nehogy valaki idő előtt elküldhesse. Az ügyfél
+// havi klip-adagja innentől a clipping_post_queue táblán (lásd
+// db/clippingPostQueue.ts) keresztül a "Posztolni valók" modulban
+// jelenik meg, a "Vágásra vár" kanban-oszlopból pedig eltűnik (lásd
+// ClippingProgress.sentForPosting). Az UNIQUE(client_id, year_month)
+// teszi idempotenssé az ismételt kattintást.
+export async function sendClippingForPosting(clientId: number): Promise<{ alreadySent: boolean }> {
   const progress = await getClippingProgress(clientId);
   if (!progress.eligible || !progress.paymentConfirmed) {
     throw new ClippingUploadError("A fizetés még nincs jóváhagyva erre a hónapra");
@@ -138,21 +143,8 @@ export async function sendClippingForPosting(clientId: number, createdBy: number
   if (!client) throw new ClippingUploadError("Az ügyfél nem található");
 
   const yearMonth = currentYearMonth();
-  const title = `Posztolásra kész klipek – ${client.company_name} (${yearMonth})`;
-  const { rowCount } = await pool.query(`SELECT 1 FROM manual_tasks WHERE client_id = $1 AND title = $2`, [
-    clientId,
-    title,
-  ]);
-  if ((rowCount ?? 0) > 0) {
-    return { alreadySent: true };
-  }
-  await createManualTask({
-    title,
-    description: `Elkészült a havi ${progress.target} klip (${client.company_name}), postázásra kész.`,
-    clientId,
-    createdBy,
-  });
-  return { alreadySent: false };
+  const inserted = await addToClippingPostQueue(clientId, yearMonth, progress.done);
+  return { alreadySent: !inserted };
 }
 
 export interface ClippingUploadContext {
