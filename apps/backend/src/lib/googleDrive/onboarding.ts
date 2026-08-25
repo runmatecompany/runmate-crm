@@ -2,7 +2,7 @@ import type { OAuth2Client } from "google-auth-library";
 import { getAuthorizedClient } from "../googleCalendar/oauth.js";
 import { getClientById, setClientDriveFolders, type ClientRow } from "../../db/clients.js";
 import { setWebProjectDriveFolder } from "../../db/webProjects.js";
-import type { VideoSubfolderKind } from "../../db/googleDrive.js";
+import { clearCachedFoldersForClient, type VideoSubfolderKind } from "../../db/googleDrive.js";
 import { findOrCreateFolder, folderExists } from "./api.js";
 import { getClientsRootFolder } from "./root.js";
 import { ensureMonthFolder, ensureVideoSubfolder } from "./upload.js";
@@ -42,6 +42,14 @@ export async function getReadyClient(clientId: number): Promise<{ oauth: OAuth2C
   if (!client) return null;
   if (client.drive_folder_id && !(await folderExists(oauth, client.drive_folder_id))) {
     client = { ...client, drive_folder_id: null };
+    // A gyökér elavult — az addig cache-elt hónap-/almappa-azonosítók a
+    // RÉGI gyökér alá tartoztak, és akár egy időközben véglegesen törölt
+    // gyökér mellett is még "létezőnek" látszódhatnak (elárvult, de
+    // önmagukban elérhető elemekként) — lásd db/googleDrive.ts
+    // clearCachedFoldersForClient. Törlésükkel a következő feltöltés friss,
+    // az ÚJ gyökérhez valóban kapcsolódó mappaláncot épít, nem egy
+    // esetlegesen elárvult régi cache-bejegyzésre támaszkodik.
+    await clearCachedFoldersForClient(clientId);
   }
   if (!client.drive_folder_id) {
     await provisionClientDriveFolders(client);

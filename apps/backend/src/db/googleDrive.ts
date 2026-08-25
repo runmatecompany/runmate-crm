@@ -54,3 +54,20 @@ export async function recordVideoSubfolder(
     folderId,
   ]);
 }
+
+// Amikor egy ügyfél Drive-gyökérmappáját pótolni kell (lásd onboarding.ts
+// getReadyClient), az addig cache-elt hónap-/almappa-azonosítók a RÉGI,
+// már nem elérhető gyökér alá tartozhattak. Ha a régi mappalánc időközben
+// véglegesen törlődött, a leszármazott mappák (pl. a "Megvágva") gazda
+// nélkül, de még létező, elérhető elemekként "lebeghetnek" a Drive-on —
+// a folderExists() ellenőrzés ezeket még "létezőnek" látja, ezért simán
+// visszaadná őket, holott már nem a jelenlegi mappaszerkezet részei. Ez
+// pontosan ezt a csendes inkonzisztenciát okozta Kate Mesterjósnőnél
+// (2026-08-25) — a cache törlésével a következő feltöltés inkább friss,
+// jól kapcsolódó mappaláncot épít, nem próbál egy esetleg-orphan cache-
+// bejegyzésre támaszkodni. Egy ténylegesen elárvult régi mappa tartalmának
+// visszakötése ezután már csak kézi helyreállítással lehetséges (ahogy ma
+// is történt), ez a törlés csak a jövőbeli inkonzisztenciát előzi meg.
+export async function clearCachedFoldersForClient(clientId: number): Promise<void> {
+  await pool.query(`DELETE FROM content_upload_folders WHERE client_id = $1`, [clientId]);
+}
