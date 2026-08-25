@@ -1,3 +1,5 @@
+import { Readable } from "node:stream";
+import { ZipArchive } from "archiver";
 import type { FastifyInstance } from "fastify";
 import type { OAuth2Client } from "google-auth-library";
 import { hasSocialMediaAccess } from "../db/contentItems.js";
@@ -6,8 +8,10 @@ import { getClientsRootFolder } from "../lib/googleDrive/root.js";
 import {
   createFolder,
   createGoogleFile,
+  downloadFile,
   isDriveFolder,
   listFolderChildren,
+  moveItem,
   renameItem,
   resolveBreadcrumb,
   trashItem,
@@ -227,6 +231,107 @@ export default async function googleDriveRoutes(fastify: FastifyInstance) {
       } catch (err) {
         request.log.error(err, "Drive upload failed");
         return reply.code(502).send({ error: err instanceof Error ? err.message : "Nem sikerült feltölteni a fájlokat" });
+      }
+    }
+  );
+
+  // Kijelölt fájlok tömeges letöltése egy ZIP-be csomagolva — a beépített
+  // böngésző "Kijelölés" módjának "Letöltés" műveletéhez. Fájlonként
+  // streamelve tölti le a Drive-ról és rakja bele a ZIP-be, nem tölti be
+  // egyszerre memóriába az egészet.
+  fastify.post<{ Body: { itemIds: string[] } }>(
+    "/social-media/drive/download-zip",
+    { onRequest: [fastify.authenticate] },
+    async (request, reply) => {
+      const { sub: userId, role } = request.user;
+      if (!(await canAccessSocialMediaModule(userId, role))) {
+        return reply.code(403).send({ error: "Nincs hozzáférésed a Social Media modulhoz" });
+      }
+      const itemIds = request.body.itemIds;
+      if (!itemIds || itemIds.length === 0) {
+        return reply.code(400).send({ error: "Nincs kijelölt fájl" });
+      }
+      const oauth = await getAuthorizedClient();
+      if (!oauth) {
+        return reply.code(400).send({ error: "Nincs beállítva Google-kapcsolat (Beállítások > Google-integráció)" });
+      }
+
+      const root = await getClientsRootFolder(oauth);
+      for (const itemId of itemIds) {
+        const breadcrumb = await ensureBreadcrumb(oauth, root, itemId);
+        if (!breadcrumb) {
+          return reply.code(403).send({ error: "Az egyik kijelölt elem nem érhető el innen" });
+        }
+      }
+
+      const archive = new ZipArchive({ zlib: { level: 6 } });
+      archive.on("error", (err) => request.log.error(err, "Zip creation failed"));
+
+      reply.header("Content-Disposition", 'attachment; filename="kijelolt_fajlok.zip"');
+      reply.type("application/zip");
+      reply.send(archive);
+
+      try {
+        for (const itemId of itemIds) {
+          const file = await downloadFile(oauth, itemId);
+          archive.append(Readable.fromWeb(file.stream as import("stream/web").ReadableStream<Uint8Array>), {
+            name: file.name,
+          });
+        }
+        await archive.finalize();
+      } catch (err) {
+        request.log.error(err, "Zip creation failed");
+        archive.abort();
+      }
+    }
+  );
+
+  // "Mappa létrehozása a kijelölt fájlokkal" — a jelenleg nyitott mappában
+  // (folderId) létrehoz egy új almappát a megadott névvel, majd a kijelölt
+  // fájlokat (amiknek szintén ebben a mappában kell lenniük) átmozgatja
+  // bele. A fájlok tartalmához nem nyúl, csak a szülő-hivatkozásukat cseréli.
+  fastify.post<{ Body: { folderId: string; name: string; itemIds: string[] } }>(
+    "/social-media/drive/create-folder-with-items",
+    { onRequest: [fastify.authenticate] },
+    async (request, reply) => {
+      const { sub: userId, role } = request.user;
+      if (!(await canAccessSocialMediaModule(userId, role))) {
+        return reply.code(403).send({ error: "Nincs hozzáférésed a Social Media modulhoz" });
+      }
+      const { folderId, name, itemIds } = request.body;
+      if (!folderId || !name?.trim() || !itemIds || itemIds.length === 0) {
+        return reply.code(400).send({ error: "Hiányzó mappa, név vagy kijelölt fájl" });
+      }
+      const oauth = await getAuthorizedClient();
+      if (!oauth) {
+        return reply.code(400).send({ error: "Nincs beállítva Google-kapcsolat (Beállítások > Google-integráció)" });
+      }
+
+      const root = await getClientsRootFolder(oauth);
+      const breadcrumb = await ensureBreadcrumb(oauth, root, folderId);
+      if (!breadcrumb) {
+        return reply.code(403).send({ error: "Ez a mappa nem érhető el innen" });
+      }
+
+      // A kijelölt elemeknek ténylegesen a jelenlegi mappa gyerekeinek kell
+      // lenniük — ez adja meg a moveItem-hez szükséges "honnan" szülőt is,
+      // nem kell fájlonként külön lekérdezni a jelenlegi szülőjüket.
+      const children = await listFolderChildren(oauth, folderId);
+      const validIds = new Set(children.map((c) => c.id));
+      const toMove = itemIds.filter((id) => validIds.has(id));
+      if (toMove.length === 0) {
+        return reply.code(400).send({ error: "A kijelölt fájlok már nincsenek ebben a mappában" });
+      }
+
+      try {
+        const newFolder = await createFolder(oauth, folderId, name.trim());
+        for (const itemId of toMove) {
+          await moveItem(oauth, itemId, folderId, newFolder.id);
+        }
+        return reply.code(201).send({ folder: newFolder, movedCount: toMove.length });
+      } catch (err) {
+        request.log.error(err, "Create-folder-with-items failed");
+        return reply.code(502).send({ error: err instanceof Error ? err.message : "Nem sikerült létrehozni a mappát" });
       }
     }
   );

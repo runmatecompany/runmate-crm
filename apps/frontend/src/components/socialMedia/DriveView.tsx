@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type DragEvent } from "react";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { useAuth } from "../../lib/auth";
 import {
   DRIVE_CREATE_KIND_LABELS,
   browseDrive,
+  createDriveFolderWithItems,
   createDriveItem,
   deleteDriveItem,
+  downloadDriveZip,
   renameDriveItem,
   uploadDriveFiles,
   type DriveBrowseResult,
@@ -31,6 +34,17 @@ export interface DriveViewApi {
     files: File[],
     onProgress?: (fraction: number) => void
   ) => Promise<{ uploadedCount: number }>;
+  // Opcionális — csak a fő Social Media Drive-böngészőben elérhető
+  // "Kijelölés" mód (tömeges letöltés/mappába rendezés) épül rájuk; a Web
+  // modul projekt-mappájának egyszerűbb api-ja ezeket nem adja meg, ott a
+  // kijelölés-gomb emiatt nem is jelenik meg.
+  downloadZip?: (token: string, itemIds: string[]) => Promise<Blob>;
+  createFolderWithItems?: (
+    token: string,
+    folderId: string,
+    name: string,
+    itemIds: string[]
+  ) => Promise<{ folder: DriveItem; movedCount: number }>;
 }
 
 const DEFAULT_DRIVE_API: DriveViewApi = {
@@ -39,18 +53,32 @@ const DEFAULT_DRIVE_API: DriveViewApi = {
   renameItem: renameDriveItem,
   deleteItem: deleteDriveItem,
   uploadFiles: uploadDriveFiles,
+  downloadZip: downloadDriveZip,
+  createFolderWithItems: createDriveFolderWithItems,
 };
 
 interface DriveViewProps {
   api?: DriveViewApi;
 }
 
-// Az appon belüli előnézet mindig az olvasható /preview beágyazást
-// használja — a docs.google.com/.../edit szerkesztőt a Tauri webview nem
-// tudja megnyitni (a Google bejelentkezéséhez szükséges felugró ablakot a
-// webview blokkolja, emiatt a cookie-engedélyezés soha nem zárul le).
+// Az appon belüli előnézet az olvasható /preview beágyazást használja —
+// képnél/PDF-nél/Google Docs-nál ez cookie nélkül, "bárki a linkkel"
+// jogosultsággal is működik. Videónál viszont a Google Drive előnézet
+// bejelentkezést/cookie-hozzájárulást kér (2026-08-25-én kiderült: a Tauri
+// webview ezt a felugró-ablakos folyamatot nem tudja végigvinni, a
+// "cookie-k engedélyezése" gomb "nem lehet hozzáférni a fiókhoz" hibával
+// zárul) — ezért videónál egyáltalán nem próbáljuk beágyazni, hanem
+// egyből a "Megnyitás böngészőben" utat kínáljuk, ahol ez zökkenőmentes.
 function previewUrl(fileId: string): string {
   return `https://drive.google.com/file/d/${fileId}/preview`;
+}
+
+function driveViewUrl(fileId: string): string {
+  return `https://drive.google.com/file/d/${fileId}/view`;
+}
+
+function isVideoItem(item: DriveItem): boolean {
+  return item.mimeType.startsWith("video/");
 }
 
 // Szerkesztéshez natív Google Docs/Sheets/Slides-fájloknál egy külső
@@ -90,9 +118,15 @@ export default function DriveView({ api = DEFAULT_DRIVE_API }: DriveViewProps) {
   const [openRowMenuId, setOpenRowMenuId] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [actionsMenuOpen, setActionsMenuOpen] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState(false);
   const createMenuRef = useRef<HTMLDivElement>(null);
   const rowMenuRef = useRef<HTMLDivElement>(null);
+  const actionsMenuRef = useRef<HTMLDivElement>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
+  const canBulkAct = Boolean(api.downloadZip && api.createFolderWithItems);
 
   const load = useCallback(() => {
     if (!token) return;
@@ -108,6 +142,20 @@ export default function DriveView({ api = DEFAULT_DRIVE_API }: DriveViewProps) {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Mappaváltáskor a korábbi kijelölés már más elemekre vonatkozna — töröljük.
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [folderId]);
+
+  useEffect(() => {
+    if (!actionsMenuOpen) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (actionsMenuRef.current && !actionsMenuRef.current.contains(e.target as Node)) setActionsMenuOpen(false);
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [actionsMenuOpen]);
 
   useEffect(() => {
     if (!createMenuOpen) return;
@@ -169,6 +217,62 @@ export default function DriveView({ api = DEFAULT_DRIVE_API }: DriveViewProps) {
       load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Nem sikerült törölni");
+    }
+  }
+
+  function toggleSelectionMode() {
+    setSelectionMode((prev) => !prev);
+    setSelectedIds(new Set());
+    setActionsMenuOpen(false);
+  }
+
+  function toggleSelected(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function handleBulkDownload() {
+    setActionsMenuOpen(false);
+    if (!token || !api.downloadZip || selectedIds.size === 0) return;
+    setBulkBusy(true);
+    setError(null);
+    try {
+      const blob = await api.downloadZip(token, Array.from(selectedIds));
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "kijelolt_fajlok.zip";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Nem sikerült letölteni a fájlokat");
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
+  async function handleBulkCreateFolder() {
+    setActionsMenuOpen(false);
+    if (!token || !data || !api.createFolderWithItems || selectedIds.size === 0) return;
+    const name = prompt("Az új mappa neve:");
+    if (!name?.trim()) return;
+    setBulkBusy(true);
+    setError(null);
+    try {
+      await api.createFolderWithItems(token, data.folderId, name.trim(), Array.from(selectedIds));
+      setSelectionMode(false);
+      setSelectedIds(new Set());
+      load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Nem sikerült létrehozni a mappát");
+    } finally {
+      setBulkBusy(false);
     }
   }
 
@@ -246,6 +350,7 @@ export default function DriveView({ api = DEFAULT_DRIVE_API }: DriveViewProps) {
 
   if (openItem) {
     const edit = editUrl(openItem);
+    const video = isVideoItem(openItem);
     return (
       <div className="sm-drive-preview">
         <div className="sm-drive-preview-header">
@@ -253,13 +358,25 @@ export default function DriveView({ api = DEFAULT_DRIVE_API }: DriveViewProps) {
             ← Vissza
           </button>
           {edit && (
-            <a href={edit} target="_blank" rel="noreferrer" className="sm-drive-edit-link">
+            <button type="button" className="sm-drive-edit-link" onClick={() => void openUrl(edit)}>
               Megnyitás szerkesztésre (böngészőben)
-            </a>
+            </button>
           )}
         </div>
         <h2 className="sm-drive-preview-title">{openItem.name}</h2>
-        <iframe src={previewUrl(openItem.id)} className="sm-drive-preview-frame" allow="autoplay" title={openItem.name} />
+        {video ? (
+          <div className="sm-drive-video-fallback">
+            <p className="chat-empty-hint">
+              A videó-előnézet a Google bejelentkezési korlátozás miatt nem működik az alkalmazáson belül — nyisd meg
+              böngészőben a lejátszáshoz.
+            </p>
+            <button type="button" onClick={() => void openUrl(driveViewUrl(openItem.id))}>
+              Megnyitás böngészőben
+            </button>
+          </div>
+        ) : (
+          <iframe src={previewUrl(openItem.id)} className="sm-drive-preview-frame" allow="autoplay" title={openItem.name} />
+        )}
       </div>
     );
   }
@@ -312,6 +429,32 @@ export default function DriveView({ api = DEFAULT_DRIVE_API }: DriveViewProps) {
                 </ul>
               )}
             </div>
+            {canBulkAct && (
+              <button type="button" onClick={toggleSelectionMode}>
+                {selectionMode ? "Kijelölés megszüntetése" : "Kijelölés"}
+              </button>
+            )}
+            {selectionMode && selectedIds.size > 0 && (
+              <div className="sm-drive-create" ref={actionsMenuRef}>
+                <button type="button" disabled={bulkBusy} onClick={() => setActionsMenuOpen((v) => !v)}>
+                  {bulkBusy ? "Feldolgozás..." : `Műveletek (${selectedIds.size})`}
+                </button>
+                {actionsMenuOpen && (
+                  <ul className="sm-drive-create-menu">
+                    <li>
+                      <button type="button" onClick={() => void handleBulkDownload()}>
+                        Letöltés
+                      </button>
+                    </li>
+                    <li>
+                      <button type="button" onClick={() => void handleBulkCreateFolder()}>
+                        Mappa létrehozása a kijelölt fájlokkal
+                      </button>
+                    </li>
+                  </ul>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -335,6 +478,14 @@ export default function DriveView({ api = DEFAULT_DRIVE_API }: DriveViewProps) {
           ))}
           {data.files.map((file) => (
             <li key={file.id} className="sm-drive-row">
+              {selectionMode && (
+                <input
+                  type="checkbox"
+                  className="sm-drive-select-checkbox"
+                  checked={selectedIds.has(file.id)}
+                  onChange={() => toggleSelected(file.id)}
+                />
+              )}
               <button type="button" className="sm-drive-item" onClick={() => setOpenItem(file)}>
                 📄 {file.name}
               </button>

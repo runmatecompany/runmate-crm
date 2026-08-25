@@ -3532,6 +3532,15 @@ button:hover {
   flex-shrink: 0;
 }
 
+.sm-drive-select-checkbox {
+  align-self: center;
+  flex-shrink: 0;
+  width: 1.1em;
+  height: 1.1em;
+  margin-left: 0.4em;
+  cursor: pointer;
+}
+
 .sm-drive-row-menu-toggle {
   height: 100%;
   padding: 0 0.7em;
@@ -3556,6 +3565,23 @@ button:hover {
 .sm-drive-edit-link {
   color: var(--accent);
   font-size: 0.9em;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.sm-drive-edit-link:hover {
+  text-decoration: underline;
+}
+
+.sm-drive-video-fallback {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.8em;
+  padding: 2em;
 }
 
 .sm-drive-preview-title {

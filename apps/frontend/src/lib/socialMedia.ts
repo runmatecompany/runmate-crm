@@ -475,6 +475,32 @@ export function uploadDriveFiles(
   });
 }
 
+// Kijelölt fájlok letöltése egy ZIP-be csomagolva — hitelesített végpont,
+// ezért (mint a számla-PDF-nél) blob-ként kell letölteni, nem sima <a
+// href>-fel; a hívó fél (DriveView) alakítja tovább letöltés-indító linkké.
+export async function downloadDriveZip(token: string, itemIds: string[]): Promise<Blob> {
+  const res = await authFetch(token, "/social-media/drive/download-zip", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ itemIds }),
+  });
+  return res.blob();
+}
+
+export async function createDriveFolderWithItems(
+  token: string,
+  folderId: string,
+  name: string,
+  itemIds: string[]
+): Promise<{ folder: DriveItem; movedCount: number }> {
+  const res = await authFetch(token, "/social-media/drive/create-folder-with-items", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ folderId, name, itemIds }),
+  });
+  return res.json();
+}
+
 export async function getSocialMediaSenderAccount(token: string): Promise<number | null> {
   const res = await authFetch(token, "/admin/social-media/config");
   const data = await res.json();

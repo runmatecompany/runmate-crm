@@ -274,6 +274,45 @@ export async function trashItem(client: OAuth2Client, itemId: string): Promise<v
   });
 }
 
+// Egy elem áthelyezése egy másik mappába — nem a fájl tartalmát mozgatja,
+// csak a szülő-hivatkozást cseréli (lásd "Mappa létrehozása a kijelölt
+// fájlokkal" a beépített böngészőben).
+export async function moveItem(client: OAuth2Client, itemId: string, fromParentId: string, toParentId: string): Promise<void> {
+  await driveFetch<{ id: string }>(
+    client,
+    `${DRIVE_FILES_URL}/${itemId}?addParents=${toParentId}&removeParents=${fromParentId}&fields=id&supportsAllDrives=true`,
+    { method: "PATCH" }
+  );
+}
+
+export interface DriveFileDownload {
+  name: string;
+  mimeType: string;
+  stream: ReadableStream<Uint8Array>;
+}
+
+// Tömeges letöltéshez (ZIP-be csomagoláshoz) — a fájl nevét/típusát külön
+// kell lekérni, mert az "alt=media" válasz csak a nyers bájtokat adja,
+// semmilyen fejlécből nem derül ki megbízhatóan az eredeti fájlnév.
+export async function downloadFile(client: OAuth2Client, fileId: string): Promise<DriveFileDownload> {
+  const { token: accessToken } = await client.getAccessToken();
+  if (!accessToken) throw new Error("Nincs érvényes Google access token");
+
+  const meta = await driveFetch<{ name: string; mimeType: string }>(
+    client,
+    `${DRIVE_FILES_URL}/${fileId}?fields=name,mimeType&supportsAllDrives=true`
+  );
+
+  const res = await fetch(`${DRIVE_FILES_URL}/${fileId}?alt=media&supportsAllDrives=true`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok || !res.body) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`Google Drive API hiba (${res.status}): ${body.slice(0, 300)}`);
+  }
+  return { name: meta.name, mimeType: meta.mimeType, stream: res.body };
+}
+
 // Felfelé sétál a szülőláncon a gyökér-mappáig, hogy (a) morzsamenüt tudjunk
 // belőle építeni, és (b) ellenőrizhessük, hogy a kért mappa tényleg a
 // megengedett gyökér (Ügyfelek) alatt van-e — a beépített böngészőben ne
