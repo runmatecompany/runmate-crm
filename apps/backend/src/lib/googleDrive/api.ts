@@ -164,22 +164,34 @@ export interface DriveItem {
   mimeType: string;
 }
 
+export function isDriveFolder(item: Pick<DriveItem, "mimeType">): boolean {
+  return item.mimeType === FOLDER_MIME_TYPE;
+}
+
+// A Drive API "orderBy=name" mezője sima szöveges rendezés — számozott
+// klipfájloknál (1.mp4, 2.mp4, ... 78.mp4) ez "1, 10, 11, ..., 2, 20, ..."
+// sorrendet adna, nem a várt 1, 2, 3... sorrendet. A magyar Intl.Collator
+// `numeric: true`-val a beágyazott számokat is helyesen, természetes
+// sorrendben rendezi, a sima szöveges neveket pedig ékezet-érzékenyen.
+const nameCollator = new Intl.Collator("hu", { numeric: true, sensitivity: "base" });
+
 // A beépített Drive-böngészőhöz: egy mappa közvetlen tartalma (almappák és
-// fájlok egyben, mappa-elsőbbséggel rendezve).
+// fájlok egyben, mappa-elsőbbséggel, majd névsorrendben rendezve).
 export async function listFolderChildren(client: OAuth2Client, folderId: string): Promise<DriveItem[]> {
   const url = new URL(DRIVE_FILES_URL);
   url.searchParams.set("q", `'${folderId}' in parents and trashed = false`);
   url.searchParams.set("fields", "files(id,name,mimeType)");
-  url.searchParams.set("orderBy", "folder,name");
   url.searchParams.set("pageSize", "1000");
   url.searchParams.set("supportsAllDrives", "true");
   url.searchParams.set("includeItemsFromAllDrives", "true");
   const data = await driveFetch<{ files?: DriveItem[] }>(client, url);
-  return data.files ?? [];
-}
-
-export function isDriveFolder(item: Pick<DriveItem, "mimeType">): boolean {
-  return item.mimeType === FOLDER_MIME_TYPE;
+  const files = data.files ?? [];
+  return files.sort((a, b) => {
+    const aFolder = isDriveFolder(a);
+    const bFolder = isDriveFolder(b);
+    if (aFolder !== bFolder) return aFolder ? -1 : 1;
+    return nameCollator.compare(a.name, b.name);
+  });
 }
 
 // A beépített Drive-böngésző "+ Új..." menüjéhez — a Drive saját "Új" menüje
