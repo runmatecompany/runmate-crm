@@ -9,6 +9,7 @@ import {
   deleteDriveItem,
   downloadDriveZip,
   renameDriveItem,
+  replaceDriveFile,
   uploadDriveFiles,
   type DriveBrowseResult,
   type DriveCreateKind,
@@ -35,9 +36,10 @@ export interface DriveViewApi {
     onProgress?: (fraction: number) => void
   ) => Promise<{ uploadedCount: number }>;
   // Opcionális — csak a fő Social Media Drive-böngészőben elérhető
-  // "Kijelölés" mód (tömeges letöltés/mappába rendezés) épül rájuk; a Web
-  // modul projekt-mappájának egyszerűbb api-ja ezeket nem adja meg, ott a
-  // kijelölés-gomb emiatt nem is jelenik meg.
+  // "Kijelölés" mód (tömeges letöltés/mappába rendezés), illetve a
+  // névütközésnél felajánlott "felülírás" épül rájuk; a Web modul
+  // projekt-mappájának egyszerűbb api-ja ezeket nem adja meg, ott ezek a
+  // képességek emiatt nem is jelennek meg.
   downloadZip?: (token: string, itemIds: string[]) => Promise<Blob>;
   createFolderWithItems?: (
     token: string,
@@ -45,6 +47,7 @@ export interface DriveViewApi {
     name: string,
     itemIds: string[]
   ) => Promise<{ folder: DriveItem; movedCount: number }>;
+  replaceFile?: (token: string, fileId: string, file: File, onProgress?: (fraction: number) => void) => Promise<void>;
 }
 
 const DEFAULT_DRIVE_API: DriveViewApi = {
@@ -55,6 +58,7 @@ const DEFAULT_DRIVE_API: DriveViewApi = {
   uploadFiles: uploadDriveFiles,
   downloadZip: downloadDriveZip,
   createFolderWithItems: createDriveFolderWithItems,
+  replaceFile: replaceDriveFile,
 };
 
 interface DriveViewProps {
@@ -276,12 +280,50 @@ export default function DriveView({ api = DEFAULT_DRIVE_API }: DriveViewProps) {
     }
   }
 
+  // Névütközésnél (a jelenlegi mappában már van ilyen nevű fájl) fájlonként
+  // megkérdezzük, felülírja-e a meglévőt, vagy inkább kihagyja a feltöltését
+  // — csak akkor, ha az api támogatja a felülírást (lásd DriveViewApi
+  // replaceFile), különben (pl. a Web modul projekt-mappájánál) a régi
+  // viselkedés marad: mindig új fájlként megy fel, akkor is, ha a név ütközik.
   async function uploadFiles(files: File[]) {
     if (!token || !data || files.length === 0) return;
+
+    let toCreate = files;
+    let toReplace: { file: File; existingId: string }[] = [];
+
+    if (api.replaceFile) {
+      const existingByName = new Map(data.files.map((f) => [f.name, f]));
+      toCreate = [];
+      toReplace = [];
+      for (const file of files) {
+        const existing = existingByName.get(file.name);
+        if (!existing) {
+          toCreate.push(file);
+          continue;
+        }
+        const shouldReplace = confirm(`"${file.name}" már létezik ebben a mappában. Felülírod a meglévő fájlt?`);
+        if (shouldReplace) {
+          toReplace.push({ file, existingId: existing.id });
+        }
+        // else: a felhasználó kihagyta ezt a fájlt, nem kerül sem a
+        // toCreate, sem a toReplace listába.
+      }
+    }
+
+    if (toCreate.length === 0 && toReplace.length === 0) return;
+
     setUploadProgress(0);
     setError(null);
     try {
-      await api.uploadFiles(token, data.folderId, files, setUploadProgress);
+      if (toCreate.length > 0) {
+        await api.uploadFiles(token, data.folderId, toCreate, setUploadProgress);
+      }
+      if (api.replaceFile) {
+        for (const { file, existingId } of toReplace) {
+          setUploadProgress(0);
+          await api.replaceFile(token, existingId, file, setUploadProgress);
+        }
+      }
       load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Nem sikerült feltölteni a fájlokat");

@@ -13,7 +13,7 @@ import {
   recordVideoSubfolder,
   type VideoSubfolderKind,
 } from "../../db/googleDrive.js";
-import { findOrCreateFolder, folderExists, startResumableUpload } from "./api.js";
+import { findOrCreateFolder, folderExists, startResumableReplace, startResumableUpload } from "./api.js";
 
 // A hónap-mappa ("{ügyfélmappa}/ÉÉÉÉ-HH") lusta létrehozással jön létre, és a
 // content_upload_folders táblában gyorsítótárazva marad. A gyorsítótárazott
@@ -66,12 +66,41 @@ export async function uploadStreamToFolder(
   mimetype: string,
   fileStream: Readable
 ): Promise<void> {
+  const sessionUrl = await startResumableUpload(client, folderId, filename, mimetype);
+  await putStreamToSession(client, sessionUrl, mimetype, fileStream, filename);
+}
+
+// A beépített böngésző "már létezik ilyen nevű fájl, felülírod?" kérdésének
+// "igen" válaszához — ugyanaz a streamelt-PUT minta, csak a meglévő fájl
+// tartalmát cseréli le a session-indítás helyett (lásd api.ts
+// startResumableReplace), a fájl id-je/mappája/megosztásai változatlanok.
+export async function replaceStreamContent(
+  client: OAuth2Client,
+  fileId: string,
+  filename: string,
+  mimetype: string,
+  fileStream: Readable
+): Promise<void> {
+  const sessionUrl = await startResumableReplace(client, fileId, mimetype);
+  await putStreamToSession(client, sessionUrl, mimetype, fileStream, filename);
+}
+
+// A bejövő (multipart) fájl-stream-et előbb egy ideiglenes fájlba írjuk
+// (streamelve, nem memóriában pufferelve — nagy videófájloknál ez számít),
+// hogy pontos Content-Length-et tudjunk adni a Drive resumable-upload
+// PUT-jának, majd a válasz megérkezése után az ideiglenes fájlt töröljük.
+async function putStreamToSession(
+  client: OAuth2Client,
+  sessionUrl: string,
+  mimetype: string,
+  fileStream: Readable,
+  filenameForError: string
+): Promise<void> {
   const tempPath = path.join(tmpdir(), `runmate-upload-${randomUUID()}`);
   try {
     await pipeline(fileStream, createWriteStream(tempPath));
     const { size } = await stat(tempPath);
 
-    const sessionUrl = await startResumableUpload(client, folderId, filename, mimetype);
     const { token: accessToken } = await client.getAccessToken();
     if (!accessToken) throw new Error("Nincs érvényes Google access token");
 
@@ -91,7 +120,9 @@ export async function uploadStreamToFolder(
 
     if (!res.ok) {
       const body = await res.text().catch(() => "");
-      throw new Error(`Nem sikerült feltölteni a(z) "${filename}" fájlt a Drive-ra (${res.status}): ${body.slice(0, 300)}`);
+      throw new Error(
+        `Nem sikerült feltölteni a(z) "${filenameForError}" fájlt a Drive-ra (${res.status}): ${body.slice(0, 300)}`
+      );
     }
   } finally {
     await unlink(tempPath).catch(() => {});

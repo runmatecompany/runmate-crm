@@ -19,7 +19,7 @@ import {
   type DriveFolder,
   type DriveItem,
 } from "../lib/googleDrive/api.js";
-import { uploadStreamToFolder } from "../lib/googleDrive/upload.js";
+import { replaceStreamContent, uploadStreamToFolder } from "../lib/googleDrive/upload.js";
 
 async function canAccessSocialMediaModule(userId: number, role: "admin" | "user"): Promise<boolean> {
   return role === "admin" || (await hasSocialMediaAccess(userId));
@@ -231,6 +231,51 @@ export default async function googleDriveRoutes(fastify: FastifyInstance) {
       } catch (err) {
         request.log.error(err, "Drive upload failed");
         return reply.code(502).send({ error: err instanceof Error ? err.message : "Nem sikerült feltölteni a fájlokat" });
+      }
+    }
+  );
+
+  // Egyetlen meglévő fájl tartalmának lecserélése — a beépített böngésző
+  // "már létezik ilyen nevű fájl, felülírod?" kérdésének "igen" válaszához
+  // (DriveView.tsx uploadFiles). A fájl id-je/mappája/megosztásai nem
+  // változnak, csak a bájtjai — nem az /upload végpont "hozz létre egy
+  // (esetleg azonos nevű) új fájlt" logikáját futtatja.
+  fastify.post<{ Querystring: { fileId?: string } }>(
+    "/social-media/drive/replace",
+    { onRequest: [fastify.authenticate] },
+    async (request, reply) => {
+      const { sub: userId, role } = request.user;
+      if (!(await canAccessSocialMediaModule(userId, role))) {
+        return reply.code(403).send({ error: "Nincs hozzáférésed a Social Media modulhoz" });
+      }
+      const fileId = request.query.fileId;
+      if (!fileId) return reply.code(400).send({ error: "Hiányzó fájl" });
+
+      const oauth = await getAuthorizedClient();
+      if (!oauth) {
+        return reply.code(400).send({ error: "Nincs beállítva Google-kapcsolat (Beállítások > Google-integráció)" });
+      }
+
+      const root = await getClientsRootFolder(oauth);
+      const breadcrumb = await ensureBreadcrumb(oauth, root, fileId);
+      if (!breadcrumb) {
+        return reply.code(403).send({ error: "Ez a fájl nem érhető el innen" });
+      }
+
+      try {
+        let replaced = false;
+        for await (const part of request.files()) {
+          await replaceStreamContent(oauth, fileId, part.filename, part.mimetype, part.file);
+          replaced = true;
+          break;
+        }
+        if (!replaced) {
+          return reply.code(400).send({ error: "Nincs kiválasztott fájl" });
+        }
+        return { ok: true };
+      } catch (err) {
+        request.log.error(err, "Drive file replace failed");
+        return reply.code(502).send({ error: err instanceof Error ? err.message : "Nem sikerült lecserélni a fájlt" });
       }
     }
   );

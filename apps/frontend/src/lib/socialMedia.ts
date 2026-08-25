@@ -475,6 +475,41 @@ export function uploadDriveFiles(
   });
 }
 
+// Egyetlen meglévő fájl tartalmának lecserélése — a feltöltésnél észlelt
+// névütközésnél, ha a felhasználó a felülírás mellett dönt (lásd
+// DriveView.tsx uploadFiles). A fájl id-je/mappája nem változik.
+export function replaceDriveFile(
+  token: string,
+  fileId: string,
+  file: File,
+  onProgress?: (fraction: number) => void
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    const formData = new FormData();
+    formData.append("files", file);
+
+    xhr.open("POST", `${getApiUrl()}/social-media/drive/replace?fileId=${encodeURIComponent(fileId)}`);
+    xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable && onProgress) onProgress(e.loaded / e.total);
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve();
+      } else {
+        try {
+          reject(new Error(JSON.parse(xhr.responseText).error ?? "Fájlcsere sikertelen"));
+        } catch {
+          reject(new Error("Fájlcsere sikertelen"));
+        }
+      }
+    };
+    xhr.onerror = () => reject(new Error("Hálózati hiba a fájlcsere közben"));
+    xhr.send(formData);
+  });
+}
+
 // Kijelölt fájlok letöltése egy ZIP-be csomagolva — hitelesített végpont,
 // ezért (mint a számla-PDF-nél) blob-ként kell letölteni, nem sima <a
 // href>-fel; a hívó fél (DriveView) alakítja tovább letöltés-indító linkké.

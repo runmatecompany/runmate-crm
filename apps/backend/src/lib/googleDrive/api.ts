@@ -114,6 +114,30 @@ export async function startResumableUpload(
   return sessionUrl;
 }
 
+// Ugyanaz, mint startResumableUpload, de egy MEGLÉVŐ fájl tartalmát cseréli
+// le (a fájl id-je, megosztásai, mappán belüli helye változatlan marad) —
+// a beépített böngésző "már létezik ilyen nevű fájl, felülírod?" kérdésének
+// "igen" válaszához (lásd DriveView.tsx uploadFiles). PATCH a POST helyett,
+// és nincs "name"/"parents" a body-ban, mert azokon nem változtatunk.
+export async function startResumableReplace(client: OAuth2Client, fileId: string, mimeType: string): Promise<string> {
+  const { token: accessToken } = await client.getAccessToken();
+  if (!accessToken) throw new Error("Nincs érvényes Google access token");
+  const res = await fetch(`${DRIVE_UPLOAD_URL}/${fileId}?uploadType=resumable&supportsAllDrives=true`, {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "X-Upload-Content-Type": mimeType,
+    },
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`Nem sikerült elindítani a Drive fájlcserét (${res.status}): ${body.slice(0, 300)}`);
+  }
+  const sessionUrl = res.headers.get("Location");
+  if (!sessionUrl) throw new Error("A Drive nem adott vissza feltöltési session URL-t");
+  return sessionUrl;
+}
+
 // Névre szóló (nem "bárki, akinél a link van") szerkesztői jog adása egy
 // vágó saját Google-fiókjának egy ügyfél-mappára — ez NEM ütközik a
 // korábban felfedezett láthatatlansági hibába (az kifejezetten a "bárki
