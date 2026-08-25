@@ -63,6 +63,12 @@ const DEFAULT_DRIVE_API: DriveViewApi = {
 
 interface DriveViewProps {
   api?: DriveViewApi;
+  // Kívülről (pl. a "Posztolni valók" listából) kért mappa, amit
+  // megnyitva kell indulnia a böngészőnek — utána egyszeri felhasználás,
+  // a hívó fél jelzi vissza onInitialFolderConsumed-del, hogy törölje a
+  // kérést (lásd lib/navigation.tsx requestedDriveFolderId).
+  initialFolderId?: string | null;
+  onInitialFolderConsumed?: () => void;
 }
 
 // Az appon belüli előnézet az olvasható /preview beágyazást használja —
@@ -108,7 +114,7 @@ function editUrl(item: DriveItem): string | null {
 // (iframe) — szerkesztéshez (Docs/Sheets/Slides) egy külön gomb nyitja meg
 // külső böngészőben, mert a Tauri webview blokkolja a Google
 // bejelentkezéséhez szükséges felugró ablakot.
-export default function DriveView({ api = DEFAULT_DRIVE_API }: DriveViewProps) {
+export default function DriveView({ api = DEFAULT_DRIVE_API, initialFolderId, onInitialFolderConsumed }: DriveViewProps) {
   const { auth } = useAuth();
   const token = auth?.token ?? null;
 
@@ -146,6 +152,17 @@ export default function DriveView({ api = DEFAULT_DRIVE_API }: DriveViewProps) {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Külső kérésre (pl. "Posztolni valók" lista "Megnyitás a Drive-ban"
+  // gombja) azonnal a kért mappára ugrik, akkor is, ha a komponens már
+  // fut és épp más mappát néz — nem csak induláskor.
+  useEffect(() => {
+    if (initialFolderId) {
+      setFolderId(initialFolderId);
+      onInitialFolderConsumed?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialFolderId]);
 
   // Mappaváltáskor a korábbi kijelölés már más elemekre vonatkozna — töröljük.
   useEffect(() => {

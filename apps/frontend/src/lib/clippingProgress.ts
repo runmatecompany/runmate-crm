@@ -43,6 +43,7 @@ export interface ClippingPostQueueEntry {
   client_name: string;
   year_month: string;
   clip_count: number;
+  folder_id: string;
   created_at: string;
 }
 

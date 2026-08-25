@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../../lib/auth";
+import { useNavigation } from "../../lib/navigation";
 import { PLATFORM_LABELS, getCardAction, transitionContentItem, type ContentItem } from "../../lib/socialMedia";
 import {
   listClippingPostQueue,
@@ -13,6 +14,16 @@ interface PostQueueViewProps {
   onChanged: () => void;
 }
 
+// A vágott videó Drive-mappájának linkje ("edited_media_url") egy teljes
+// https://drive.google.com/drive/folders/{id} URL — innen kell kinyerni a
+// puszta azonosítót, mert a beépített Drive-böngésző (DriveView) mappa-ID-t
+// vár, nem URL-t.
+function extractDriveFolderId(url: string | null): string | null {
+  if (!url) return null;
+  const match = url.match(/\/folders\/([a-zA-Z0-9_-]+)/);
+  return match ? match[1] : null;
+}
+
 // A jóváhagyott vágású, posztolásra kész tartalmak (status: "scheduling") —
 // ide kerülnek át a kanbanról, miután a vágás jóváhagyásra került, egészen
 // addig, amíg tényleg ki nem lettek posztolva. A Clippelés-ügyfelek havi
@@ -22,6 +33,7 @@ interface PostQueueViewProps {
 export default function PostQueueView({ items, onOpen, onChanged }: PostQueueViewProps) {
   const { auth } = useAuth();
   const token = auth?.token ?? null;
+  const { openDriveFolder } = useNavigation();
   const [busyId, setBusyId] = useState<number | null>(null);
   const [clipQueue, setClipQueue] = useState<ClippingPostQueueEntry[]>([]);
   const [busyClipId, setBusyClipId] = useState<number | null>(null);
@@ -77,6 +89,7 @@ export default function PostQueueView({ items, onOpen, onChanged }: PostQueueVie
           <th>Tartalom</th>
           <th>Platform</th>
           <th></th>
+          <th></th>
         </tr>
       </thead>
       <tbody>
@@ -86,6 +99,11 @@ export default function PostQueueView({ items, onOpen, onChanged }: PostQueueVie
             <td>{entry.clip_count} klip ({entry.year_month})</td>
             <td>—</td>
             <td>
+              <button type="button" onClick={() => openDriveFolder(entry.folder_id)}>
+                Megnyitás a Drive-ban
+              </button>
+            </td>
+            <td>
               <button type="button" disabled={busyClipId === entry.id} onClick={() => handleClipPosted(entry)}>
                 {busyClipId === entry.id ? "Mentés..." : "Posztolva"}
               </button>
@@ -94,6 +112,7 @@ export default function PostQueueView({ items, onOpen, onChanged }: PostQueueVie
         ))}
         {queueItems.map((item) => {
           const cardAction = getCardAction(item.status);
+          const folderId = extractDriveFolderId(item.edited_media_url);
           return (
             <tr key={item.id}>
               <td>{item.client_name}</td>
@@ -103,6 +122,13 @@ export default function PostQueueView({ items, onOpen, onChanged }: PostQueueVie
                 </button>
               </td>
               <td>{PLATFORM_LABELS[item.platform]}</td>
+              <td>
+                {folderId && (
+                  <button type="button" onClick={() => openDriveFolder(folderId)}>
+                    Megnyitás a Drive-ban
+                  </button>
+                )}
+              </td>
               <td>
                 {cardAction.kind === "forward" && (
                   <button type="button" disabled={busyId === item.id} onClick={() => handlePost(item)}>

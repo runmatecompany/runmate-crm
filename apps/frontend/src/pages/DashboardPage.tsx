@@ -37,7 +37,7 @@ const ADMIN_TABS: Record<string, AdminTab> = {
 
 export default function DashboardPage() {
   const { auth, logout } = useAuth();
-  const { requestedRoomId, requestedOnboardingClientId } = useNavigation();
+  const { requestedRoomId, requestedOnboardingClientId, requestedDriveFolderId } = useNavigation();
   // A kezdő fül mindig "messages", függetlenül attól, hol áll a sidebar
   // sorrendjében (az Admin modul pl. szándékosan legfelül jelenik meg, de
   // nem ez a bejelentkezés utáni alapértelmezett nézet).
@@ -54,6 +54,12 @@ export default function DashboardPage() {
       setActiveId("clients");
     }
   }, [requestedOnboardingClientId]);
+
+  useEffect(() => {
+    if (requestedDriveFolderId != null) {
+      setActiveId("social-drive");
+    }
+  }, [requestedDriveFolderId]);
 
   const activeLabel = MENU_ITEMS.find((item) => item.id === activeId)?.label ?? "";
 

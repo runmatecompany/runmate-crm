@@ -15,6 +15,12 @@ interface NavigationValue {
   requestedOnboardingClientId: number | null;
   openClientOnboarding: (clientId: number) => void;
   clearRequestedOnboarding: () => void;
+  // Melyik Drive-mappát kérték megnyitni a beépített Drive-böngészőben —
+  // pl. a "Posztolni valók" listából, hogy egyből a megvágott videók
+  // mappájában landoljon a felhasználó, ne külső böngészőben.
+  requestedDriveFolderId: string | null;
+  openDriveFolder: (folderId: string) => void;
+  clearRequestedDriveFolder: () => void;
 }
 
 const NavigationContext = createContext<NavigationValue | undefined>(undefined);
@@ -23,6 +29,7 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
   const [requestedRoomId, setRequestedRoomId] = useState<number | null>(null);
   const [viewingRoomId, setViewingRoomId] = useState<number | null>(null);
   const [requestedOnboardingClientId, setRequestedOnboardingClientId] = useState<number | null>(null);
+  const [requestedDriveFolderId, setRequestedDriveFolderId] = useState<string | null>(null);
 
   const openChatRoom = useCallback((roomId: number) => {
     setRequestedRoomId(roomId);
@@ -40,6 +47,14 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     setRequestedOnboardingClientId(null);
   }, []);
 
+  const openDriveFolder = useCallback((folderId: string) => {
+    setRequestedDriveFolderId(folderId);
+  }, []);
+
+  const clearRequestedDriveFolder = useCallback(() => {
+    setRequestedDriveFolderId(null);
+  }, []);
+
   return (
     <NavigationContext.Provider
       value={{
@@ -51,6 +66,9 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
         requestedOnboardingClientId,
         openClientOnboarding,
         clearRequestedOnboarding,
+        requestedDriveFolderId,
+        openDriveFolder,
+        clearRequestedDriveFolder,
       }}
     >
       {children}

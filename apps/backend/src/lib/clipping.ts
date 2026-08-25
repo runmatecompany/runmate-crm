@@ -143,7 +143,8 @@ export async function sendClippingForPosting(clientId: number): Promise<{ alread
   if (!client) throw new ClippingUploadError("Az ügyfél nem található");
 
   const yearMonth = currentYearMonth();
-  const inserted = await addToClippingPostQueue(clientId, yearMonth, progress.done);
+  const { folderId } = await getReadyClippingContext(clientId);
+  const inserted = await addToClippingPostQueue(clientId, yearMonth, progress.done, folderId);
   return { alreadySent: !inserted };
 }
 

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "../lib/auth";
+import { useNavigation } from "../lib/navigation";
 import { listClients, type Client } from "../lib/clients";
 import { createContentItem, listContentItems, type ContentItem, type ContentType } from "../lib/socialMedia";
 import KanbanBoard from "../components/socialMedia/KanbanBoard";
@@ -29,6 +30,7 @@ interface SocialMediaPageProps {
 export default function SocialMediaPage({ tab }: SocialMediaPageProps) {
   const { auth } = useAuth();
   const token = auth?.token ?? null;
+  const { requestedDriveFolderId, clearRequestedDriveFolder } = useNavigation();
 
   const [items, setItems] = useState<ContentItem[]>([]);
   const [hasAccess, setHasAccess] = useState(true);
@@ -126,7 +128,9 @@ export default function SocialMediaPage({ tab }: SocialMediaPageProps) {
       {!loading && tab === "post-queue" && <PostQueueView items={items} onOpen={setOpenItemId} onChanged={refresh} />}
       {!loading && tab === "shoot-calendar" && <ShootCalendar items={items} onOpen={setOpenItemId} />}
       {!loading && tab === "content-calendar" && <ContentCalendar items={items} onOpen={setOpenItemId} />}
-      {!loading && tab === "drive" && <DriveView />}
+      {!loading && tab === "drive" && (
+        <DriveView initialFolderId={requestedDriveFolderId} onInitialFolderConsumed={clearRequestedDriveFolder} />
+      )}
 
       {showCreate && (
         <ContentItemFormModal clients={socialMediaClients} onClose={() => setShowCreate(false)} onSave={handleCreate} />
