@@ -43,6 +43,7 @@ export interface ClippingPostQueueEntry {
   client_name: string;
   year_month: string;
   clip_count: number;
+  posted_count: number;
   folder_id: string;
   created_at: string;
 }
@@ -53,8 +54,21 @@ export async function listClippingPostQueue(token: string): Promise<ClippingPost
   return data.entries;
 }
 
-export async function markClippingPosted(token: string, id: number): Promise<void> {
-  await authFetch(token, `/clipping-post-queue/${id}/posted`, { method: "POST" });
+// A tényleges posztolás (TikTok/Instagram stb.) nem látszik a Drive-ból,
+// ezt csak kézzel lehet jelezni — nincs automatikus/lezáró művelet, a
+// bejegyzés addig a listában marad, amíg valaki frissíti ezt a számot.
+export async function updateClippingPostedCount(
+  token: string,
+  id: number,
+  postedCount: number
+): Promise<ClippingPostQueueEntry> {
+  const res = await authFetch(token, `/clipping-post-queue/${id}/posted-count`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ postedCount }),
+  });
+  const data = await res.json();
+  return data.entry;
 }
 
 // A vágó egyszerre több kész klipet is bedobhat, de a feltöltés a

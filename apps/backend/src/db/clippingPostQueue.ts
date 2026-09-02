@@ -6,12 +6,14 @@ export interface ClippingPostQueueRow {
   client_name: string;
   year_month: string;
   clip_count: number;
+  posted_count: number;
   folder_id: string;
   created_at: string;
 }
 
 const SELECT = `
-  SELECT q.id, q.client_id, cl.company_name AS client_name, q.year_month, q.clip_count, q.folder_id, q.created_at
+  SELECT q.id, q.client_id, cl.company_name AS client_name, q.year_month, q.clip_count, q.posted_count,
+         q.folder_id, q.created_at
   FROM clipping_post_queue q
   JOIN clients cl ON cl.id = q.client_id
 `;
@@ -47,7 +49,16 @@ export async function addToClippingPostQueue(
   return (rowCount ?? 0) > 0;
 }
 
-export async function removeClippingPostQueueEntry(id: number): Promise<boolean> {
-  const { rowCount } = await pool.query(`DELETE FROM clipping_post_queue WHERE id = $1`, [id]);
-  return (rowCount ?? 0) > 0;
+// A tényleges posztolás (TikTok/Instagram stb.) nem látszik a Drive-ból,
+// ezt csak kézzel lehet jelezni — a GREATEST/LEAST szorítja 0 és a
+// clip_count közé, hogy egy elgépelt szám ne kerülhessen érvénytelen
+// tartományba.
+export async function updateClippingPostedCount(id: number, postedCount: number): Promise<ClippingPostQueueRow | undefined> {
+  const { rows } = await pool.query(
+    `UPDATE clipping_post_queue SET posted_count = GREATEST(0, LEAST($2, clip_count)) WHERE id = $1 RETURNING id`,
+    [id, postedCount]
+  );
+  if (rows.length === 0) return undefined;
+  const { rows: full } = await pool.query<ClippingPostQueueRow>(`${SELECT} WHERE q.id = $1`, [id]);
+  return full[0];
 }

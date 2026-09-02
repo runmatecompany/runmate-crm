@@ -4,7 +4,7 @@ import { useNavigation } from "../../lib/navigation";
 import { PLATFORM_LABELS, getCardAction, transitionContentItem, type ContentItem } from "../../lib/socialMedia";
 import {
   listClippingPostQueue,
-  markClippingPosted,
+  updateClippingPostedCount,
   type ClippingPostQueueEntry,
 } from "../../lib/clippingProgress";
 
@@ -64,14 +64,21 @@ export default function PostQueueView({ items, onOpen, onChanged }: PostQueueVie
     }
   }
 
-  async function handleClipPosted(entry: ClippingPostQueueEntry) {
+  async function handleUpdatePostedCount(entry: ClippingPostQueueEntry) {
     if (!token) return;
+    const value = prompt(`Hány klip lett eddig posztolva? (0–${entry.clip_count})`, String(entry.posted_count));
+    if (value == null) return;
+    const postedCount = Number(value);
+    if (!Number.isFinite(postedCount) || postedCount < 0) {
+      alert("Érvénytelen mennyiség");
+      return;
+    }
     setBusyClipId(entry.id);
     try {
-      await markClippingPosted(token, entry.id);
-      setClipQueue((prev) => prev.filter((e) => e.id !== entry.id));
+      const updated = await updateClippingPostedCount(token, entry.id, Math.trunc(postedCount));
+      setClipQueue((prev) => prev.map((e) => (e.id === entry.id ? updated : e)));
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Nem sikerült jelezni, hogy posztolva lett");
+      alert(err instanceof Error ? err.message : "Nem sikerült frissíteni a posztolt mennyiséget");
     } finally {
       setBusyClipId(null);
     }
@@ -96,7 +103,9 @@ export default function PostQueueView({ items, onOpen, onChanged }: PostQueueVie
         {clipQueue.map((entry) => (
           <tr key={`clip-${entry.id}`}>
             <td>{entry.client_name}</td>
-            <td>{entry.clip_count} klip ({entry.year_month})</td>
+            <td>
+              {entry.posted_count} / {entry.clip_count} posztolva ({entry.year_month})
+            </td>
             <td>—</td>
             <td>
               <button type="button" onClick={() => openDriveFolder(entry.folder_id)}>
@@ -104,8 +113,8 @@ export default function PostQueueView({ items, onOpen, onChanged }: PostQueueVie
               </button>
             </td>
             <td>
-              <button type="button" disabled={busyClipId === entry.id} onClick={() => handleClipPosted(entry)}>
-                {busyClipId === entry.id ? "Mentés..." : "Posztolva"}
+              <button type="button" disabled={busyClipId === entry.id} onClick={() => handleUpdatePostedCount(entry)}>
+                {busyClipId === entry.id ? "Mentés..." : "Posztolt mennyiség frissítése"}
               </button>
             </td>
           </tr>

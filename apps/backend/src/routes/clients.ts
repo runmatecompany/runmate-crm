@@ -18,7 +18,7 @@ import { listClientContacts, replaceClientContacts } from "../db/clientContacts.
 import { getClientAiProfile, upsertClientAiProfile } from "../db/clientAiProfiles.js";
 import { getClientOnboarding, upsertClientOnboarding } from "../db/clientOnboarding.js";
 import { hasSocialMediaAccess } from "../db/contentItems.js";
-import { listClippingPostQueue, removeClippingPostQueueEntry } from "../db/clippingPostQueue.js";
+import { listClippingPostQueue, updateClippingPostedCount } from "../db/clippingPostQueue.js";
 import {
   beginClippingUpload,
   ClippingUploadError,
@@ -498,8 +498,9 @@ export default async function clientsRoutes(fastify: FastifyInstance) {
   );
 
   // A "Posztolni valók" modul klip-adagok listája — ide kerülnek a
-  // "Küldés posztolásra" gombbal átküldött havi klip-adagok, amíg valaki
-  // ki nem posztolja és jelzi "posztolva"-ként.
+  // "Küldés posztolásra" gombbal átküldött havi klip-adagok. Nincs
+  // lezáró/eltüntető művelet — a sor addig itt marad, amíg a
+  // posted_count-ot valaki kézzel frissíti (lásd lentebb).
   fastify.get("/clipping-post-queue", { onRequest: [fastify.authenticate] }, async (request, reply) => {
     const { sub: userId, role } = request.user;
     const access = role === "admin" || (await hasClientsAccess(userId)) || (await hasSocialMediaAccess(userId));
@@ -510,8 +511,8 @@ export default async function clientsRoutes(fastify: FastifyInstance) {
     return { entries };
   });
 
-  fastify.post<{ Params: { id: string } }>(
-    "/clipping-post-queue/:id/posted",
+  fastify.put<{ Params: { id: string }; Body: { postedCount: number } }>(
+    "/clipping-post-queue/:id/posted-count",
     { onRequest: [fastify.authenticate] },
     async (request, reply) => {
       const { sub: userId, role } = request.user;
@@ -519,9 +520,13 @@ export default async function clientsRoutes(fastify: FastifyInstance) {
       if (!access) {
         return reply.code(403).send({ error: "Nincs hozzáférésed ehhez" });
       }
-      const removed = await removeClippingPostQueueEntry(Number(request.params.id));
-      if (!removed) return reply.code(404).send({ error: "Bejegyzés nem található" });
-      return { ok: true };
+      const postedCount = Number(request.body?.postedCount);
+      if (!Number.isFinite(postedCount) || postedCount < 0) {
+        return reply.code(400).send({ error: "Érvénytelen mennyiség" });
+      }
+      const entry = await updateClippingPostedCount(Number(request.params.id), Math.trunc(postedCount));
+      if (!entry) return reply.code(404).send({ error: "Bejegyzés nem található" });
+      return { entry };
     }
   );
 
